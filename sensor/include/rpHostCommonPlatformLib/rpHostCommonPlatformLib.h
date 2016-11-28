@@ -22,7 +22,6 @@ limitations under the License.
 RBOOL
     rpHostCommonPlatformLib_launch
     (
-        RU8 configHint,
         RPNCHAR primaryHomeUrl,
         RPNCHAR secondaryHomeUrl
     );

@@ -23,119 +23,58 @@ limitations under the License.
 #pragma pack(push)
 #pragma pack(1)
 
-typedef union
-{
-    struct
-    {
-        RU8 orgId;
-        RU8 subnetId;
-        RU8 platformId;
-        RU8 configId;
-        RU32 uniqueId;
+#define RP_HCP_UUID_SIZE    16
+#define RP_HCP_FORMAT_UUID  RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32 RF_U32
+#define RP_HCP_UUID_TO_COMPONENTS(uuid) uuid[ 0 ], uuid[ 0 ], uuid[ 1 ], uuid[ 2 ], uuid[ 3 ], uuid[ 4 ], uuid[ 5 ], uuid[ 6 ], uuid[ 7 ], uuid[ 8 ], uuid[ 9 ], uuid[ 10 ], uuid[ 11 ], uuid[ 12 ], uuid[ 13 ], uuid[ 14 ]
 
-    } id;
-    
-    RU64 raw;
+typedef struct
+{
+    RU8 sensor_id[ RP_HCP_UUID_SIZE ];
+    RU8 org_id[ RP_HCP_UUID_SIZE ];
+    RU32 architecture;
+    RU32 platform;
 } rpHCPId;
 
 
-/*
- *
- *  HCP Platform Scheme
- *
- * Total 8 bits
- * [ 2: CPU Arch | 3: Platform Major | 3: Platform Minor ]
- *
- * CPU Architecture: 2 bits
- * - 0: *RESERVED* (Maybe Sparc?)
- * - 1: x86 (32bit)
- * - 2: x64 (64bit)
- * - 3: *MASK*
- *
- * OS Major: 3 bits
- * - 0: *UNKNOWN*
- * - 1: Windows
- * - 2: OSX
- * - 3: IOS
- * - 4: Android
- * - 5: Linux
- * - 6: *RESERVED*
- * - 7: *MASK*
- *
- * OS Minor: 3 bits
- * (OS Dependant)
- * - Linux: 1-Ubuntu 2-CentOS5 3-CentOS6
- *
- * Examples: Windows 64 bit: 10-001-000 = 0x84
- *           Windows 32 bit: 01-001-000 = 0x44
- *           All Windows: 11-001-000 = 0xB4
- *                        OR
- *                        11-001-111 = 0xBF (Since Windows has no minor for now)
- *           Linux Ubuntu 32 bit: 01-101-001 = 0x69
- *           Linux Ubuntu 64 bit: 10-101-001 = 0xA9
- */
+#define RP_HCP_PLATFORM_ARCH_ANY            0x00000000
+#define RP_HCP_PLATFORM_ARCH_X86            0x00000001
+#define RP_HCP_PLATFORM_ARCH_X64            0x00000002
 
-#define RP_HCP_PLATFORM_CPU_ARCH(plat)      ((RU8)(((plat) & 0xB0)>>6))
-#define RP_HCP_PLATFORM_MAJOR(plat)         ((RU8)(((plat) & 0x38)>>3))
-#define RP_HCP_PLATFORM_MINOR(plat)         ((RU8)((plat) & 0x06))
+#define RP_HCP_PLATFORM_ANY                 0x00000000
 
-#define RP_HCP_PLATFORM_ARCH_UNKNOWN        0x00
-#define RP_HCP_PLATFORM_ARCH_X86            0x01
-#define RP_HCP_PLATFORM_ARCH_X64            0x02
-#define RP_HCP_PLATFORM_ARCH_ANY            0x03
+#define RP_HCP_PLATFORM_WINDOWS             0x10000000
 
-#define RP_HCP_PLATFORM_MAJOR_ANY           0x07
-#define RP_HCP_PLATFORM_MINOR_ANY           0x07
+#define RP_HCP_PLATFORM_LINUX               0x20000000
 
-#define RP_HCP_PLATFORM_MINOR_UNKNOWN       0x00
+#define RP_HCP_PLATFORM_MACOS               0x30000000
+#define RP_HCP_PLATFORM_IOS                 0x40000000
 
-#define RP_HCP_PLATFORM_MAJOR_WINDOWS       0x01
-
-#define RP_HCP_PLATFORM_MAJOR_MACOSX        0x02
-
-#define RP_HCP_PLATFORM_MAJOR_IOS           0x03
-
-#define RP_HCP_PLATFORM_MAJOR_ANDROID       0x04
-
-#define RP_HCP_PLATFORM_MAJOR_LINUX         0x05
-#define RP_HCP_PLATFORM_MINOR_LINUX_UBUNTU_12       0x01
-#define RP_HCP_PLATFORM_MINOR_LINUX_CENTOS_5        0x02
-#define RP_HCP_PLATFORM_MINOR_LINUX_CENTOS_6        0x03
-#define RP_HCP_PLATFORM_MINOR_LINUX_UBUNTU_14       0x04
-#define RP_HCP_PLATFORM_MINOR_LINUX_UBUNTU_15       0x05
-#define RP_HCP_PLATFORM_MINOR_LINUX_UBUNTU_16       0x06
+#define RP_HCP_PLATFORM_ANDROID             0x50000000
 
 // Current Platform
 #ifndef RP_HCP_PLATFORM_CURRENT_ARCH
 #ifdef RPAL_PLATFORM_64_BIT
-#define RP_HCP_PLATFORM_CURRENT_CPU RP_HCP_PLATFORM_ARCH_X64
+#define RP_HCP_PLATFORM_CURRENT_ARCH        RP_HCP_PLATFORM_ARCH_X64
 #else
-#define RP_HCP_PLATFORM_CURRENT_CPU RP_HCP_PLATFORM_ARCH_X86
+#define RP_HCP_PLATFORM_CURRENT_ARCH        RP_HCP_PLATFORM_ARCH_X86
 #endif
 #endif
 
 #ifndef RP_HCP_PLATFORM_CURRENT_MAJOR
 
 #ifdef RPAL_PLATFORM_WINDOWS
-#define RP_HCP_PLATFORM_CURRENT_MAJOR       RP_HCP_PLATFORM_MAJOR_WINDOWS
+#define RP_HCP_PLATFORM_CURRENT             RP_HCP_PLATFORM_WINDOWS
 #elif defined( RPAL_PLATFORM_ANDROID )  /* Make it precede over Linux, as Android also defines RPAL_PLATFORM_LINUX. */
-#define RP_HCP_PLATFORM_CURRENT_MAJOR       RP_HCP_PLATFORM_MAJOR_ANDROID
+#define RP_HCP_PLATFORM_CURRENT             RP_HCP_PLATFORM_ANDROID
 #elif defined( RPAL_PLATFORM_LINUX )
-#define RP_HCP_PLATFORM_CURRENT_MAJOR       RP_HCP_PLATFORM_MAJOR_LINUX
+#define RP_HCP_PLATFORM_CURRENT             RP_HCP_PLATFORM_LINUX
 #elif defined( RPAL_PLATFORM_MACOSX )
-#define RP_HCP_PLATFORM_CURRENT_MAJOR       RP_HCP_PLATFORM_MAJOR_MACOSX
+#define RP_HCP_PLATFORM_CURRENT             RP_HCP_PLATFORM_MACOS
 #elif defined( RPAL_PLATFORM_IOS )
-#define RP_HCP_PLATFORM_CURRENT_MAJOR       RP_HCP_PLATFORM_MAJOR_IOS
+#define RP_HCP_PLATFORM_CURRENT             RP_HCP_PLATFORM_IOS
 #endif
 
 #endif
-
-#ifndef RP_HCP_PLATFORM_CURRENT_MINOR
-#define RP_HCP_PLATFORM_CURRENT_MINOR RP_HCP_PLATFORM_MINOR_UNKNOWN
-#endif
-
-
-#define RP_HCP_ID_MAKE_PLATFORM(cpu,major,minor)   ((RU8)( ((RU8)(cpu)<<6) | ((RU8)(major)<<3) | ((RU8)(minor)) ))
 
 typedef RU8 RpHcp_ModuleId;
 #define RP_HCP_MODULE_ID_BOOTSTRAP          0

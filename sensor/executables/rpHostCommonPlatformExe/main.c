@@ -406,7 +406,6 @@ RPAL_NATIVE_MAIN
     RBOOL asService = FALSE;
 
     rpal_opt switches[] = { { _NC( 'h' ), _NC( "help" ), FALSE },
-                            { _NC( 'c' ), _NC( "config" ), TRUE },
                             { _NC( 'p' ), _NC( "primary" ), TRUE },
                             { _NC( 's' ), _NC( "secondary" ), TRUE },
                             { _NC( 'm' ), _NC( "manual" ), TRUE },
@@ -425,10 +424,6 @@ RPAL_NATIVE_MAIN
         {
             switch( argFlag )
             {
-                case _NC( 'c' ):
-                    rpal_string_stoi( argVal, &conf );
-                    rpal_debug_info( "Setting config id: %d.", conf );
-                    break;
                 case _NC( 'p' ):
                     primary = argVal;
                     rpal_debug_info( "Setting primary URL: %s.", primary );
@@ -465,8 +460,7 @@ RPAL_NATIVE_MAIN
                 case _NC( 'h' ):
                 default:
 #ifdef RPAL_PLATFORM_DEBUG
-                    printf( "Usage: %s [ -c configId ] [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].\n", argv[ 0 ] );
-                    printf( "-c: configuration Id used to enroll agent to different ranges as determined by the site configurations.\n" );
+                    printf( "Usage: %s [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].\n", argv[ 0 ] );
                     printf( "-p: primary Url used to communicate home.\n" );
                     printf( "-s: secondary Url used to communicate home if the primary failed.\n" );
                     printf( "-m: module to be loaded manually, only available in debug builds.\n" );

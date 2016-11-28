@@ -280,7 +280,7 @@ rSequence
                 // This is our identity
                 if( NULL != ( hcpId = hcpIdToSeq( g_hcpContext.currentId ) ) )
                 {
-                    if( !rSequence_addSEQUENCE( headers, RP_TAGS_HCP_ID, hcpId ) )
+                    if( !rSequence_addSEQUENCE( headers, RP_TAGS_HCP_IDENT, hcpId ) )
                     {
                         rSequence_free( hcpId );
                     }
