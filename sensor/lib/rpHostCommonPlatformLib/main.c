@@ -34,7 +34,6 @@ limitations under the License.
 
 rpHCPContext g_hcpContext = { 0 };
 rpHCPId g_idTemplate = { 0 };
-rpHCPOId g_oidTemplate = { 0 };
 
 // Large blank buffer to be used to patch configurations post-build
 #define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
@@ -142,11 +141,11 @@ RBOOL
 
     rpHCPIdentStore* store = NULL;
 
-    OBFUSCATIONLIB_DECLARE( store, RP_HCP_CONFIG_IDENT_STORE );
+    OBFUSCATIONLIB_DECLARE( storePath, RP_HCP_CONFIG_IDENT_STORE );
 
-    OBFUSCATIONLIB_TOGGLE( store );
+    OBFUSCATIONLIB_TOGGLE( storePath );
 
-    if( rpal_file_read( (RPNCHAR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
+    if( rpal_file_read( (RPNCHAR)storePath, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
     {
         if( sizeof( rpHCPIdentStore ) <= storeFileSize )
         {
@@ -172,7 +171,7 @@ RBOOL
         rpal_memory_free( storeFile );
     }
 
-    OBFUSCATIONLIB_TOGGLE( store );
+    OBFUSCATIONLIB_TOGGLE( storePath );
 
     // Set some always-correct defaults
     g_hcpContext.currentId.architecture = RP_HCP_PLATFORM_CURRENT_ARCH;

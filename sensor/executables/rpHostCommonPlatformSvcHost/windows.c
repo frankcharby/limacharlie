@@ -73,7 +73,6 @@ RVOID
 {
     RNCHAR argFlag = 0;
     RPNCHAR argVal = NULL;
-    RU32 conf = 0;
     RPNCHAR primary = NULL;
     RPNCHAR secondary = NULL;
     RU32 memUsed = 0;
@@ -135,7 +134,7 @@ RVOID
 
             rpal_debug_info( "launching rpHCP" );
 
-            if( rpHostCommonPlatformLib_launch( (RU8)conf, primary, secondary ) )
+            if( rpHostCommonPlatformLib_launch( primary, secondary ) )
             {
                 ServiceStatus.dwCurrentState = SERVICE_RUNNING;
                 touchStatus();

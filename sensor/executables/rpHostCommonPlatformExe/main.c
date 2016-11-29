@@ -84,7 +84,6 @@ void
 #define _SERVICE_NAMEW _WCH( "rphcpsvc" )
 static SERVICE_STATUS g_svc_status = { 0 };
 static SERVICE_STATUS_HANDLE g_svc_status_handle = NULL;
-static RU8 g_svc_conf = 0;
 static RPNCHAR g_svc_primary = NULL;
 static RPNCHAR g_svc_secondary = NULL;
 static RPNCHAR g_svc_mod = NULL;
@@ -341,7 +340,7 @@ VOID WINAPI
     }
 
     rpal_debug_info( "initialising rpHCP." );
-    if( !rpHostCommonPlatformLib_launch( g_svc_conf, g_svc_primary, g_svc_secondary ) )
+    if( !rpHostCommonPlatformLib_launch( g_svc_primary, g_svc_secondary ) )
     {
         rpal_debug_warning( "error launching hcp." );
     }
@@ -397,7 +396,6 @@ RPAL_NATIVE_MAIN
 {
     RNCHAR argFlag = 0;
     RPNCHAR argVal = NULL;
-    RU32 conf = 0;
     RPNCHAR primary = NULL;
     RPNCHAR secondary = NULL;
     RPNCHAR tmpMod = NULL;
@@ -489,7 +487,6 @@ RPAL_NATIVE_MAIN
 
             DispatchTable[ 0 ].lpServiceName = svcName;
 
-            g_svc_conf = (RU8)conf;
             g_svc_primary = primary;
             g_svc_secondary = secondary;
             g_svc_mod = tmpMod;
@@ -506,7 +503,7 @@ RPAL_NATIVE_MAIN
 #endif
 
         rpal_debug_info( "initialising rpHCP." );
-        if( !rpHostCommonPlatformLib_launch( (RU8)conf, primary, secondary ) )
+        if( !rpHostCommonPlatformLib_launch( primary, secondary ) )
         {
             rpal_debug_warning( "error launching hcp." );
         }
