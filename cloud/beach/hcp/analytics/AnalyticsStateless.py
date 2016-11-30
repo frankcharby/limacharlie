@@ -37,7 +37,7 @@ class AnalyticsStateless( Actor ):
         routing, event, mtd = msg.data
 
         etype = routing[ 'event_type' ]
-        agent = AgentId( routing[ 'agentid' ] )
+        agent = AgentId( routing[ 'aid' ] )
 
         if etype not in self.modulesCommon:
             self.modulesCommon[ etype ] = self.getActorHandleGroup( self.specific % ( 'common', etype ),

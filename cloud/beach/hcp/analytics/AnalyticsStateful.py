@@ -42,14 +42,14 @@ class AnalyticsStateful( Actor ):
     def analyze( self, msg ):
         routing, event, mtd = msg.data
 
-        self.statefulCommon.shoot( 'process', msg.data, key = routing[ 'agentid' ] )
+        self.statefulCommon.shoot( 'process', msg.data, key = routing[ 'aid' ] )
 
-        agent = AgentId( routing[ 'agentid' ] )
+        agent = AgentId( routing[ 'aid' ] )
         if agent.isWindows():
-            self.statefulWindows.shoot( 'process', msg.data, key = routing[ 'agentid' ] )
+            self.statefulWindows.shoot( 'process', msg.data, key = routing[ 'aid' ] )
         elif agent.isMacOSX():
-            self.statefulOsx.shoot( 'process', msg.data, key = routing[ 'agentid' ] )
+            self.statefulOsx.shoot( 'process', msg.data, key = routing[ 'aid' ] )
         elif agent.isLinux():
-            self.statefulLinux.shoot( 'process', msg.data, key = routing[ 'agentid' ] )
+            self.statefulLinux.shoot( 'process', msg.data, key = routing[ 'aid' ] )
 
         return ( True, )

@@ -51,7 +51,7 @@ class AsynchronousRelationBuilder( Actor ):
         	parentType = self.mapping[ childType ][ 0 ]
         	
         	eid = routing[ 'event_id' ]
-        	aid = AgentId( routing[ 'agentid' ] ).sensor_id
+        	sid = AgentId( routing[ 'aid' ] ).sensor_id
         	ts = _x_( event, 'base.TIMESTAMP' )
 
         	childValue = self.mapping[ childType ][ 1 ]( event )

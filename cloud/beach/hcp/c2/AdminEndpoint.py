@@ -271,7 +271,7 @@ class AdminEndpoint( Actor ):
         expiry = request.get( 'expiry', None )
         if expiry is None:
             expiry = 0
-        agent = AgentId( request[ 'agentid' ] ).sensor_id
+        agent = AgentId( request[ 'aid' ] ).sensor_id
         task = rpcm( isDebug = self.log, 
                      isDetailedDeserialize = True, 
                      isHumanReadable = False ).quickDeserialise( request[ 'task' ],

@@ -32,11 +32,7 @@ class PersistentTasking( Actor ):
                             maxConcurrent = parameters[ 'max_concurrent' ],
                             blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
 
-        self.recordLive = self.db.prepare( 'UPDATE sensor_states SET alive = dateOf(now()), ext_ip = ?, int_ip = ?, hostname = ? WHERE org = ? AND subnet = ? AND unique = ? AND platform = ?' )
-        self.recordHostName = self.db.prepare( 'INSERT INTO sensor_hostnames ( hostname, aid ) VALUES ( ?, ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
-        self.recordDead = self.db.prepare( 'UPDATE sensor_states SET dead = dateOf(now()) WHERE org = ? AND subnet = ? AND unique = ? AND platform = ?' )
-
-        self.db.start()
+        #self.db.start()
 
         self.handle( 'live', self.setLive )
         self.handle( 'dead', self.setDead )

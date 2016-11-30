@@ -104,7 +104,7 @@ class YaraUpdater ( StatelessActor ):
 
         routing, event, mtd = msg.data
 
-        source = AgentId( routing[ 'agentid' ] )
+        source = AgentId( routing[ 'aid' ] )
         rules = None
 
         if source.isWindows():
@@ -115,6 +115,6 @@ class YaraUpdater ( StatelessActor ):
             rules = self.linuxRulesFile
 
         if rules is not None:
-            self.task( routing[ 'agentid' ],
+            self.task( routing[ 'aid' ],
                        ( 'yara_update', rules ),
                        expiry = 60 )

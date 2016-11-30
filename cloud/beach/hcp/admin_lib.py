@@ -94,8 +94,6 @@ class BEAdmin( object ):
     def hbs_taskAgent( self, toAgent, task, key, id, expiry = None, investigationId = None ):
         # Make sure it's a valid agentid
         a = AgentId( toAgent )
-        if not a.isValid:
-            return None
         if not type( task ) is rSequence:
             return None
         s = Signing( key )
@@ -106,11 +104,11 @@ class BEAdmin( object ):
         if investigationId is not None and '' != investigationId:
             task.addStringA( tags.hbs.INVESTIGATION_ID, investigationId )
         
-        toSign = ( rSequence().addSequence( tags.base.HCP_ID, rSequence().addInt8( tags.base.HCP_ID_ORG, a.org )
-                                                                         .addInt8( tags.base.HCP_ID_SUBNET, a.subnet )
-                                                                         .addInt32( tags.base.HCP_ID_UNIQUE, a.unique )
-                                                                         .addInt8( tags.base.HCP_ID_PLATFORM, a.platform )
-                                                                         .addInt8( tags.base.HCP_ID_CONFIG, a.config ) )
+        toSign = ( rSequence().addSequence( tags.base.HCP_IDENT, rSequence().addInt8( tags.base.HCP_SENSOR_ID, a.sensor_id )
+                                                                            .addInt8( tags.base.HCP_ORG_ID, a.org_id )
+                                                                            .addInt32( tags.base.HCP_INSTALLER_ID, a.ins_id )
+                                                                            .addInt8( tags.base.HCP_ARCHITECTURE, a.architecture )
+                                                                            .addInt8( tags.base.HCP_PLATFORM, a.platform ) )
                               .addSequence( tags.hbs.NOTIFICATION, task )
                               .addInt32( tags.hbs.NOTIFICATION_ID, id ) )
         if None != expiry:
@@ -121,4 +119,4 @@ class BEAdmin( object ):
         final = r.serialise( rSequence().addBuffer( tags.base.BINARY, toSign )
                                         .addBuffer( tags.base.SIGNATURE, sig ) )
         
-        return self._query( 'hbs.task_agent', { 'task' : final, 'agentid' : str( a ), 'expiry' : expiry } )
+        return self._query( 'hbs.task_agent', { 'task' : final, 'aid' : str( a ), 'expiry' : expiry } )

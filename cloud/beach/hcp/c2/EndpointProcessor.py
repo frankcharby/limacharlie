@@ -382,7 +382,7 @@ class EndpointProcessor( Actor ):
                             self.log( "sync profile sent to %s" % c.getAid() )
                             
             # Transmit the message to the analytics cloud.
-            routing = { 'agentid' : c.getAid(),
+            routing = { 'aid' : c.getAid(),
                         'moduleid' : HcpModuleId.HBS,
                         'event_type' : message.keys()[ 0 ],
                         'event_id' : hashlib.sha256( str( uuid.uuid4() ) ).hexdigest() }

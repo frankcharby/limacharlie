@@ -417,7 +417,7 @@ class Host( object ):
     def getSpecificEvent( self, id ):
         record = None
 
-        event = self._db.getOne( 'SELECT agentid, event FROM events WHERE eventid = %s', ( id, ) )
+        event = self._db.getOne( 'SELECT sid, event FROM events WHERE eventid = %s', ( id, ) )
         if event is not None:
             record = ( id, event[ 0 ], event[ 1 ] )
 
@@ -427,7 +427,7 @@ class Host( object ):
     def getSpecificEvents( self, ids ):
         records = []
 
-        events = self._db.execute( 'SELECT eventid, agentid, event FROM events WHERE eventid IN ( \'%s\' )' % ( '\',\''.join( ids ), ) )
+        events = self._db.execute( 'SELECT eventid, sid, event FROM events WHERE eventid IN ( \'%s\' )' % ( '\',\''.join( ids ), ) )
         if events is not None:
             for event in events:
                 records.append( ( event[ 0 ], event[ 1 ], event[ 2 ] ) )
@@ -472,12 +472,12 @@ class Host( object ):
             whereTs = ' AND ts >= minTimeuuid(%s)'
             filters.append( ts )
 
-        results = self._db.execute( 'SELECT unixTimestampOf( ts ) FROM timeline WHERE agentid = %%s AND eventtype = \'hbs.NOTIFICATION_STARTING_UP\'%s' % whereTs, filters )
+        results = self._db.execute( 'SELECT unixTimestampOf( ts ) FROM timeline WHERE sid = %%s AND eventtype = \'hbs.NOTIFICATION_STARTING_UP\'%s' % whereTs, filters )
         if results is not None:
             for result in results:
                 statuses.append( ( result[ 0 ], True ) )
 
-        results = self._db.execute( 'SELECT unixTimestampOf( ts ) FROM timeline WHERE agentid = %%s AND eventtype = \'hbs.NOTIFICATION_SHUTTING_DOWN\'%s' % whereTs, filters )
+        results = self._db.execute( 'SELECT unixTimestampOf( ts ) FROM timeline WHERE sid = %%s AND eventtype = \'hbs.NOTIFICATION_SHUTTING_DOWN\'%s' % whereTs, filters )
         if results is not None:
             for result in results:
                 statuses.append( ( result[ 0 ], False ) )

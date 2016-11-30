@@ -52,11 +52,11 @@ class AnalyticsModeling( Actor ):
                                    ObjectTypes.PORT ]
 
         self.statements = {}
-        self.statements[ 'events' ] = self.db.prepare( 'INSERT INTO events ( eventid, event, agentid ) VALUES ( ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
-        self.statements[ 'timeline' ] = self.db.prepare( 'INSERT INTO timeline ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
-        self.statements[ 'timeline_by_type' ] = self.db.prepare( 'INSERT INTO timeline_by_type ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
-        self.statements[ 'recent' ] = self.db.prepare( 'UPDATE recentlyActive USING TTL %d SET last = dateOf( now() ) WHERE agentid = ?' % parameters[ 'retention_raw_events' ] )
-        self.statements[ 'last' ] = self.db.prepare( 'UPDATE last_events USING TTL %d SET id = ? WHERE agentid = ? AND type = ?' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'events' ] = self.db.prepare( 'INSERT INTO events ( eventid, event, sid ) VALUES ( ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'timeline' ] = self.db.prepare( 'INSERT INTO timeline ( sid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'timeline_by_type' ] = self.db.prepare( 'INSERT INTO timeline_by_type ( sid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'recent' ] = self.db.prepare( 'UPDATE recentlyActive USING TTL %d SET last = dateOf( now() ) WHERE sid = ?' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'last' ] = self.db.prepare( 'UPDATE last_events USING TTL %d SET id = ? WHERE sid = ? AND type = ?' % parameters[ 'retention_raw_events' ] )
         self.statements[ 'investigation' ] = self.db.prepare( 'INSERT INTO investigation_data ( invid, ts, eid, etype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_investigations' ] )
 
         self.statements[ 'rel_batch_parent' ] = self.db.prepare( '''INSERT INTO rel_man_parent ( parentkey, ctype, cid ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
@@ -148,7 +148,7 @@ class AnalyticsModeling( Actor ):
         if 0 == ( self.processedCounter % 50 ):
             self.log( 'MOD_IN %s' % self.processedCounter )
 
-        agent = AgentId( routing[ 'agentid' ] )
+        agent = AgentId( routing[ 'aid' ] )
         aid = agent.sensor_id
         ts = _x_( event, '?/base.TIMESTAMP' )
 

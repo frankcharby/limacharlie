@@ -89,7 +89,7 @@ class StatelessActor ( Actor ):
             routing, event, mtd = msg.data
             for priority, summary, detect, taskings in newDetects:
                 report = GenerateDetectReport( i,
-                                               routing[ 'agentid' ],
+                                               routing[ 'aid' ],
                                                ( routing[ 'event_id' ], ),
                                                self._cat,
                                                detect,
@@ -98,7 +98,7 @@ class StatelessActor ( Actor ):
                 self._reporting.shoot( 'detect', report )
                 self._detects.shoot( 'detect', report )
                 if taskings is not None and 0 != len( taskings ):
-                    self.task( routing[ 'agentid' ], taskings, expiry = ( 60 * 60 ), inv_id = report[ 'detect_id' ] )
+                    self.task( routing[ 'aid' ], taskings, expiry = ( 60 * 60 ), inv_id = report[ 'detect_id' ] )
                 i += 1
         return ( True, )
 
@@ -181,7 +181,7 @@ class StatefulActor ( Actor ):
                 if hasattr( self, 'processDetect' ):
                     reportContent = self.processDetect( reportContent )
                 report = GenerateDetectReport( i,
-                                               tuple( Set( [ e.routing[ 'agentid' ] for e in reportContent ] ) ),
+                                               tuple( Set( [ e.routing[ 'aid' ] for e in reportContent ] ) ),
                                                tuple( Set( [ e.routing[ 'event_id' ] for e in reportContent ] ) ),
                                                reportType,
                                                [ x.event for x in reportContent ],
