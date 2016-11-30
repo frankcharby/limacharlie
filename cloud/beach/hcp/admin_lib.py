@@ -59,7 +59,7 @@ class BEAdmin( object ):
     def hcp_getAgentStates( self, aid = None, hostname = None ):
         filters = {}
         if aid != None:
-            filters[ 'agent_id' ] = aid
+            filters[ 'aid' ] = aid
         if hostname != None:
             filters[ 'hostname' ] = hostname
         return self._query( 'hcp.get_agent_states', filters )
