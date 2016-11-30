@@ -44,17 +44,12 @@ class AdminEndpoint( Actor ):
         self.db.start()
         self.handle( 'ping', self.ping )
         self.handle( 'hcp.get_agent_states', self.cmd_hcp_getAgentStates )
-        self.handle( 'hcp.get_enrollment_rules', self.cmd_hcp_getEnrollmentRules )
-        self.handle( 'hcp.add_enrollment_rule', self.cmd_hcp_addEnrollmentRule )
-        self.handle( 'hcp.del_enrollment_rule', self.cmd_hcp_delEnrollmentRule )
         self.handle( 'hcp.get_taskings', self.cmd_hcp_getTaskings )
         self.handle( 'hcp.add_tasking', self.cmd_hcp_addTasking )
         self.handle( 'hcp.remove_tasking', self.cmd_hcp_delTasking )
         self.handle( 'hcp.get_modules', self.cmd_hcp_getModules )
         self.handle( 'hcp.add_module', self.cmd_hcp_addModule )
         self.handle( 'hcp.remove_module', self.cmd_hcp_delModule )
-        self.handle( 'hcp.reloc_agent', self.cmd_hcp_relocAgent )
-        self.handle( 'hcp.get_relocations', self.cmd_hcp_getRelocs )
         self.handle( 'hbs.set_profile', self.cmd_hbs_addProfile )
         self.handle( 'hbs.get_profiles', self.cmd_hbs_getProfiles )
         self.handle( 'hbs.del_profile', self.cmd_hbs_delProfile )
@@ -78,10 +73,10 @@ class AdminEndpoint( Actor ):
         request = msg.data
         hostName = request.get( 'hostname', None )
         aids = []
-        if 'agent_id' in request and request[ 'agent_id' ] is not None:
-            aids.append( AgentId( request[ 'agent_id' ] ) )
+        if 'aid' in request and request[ 'aid' ] is not None:
+            aids.append( AgentId( request[ 'aid' ] ) )
         elif hostName is not None:
-            found = self.db.getOne( 'SELECT aid FROM sensor_hostnames WHERE hostname = %s', ( hostName.upper().strip(), ) )
+            found = self.db.getOne( 'SELECT sid FROM sensor_hostnames WHERE hostname = %s', ( hostName.upper().strip(), ) )
             if found is not None:
                 aids = [ AgentId( x ) for x in found ]
         else:
@@ -90,81 +85,37 @@ class AdminEndpoint( Actor ):
         data = { 'agents' : {} }
 
         if aids is None:
-            for row in self.db.execute( 'SELECT org, subnet, unique, platform, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states' ):
-                    tmpAid = AgentId( ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] ) )
+            for row in self.db.execute( 'SELECT sid, oid, plat, arch, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states' ):
+                    tmpAid = AgentId( ( row[ 1 ], row[ 0 ], row[ 2 ], row[ 3 ] ) )
                     tmpData = {}
-                    tmpData[ 'agent_id' ] = str( tmpAid )
+                    tmpData[ 'aid' ] = str( tmpAid )
                     tmpData[ 'last_external_ip' ] = row[ 8 ]
                     tmpData[ 'last_internal_ip' ] = row[ 9 ]
                     tmpData[ 'last_hostname' ] = row[ 7 ]
                     tmpData[ 'enrollment_date' ] = str( row[ 4 ] )
                     tmpData[ 'last_connect_date' ] = str( row[ 5 ] )
                     tmpData[ 'last_disconnect_date' ] = str( row[ 6 ] )
-                    data[ 'agents' ][ str( tmpAid ) ] = tmpData
+                    data[ 'agents' ][ tmpAid.sensor_id ] = tmpData
         elif 0 != len( aids ):
             for aid in aids:
-                filt = aid.asWhere( isSimpleOnly = True )
+                filt = aid.asWhere()
                 if 0 == len( filt[ 0 ] ):
-                    q =  'SELECT org, subnet, unique, platform, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states%s'
+                    q =  'SELECT sid, oid, plat, arch, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states%s'
                 else:
-                    q = 'SELECT org, subnet, unique, platform, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states WHERE %s'
+                    q = 'SELECT sid, oid, plat, arch, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states WHERE %s'
                 for row in self.db.execute( q % filt[ 0 ], filt[ 1 ] ):
-                    tmpAid = AgentId( ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] ) )
+                    tmpAid = AgentId( ( row[ 1 ], row[ 0 ], row[ 2 ], row[ 3 ] ) )
                     tmpData = {}
-                    tmpData[ 'agent_id' ] = str( tmpAid )
+                    tmpData[ 'aid' ] = str( tmpAid )
                     tmpData[ 'last_external_ip' ] = row[ 8 ]
                     tmpData[ 'last_internal_ip' ] = row[ 9 ]
                     tmpData[ 'last_hostname' ] = row[ 7 ]
                     tmpData[ 'enrollment_date' ] = str( row[ 4 ] )
                     tmpData[ 'last_connect_date' ] = str( row[ 5 ] )
                     tmpData[ 'last_disconnect_date' ] = str( row[ 6 ] )
-                    data[ 'agents' ][ str( tmpAid ) ] = tmpData
+                    data[ 'agents' ][ tmpAid.sensor_id ] = tmpData
         
         return ( True, data )
-
-    @audited
-    def cmd_hcp_getEnrollmentRules( self, msg ):
-        rules = []
-        data = { 'rules' : rules }
-        for row in self.db.execute( 'SELECT aid, ext_ip, int_ip, hostname, new_org, new_subnet FROM enrollment' ):
-            rules.append( { 'mask' : AgentId( row[ 0 ] ),
-                            'external_ip' : row[ 1 ],
-                            'internal_ip' : row[ 2 ],
-                            'hostname' : row[ 3 ],
-                            'new_org' : row[ 4 ],
-                            'new_subnet' : row[ 5 ] } )
-
-        return ( True, data )
-
-    @audited
-    def cmd_hcp_addEnrollmentRule( self, msg ):
-        request = msg.data
-        self.db.execute( 'INSERT INTO enrollment ( aid, ext_ip, int_ip, hostname, new_org, new_subnet ) VALUES ( %s, %s, %s, %s, %s, %s )',
-                         ( str( AgentId( request[ 'mask' ] ) ), 
-                           request[ 'external_ip' ],
-                           request[ 'internal_ip' ],
-                           request[ 'hostname' ],
-                           request[ 'new_org' ],
-                           request[ 'new_subnet' ] ) )
-
-        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
-
-        return ( True, )
-
-    @audited
-    def cmd_hcp_delEnrollmentRule( self, msg ):
-        request = msg.data
-        mask = AgentId( request[ 'mask' ] ).asString()
-        e_ip = request[ 'external_ip' ]
-        i_ip = request[ 'internal_ip' ]
-        hostname = request[ 'hostname' ]
-
-        self.db.execute( 'DELETE FROM enrollment WHERE aid = %s AND ext_ip = %s AND int_ip = %s AND hostname = %s',
-                         ( mask, e_ip, i_ip, hostname ) )
-
-        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
-
-        return ( True, )
 
     @audited
     def cmd_hcp_getTaskings( self, msg ):
@@ -172,18 +123,18 @@ class AdminEndpoint( Actor ):
         data[ 'taskings' ] = []
         for row in self.db.execute( 'SELECT aid, mid, mhash FROM hcp_module_tasking' ):
             data[ 'taskings' ].append( { 'mask' : AgentId( row[ 0 ] ),
-                                                 'module_id' : row[ 1 ],
-                                                 'hash' : row[ 2 ] } )
+                                         'module_id' : row[ 1 ],
+                                         'hash' : row[ 2 ] } )
         return ( True, data )
 
     @audited
     def cmd_hcp_addTasking( self, msg ):
         request = msg.data
-        mask = AgentId( request[ 'mask' ] ).asString()
+        mask = AgentId( request[ 'mask' ] )
         moduleid = int( request[ 'module_id' ] )
         h = str( request[ 'hash' ] )
         self.db.execute( 'INSERT INTO hcp_module_tasking ( aid, mid, mhash ) VALUES ( %s, %s, %s )',
-                         ( mask, moduleid, h ) )
+                         ( mask.asString(), moduleid, h ) )
 
         self.delay( 5, self.moduleTasking.broadcast, 'reload', {} )
 
@@ -192,11 +143,11 @@ class AdminEndpoint( Actor ):
     @audited
     def cmd_hcp_delTasking( self, msg ):
         request = msg.data
-        mask = AgentId( request[ 'mask' ] ).asString()
+        mask = AgentId( request[ 'mask' ] )
         moduleid = int( request[ 'module_id' ] )
         h = str( request[ 'hash' ] )
         self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s AND mhash = %s',
-                         ( mask, moduleid, h ) )
+                         ( mask.asString(), moduleid, h ) )
 
         self.delay( 5, self.moduleTasking.broadcast, 'reload', {} )
         
@@ -245,32 +196,10 @@ class AdminEndpoint( Actor ):
         return ( True, )
 
     @audited
-    def cmd_hcp_relocAgent( self, msg ):
-        request = msg.data
-        fromAgent = AgentId( request[ 'agentid' ] ).asString()
-        newOrg = request[ 'new_org' ]
-        newSub = request[ 'new_subnet' ]
-
-        self.db.execute( 'INSERT INTO sensor_reloc ( aid, new_org, new_subnet ) VALUES ( %s, %s, %s )',
-                         ( fromAgent, newOrg, newSub ) )
-        
-        return ( True, )
-
-    @audited
-    def cmd_hcp_getRelocs( self, msg ):
-        data = { 'relocations' : {} }
-        for row in self.db.execute( 'SELECT aid, new_org, new_subnet FROM sensor_reloc' ):
-            data[ 'relocations' ][ AgentId( row[ 0 ] ) ] = { 'agentid' :AgentId( row[ 0 ] ),
-                                                             'new_org' : row[ 1 ],
-                                                             'new_subnet' : row[ 2 ] }
-        
-        return ( True, data )
-
-    @audited
     def cmd_hbs_getProfiles( self, msg ):
         data = { 'profiles' : [] }
         for row in self.db.execute( 'SELECT aid, oprofile FROM hbs_profiles' ):
-            data[ 'profiles' ].append( { 'mask' : row[ 0 ],
+            data[ 'profiles' ].append( { 'mask' : AgentId( row[ 0 ] ),
                                          'original_configs' : row[ 1 ] } )
 
         return ( True, data )
@@ -342,7 +271,7 @@ class AdminEndpoint( Actor ):
         expiry = request.get( 'expiry', None )
         if expiry is None:
             expiry = 0
-        agent = AgentId( request[ 'agentid' ] ).invariableToString()
+        agent = AgentId( request[ 'agentid' ] ).sensor_id
         task = rpcm( isDebug = self.log, 
                      isDetailedDeserialize = True, 
                      isHumanReadable = False ).quickDeserialise( request[ 'task' ],
@@ -353,7 +282,7 @@ class AdminEndpoint( Actor ):
                                                             task ) ).serialise( isDebug = self.log,
                                                                                 isHumanReadable = False  )
 
-        resp = self.taskingProxy.request( 'task', { 'aid' : agent, 
+        resp = self.taskingProxy.request( 'task', { 'sid' : agent, 
                                                     'messages' : ( wrapper, ), 
                                                     'module_id' : HcpModuleId.HBS } )
 

@@ -144,6 +144,7 @@ rSequence
     {
         if( !rSequence_addBUFFER( seq, RP_TAGS_HCP_SENSOR_ID, id.sensor_id, sizeof( id.sensor_id ) ) ||
             !rSequence_addBUFFER( seq, RP_TAGS_HCP_ORG_ID, id.org_id, sizeof( id.org_id ) ) ||
+            !rSequence_addBUFFER( seq, RP_TAGS_HCP_INSTALLER_ID, id.ins_id, sizeof( id.ins_id ) ) ||
             !rSequence_addRU32( seq, RP_TAGS_HCP_ARCHITECTURE, id.architecture ) ||
             !rSequence_addRU32( seq, RP_TAGS_HCP_PLATFORM, id.platform ) )
         {
@@ -164,6 +165,7 @@ rpHCPId
     RPU8 tmpSensorId = NULL;
     RU32 tmpSize = 0;
     RPU8 tmpOrgId = NULL;
+    RPU8 tmpInsId = NULL;
 
     if( NULL != seq )
     {
@@ -177,6 +179,12 @@ rpHCPId
             sizeof( id.org_id ) == tmpSize )
         {
             rpal_memory_memcpy( id.org_id, tmpOrgId, sizeof( id.org_id ) );
+        }
+
+        if( rSequence_getBUFFER( seq, RP_TAGS_HCP_INSTALLER_ID, &tmpInsId, &tmpSize ) &&
+            sizeof( id.ins_id ) == tmpSize )
+        {
+            rpal_memory_memcpy( id.ins_id, tmpInsId, sizeof( id.ins_id ) );
         }
 
         rSequence_getRU32( seq, RP_TAGS_HCP_ARCHITECTURE, &id.architecture );

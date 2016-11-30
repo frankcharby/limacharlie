@@ -66,11 +66,8 @@ class ModelView( Actor ):
         aid = msg.data[ 'id_or_host' ]
         try:
             _ = AgentId( aid )
-            if not _.isValid:
-                aid = None
-                raise Exception()
         except:
-            pass
+            aid = None
 
         if aid is not None:
             host = Host( aid )

@@ -109,7 +109,7 @@ class AssistantEndpoint( Actor ):
         #self.log( "QUERY: %s" % str( { 'obj_name' : obj_name,
         #                               'obj_type' : obj_type } ) )
 
-        resp = self.Model.request( 'get_obj_view', { 'host' : sensor.invariableToString() if sensor is not None else None,
+        resp = self.Model.request( 'get_obj_view', { 'host' : sensor.sensor_id if sensor is not None else None,
                                                      'obj_name' : obj_name,
                                                      'obj_type' : obj_type } )
 

@@ -455,227 +455,200 @@ class RWLock( object ):
 
 class AgentId( object ):
     
-    re_agent_id = re.compile( '^([a-fA-F0-9]+)\.([a-fA-F0-9]+)\.([a-fA-F0-9]+)\.([a-fA-F0-9])([a-fA-F0-9])([a-fA-F0-9])(?:\.([a-fA-F0-9]+))?$' )
-    
-    def __init__( self, seq, isWithoutConfig = False ):
-        self.org = 0xFF
-        self.subnet = 0xFF
-        self.unique = 0xFFFFFFFF
-        self.platform = 0xFF
-        self.config = 0xFF
-        
-        self.isWithoutConfig = isWithoutConfig
-        
-        self.isValid = False
-    
+    empty_uuid = str( uuid.UUID( bytes = "\x00" * 16 ) )
+    re_agent_id = re.compile( r'^((?:[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})|(?:0))(?:\.((?:[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})|(?:0))\.((?:[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})|(?:0))\.(\d+)\.(\d+))?$' )
+
+    def __init__( self, seq ):
+        self.sensor_id = None
+        self.org_id = None
+        self.ins_id = None
+        self.architecture = None
+        self.platform = None
+
         if type( seq ) is rSequence or type( seq ) is dict:
-            if ( 'base.HCP_ID_ORG' in seq and # HCP_ID_ORG
-                 'base.HCP_ID_SUBNET' in seq and # HCP_ID_SUBNET
-                 'base.HCP_ID_UNIQUE' in seq and # HCP_ID_UNIQUE
-                 'base.HCP_ID_PLATFORM' in seq ): # HCP_ID_PLATFORM
-                
-                self.org = int( seq[ 'base.HCP_ID_ORG' ] )
-                self.subnet = int( seq[ 'base.HCP_ID_SUBNET' ] )
-                self.unique = int( seq[ 'base.HCP_ID_UNIQUE' ] )
-                self.platform = int( seq[ 'base.HCP_ID_PLATFORM' ] )
-                
-                if not isWithoutConfig:
-                    if 'base.HCP_ID_CONFIG' in seq: # HCP_ID_CONFIG
-                        self.config = int( seq[ 'base.HCP_ID_CONFIG' ] )
-                
-                self.isValid = True
-            elif ( 'org' in seq and
-                   'subnet' in seq and
-                   'uniqueid' in seq and
-                   'platform' in seq ):
-                self.org = int( seq[ 'org' ] )
-                self.subnet = int( seq[ 'subnet' ] )
-                self.unique = int( seq[ 'uniqueid' ] )
-                self.platform = int( seq[ 'platform' ] )
-                
-                if not isWithoutConfig:
-                    if 'config' in seq:
-                        self.config = int( seq[ 'config' ] )
-                self.isValid = True
+            self.sensor_id = seq.get( 'base.HCP_SENSOR_ID', seq.get( 'sensor_id', None ) )
+            self.org_id = seq.get( 'base.HCP_ORG_ID', seq.get( 'org_id', None ) )
+            self.ins_id = seq.get( 'base.HCP_INSTALLER_ID', seq.get( 'ins_id', None ) )
+            self.architecture = seq.get( 'base.HCP_ARCHITECTURE', seq.get( 'architecture', None ) )
+            self.platform = seq.get( 'base.HCP_PLATFORM', seq.get( 'platform', None ) )
+            
+            self.isValid = True
+
+            if self.sensor_id is not None:
+                self.sensor_id = str( uuid.UUID( bytes = self.sensor_id ) )
+                if self.sensor_id == self.empty_uuid:
+                    self.sensor_id = None
+
+            if self.org_id is not None:
+                self.org_id = str( uuid.UUID( bytes = self.org_id ) )
+                if self.org_id == self.empty_uuid:
+                    self.org_id = None
+
+            if self.ins_id is not None:
+                self.ins_id = str( uuid.UUID( bytes = self.ins_id ) )
+                if self.ins_id == self.empty_uuid:
+                    self.ins_id = None
+
+            if self.architecture is not None:
+                self.architecture = int( self.architecture )
+            if self.platform is not None:
+                self.platform = int( self.platform )
                 
         elif type( seq ) is str or type( seq ) is unicode:
             matches = self.re_agent_id.match( seq )
             if matches is not None:
-                matches = matches.groups( 0 )
-                self.org = int( matches[ 0 ], 16 )
-                self.subnet = int( matches[ 1 ], 16 )
-                self.unique = int( matches[ 2 ], 16 )
-                tmp_cpu = int( matches[ 3 ], 16 )
-                tmp_major = int( matches[ 4 ], 16 )
-                tmp_minor = int( matches[ 5 ], 16 )
-                self.platform = ( ( ( tmp_cpu & 3 ) << 6 ) | ( ( tmp_major & 7 ) << 3 ) | ( tmp_minor & 7 ) )
-                if 0 != matches[ 6 ]:
-                    if not isWithoutConfig:
-                        self.config = int( matches[ 6 ], 16 )
-                
-                self.isValid = True
+                matches = matches.groups()
+                if matches[ 1 ] is None:
+                    self.sensor_id = str( uuid.UUID( matches[ 0 ] ) )
+                else:
+                    self.org_id = str( uuid.UUID( matches[ 0 ] ) )
+                    self.ins_id = matches[ 1 ]
+                    if self.ins_id == '0' or self.ins_id == self.empty_uuid:
+                        self.ins_id = None
+                    else:
+                        self.ins_id = str( uuid.UUID( self.ins_id ) )
+                    self.sensor_id = matches[ 2 ]
+                    if self.sensor_id == '0' or self.sensor_id == self.empty_uuid:
+                        self.sensor_id = None
+                    else:
+                        self.sensor_id = str( uuid.UUID( self.sensor_id ) )
+                    self.platform = int( matches[ 3 ] ) if int( matches[ 3 ] ) != 0 else None
+                    self.architecture = int( matches[ 4 ] ) if int( matches[ 4 ] ) != 0 else None
         elif type( seq ) is list or type( seq ) is tuple:
-            self.org = int( seq[ 0 ] )
-            self.subnet = int( seq[ 1 ] )
-            self.unique = int( seq[ 2 ] )
-            if 3 < len( seq ):
-                self.platform = int( seq[ 3 ] )
-                if 5 == len( seq ):
-                    if not isWithoutConfig:
-                        self.config = int( seq[ 4 ] )
-                self.isValid = True
-        elif type( seq ) is AgentId:
-            self.org = int( seq.org )
-            self.subnet = int( seq.subnet )
-            self.unique = int( seq.unique )
-            self.platform = int( seq.platform )
-            if not isWithoutConfig:
-                self.config = int( seq.config ) if seq.config is not None else None
-            self.isValid = seq.isValid
+            if 1 == len( seq ):
+                self.sensor_id = seq[ 0 ]
+                if '0' == self.sensor_id or self.empty_uuid == self.sensor_id:
+                    self.sensor_id = None
+                elif self.sensor_id is not None:
+                    self.sensor_id = str( uuid.UUID( self.sensor_id ) )
+            else:
+                self.org_id = seq[ 0 ]
+                self.sensor_id = seq[ 1 ]
+                self.platform = seq[ 2 ]
+                self.architecture = seq[ 3 ]
 
-    def asWhere( self, isSimpleOnly = False ):
+                if '0' == self.org_id or self.empty_uuid == self.org_id:
+                    self.org_id = None
+                elif self.org_id is not None:
+                    self.org_id = str( uuid.UUID( self.org_id ) )
+
+                if '0' == self.ins_id or self.empty_uuid == self.ins_id:
+                    self.ins_id = None
+                elif self.ins_id is not None:
+                    self.ins_id = str( uuid.UUID( self.ins_id ) )
+
+                if '0' == self.sensor_id or self.empty_uuid == self.sensor_id:
+                    self.sensor_id = None
+                elif self.sensor_id is not None:
+                    self.sensor_id = str( uuid.UUID( self.sensor_id ) )
+
+                if self.architecture is not None:
+                    self.architecture = int( self.architecture )
+                if self.platform is not None:
+                    self.platform = int( self.platform )
+        elif type( seq ) is AgentId:
+            self.sensor_id = seq.sensor_id
+            self.org_id = seq.org_id
+            self.ins_id = seq.ins_id
+            self.architecture = seq.architecture
+            self.platform = seq.platform
+
+    def asWhere( self ):
         filt = []
         filtValues = []
 
-        if self.org != 0xFF:
-            filt.append( 'org = %s' )
-            filtValues.append( self.org )
-        if self.subnet != 0xFF:
-            filt.append( 'subnet = %s' )
-            filtValues.append( self.subnet )
-        if self.unique != 0xFFFFFFFF:
-            filt.append( 'unique = %s' )
-            filtValues.append( self.unique )
-        if self.platform != 0xFF:
-            filt.append( 'platform = %s' )
+        if self.sensor_id is not None:
+            filt.append( 'sid = %s' )
+            filtValues.append( self.sensor_id )
+        if self.org_id is not None:
+            filt.append( 'oid = %s' )
+            filtValues.append( self.org_id )
+        if self.ins_id is not None:
+            filt.append( 'iid = %s' )
+            filtValues.append( self.ins_id )
+        if self.architecture is not None:
+            filt.append( 'arch = %s' )
+            filtValues.append( self.architecture )
+        if self.platform is not None:
+            filt.append( 'plat = %s' )
             filtValues.append( self.platform )
-        if not isSimpleOnly:
-            if self.config != 0xFF:
-                filt.append( 'config = %s' )
-                filtValues.append( self.config )
 
         return ( ' AND '.join( filt ), filtValues )
 
-    def asString( self, isInvariable = False ) :
-        if self.isValid:
-            arch = self.getArchPlatform()
-            major = self.getMajorPlatform()
-            minor = self.getMinorPlatform()
-            if 3 == arch:
-                arch = 0xF
-            if 7 == major:
-                major = 0xF
-            if 7 == minor:
-                minor = 0xF
-            s = '%s.%s.%s.%s%s%s' % ( hex( self.org )[ 2 : ],
-                                      hex( self.subnet )[ 2 : ],
-                                      hex( self.unique )[ 2 : ],
-                                      hex( arch )[ 2 : ],
-                                      hex( major )[ 2 : ],
-                                      hex( minor )[ 2 : ] )
-
-            if not self.isWithoutConfig and not isInvariable:
-                if self.config is not None:
-                    s += '.%s' % hex( self.config )[ 2 : ]
-        else:
-            s = ''
+    def asString( self ) :
+        s = '%s.%s.%s.%s.%s' % ( self.org_id if self.org_id is not None else '0',
+                                 self.ins_id if self.ins_id is not None else '0',
+                                 self.sensor_id if self.sensor_id is not None else '0',
+                                 self.platform if self.platform is not None else '0',
+                                 self.architecture if self.architecture is not None else '0' )
 
         return s
 
     def __str__( self ):
-        return self.asString( isInvariable = False )
+        return self.asString()
 
     def __repr__( self ):
-        return 'AgentId( %s )' % self.asString( isInvariable = False )
-    
-    def invariableToString( self ):
-        return self.asString( isInvariable = True )
+        return 'AgentId( %s )' % self.asString()
         
     def __eq__( self, a ):
-        isEqual = False
-        
-        if type( a ) is AgentId:
-            if self.org == a.org and self.subnet == a.subnet and self.unique == a.unique and self.platform == a.platform:
-                if ( None == self.config and None == a.config ) or ( self.config == a.config ):
-                    isEqual = True
-        elif type( a ) is str or type( a ) is unicode:
-            if str( self ) == a:
-                isEqual = True
-        
-        return isEqual
+        return self.sensor_id == a.sensor_id
     
     def __ne__( self, a ):
         return not self.__eq__( a )
     
-    def inSubnet( self, subnet ):
-        isMatch = False
-        
-        if self == subnet:
-            isMatch = True
-        else:
-            if ( ( self.org == subnet.org or subnet.org == 0xFF ) and
-                 ( self.subnet == subnet.subnet or subnet.subnet == 0xFF ) and
-                 ( self.unique == subnet.unique or subnet.unique == 0xFFFFFFFF ) and
-                 ( self.getArchPlatform() == subnet.getArchPlatform() or 3 == subnet.getArchPlatform() ) and
-                 ( self.getMajorPlatform() == subnet.getMajorPlatform() or 7 == subnet.getMajorPlatform() ) and
-                 ( self.getMinorPlatform() == subnet.getMinorPlatform() or 7 == subnet.getMinorPlatform() ) and
-                 ( self.config == subnet.config or subnet.config == 0xFF ) ):
-                isMatch = True
-        
-        return isMatch
+    def inSubnet( self, subnet ):    
+        return ( ( self.org_id == subnet.org_id or subnet.org_id is None ) and
+                 ( self.ins_id == subnet.ins_id or subnet.ins_id is None ) and
+                 ( self.sensor_id == subnet.sensor_id or subnet.sensor_id is None ) and
+                 ( self.architecture == subnet.architecture or subnet.architecture is None ) and
+                 ( self.platform == subnet.platform or subnet.platform is None ) )
     
     def toJson( self ):
-        j = None
-        
-        if self.isValid:
-            j = {
-                    'base.HCP_ID_ORG' : { 'tag' : 'base.HCP_ID_ORG', 'type' : 'int_8', 'value' : self.org },
-                    'base.HCP_ID_SUBNET' : { 'tag' : 'base.HCP_ID_SUBNET', 'type' : 'int_8', 'value' : self.subnet },
-                    'base.HCP_ID_UNIQUE' : { 'tag' : 'base.HCP_ID_UNIQUE', 'type' : 'int_32', 'value' : self.unique },
-                    'base.HCP_ID_PLATFORM' : { 'tag' : 'base.HCP_ID_PLATFORM', 'type' : 'int_8', 'value' : self.platform },
-                    'base.HCP_ID_CONFIG' : { 'tag' : 'base.HCP_ID_CONFIG', 'type' : 'int_8', 'value' : self.config }
-                }
-        
-        
-        return j
-    
-    def getMajorPlatform( self ):
-        return ( self.platform & 0x38 ) >> 3
-
-    def getArchPlatform( self ):
-        return ( self.platform & 0xC0 ) >> 6
-
-    def getMinorPlatform( self ):
-        return ( self.platform & 0x07 )
+        return {
+                'base.HCP_SENSOR_ID' : { 'tag' : 'base.HCP_SENSOR_ID', 
+                                         'type' : 'buffer', 
+                                         'value' : uuid.UUID( self.sensor_id if self.sensor_id is not None else self.empty_uuid ).bytes },
+                'base.HCP_ORG_ID' : { 'tag' : 'base.HCP_ORG_ID', 
+                                      'type' : 'buffer', 
+                                      'value' : uuid.UUID( self.org_id if self.org_id is not None else self.empty_uuid ).bytes },
+                'base.HCP_INSTALLER_ID' : { 'tag' : 'base.HCP_INSTALLER_ID', 
+                                      'type' : 'buffer', 
+                                      'value' : uuid.UUID( self.ins_id if self.ins_id is not None else self.empty_uuid ).bytes },
+                'base.HCP_ARCHITECTURE' : { 'tag' : 'base.HCP_ARCHITECTURE', 
+                                            'type' : 'int_32', 
+                                            'value' : self.architecture },
+                'base.HCP_PLATFORM' : { 'tag' : 'base.HCP_PLATFORM', 
+                                        'type' : 'int_32', 
+                                        'value' : self.platform }
+            }
     
     def isWindows( self ):
-        return self.getMajorPlatform() == 0x01
+        return self.platform == 0x10000000
     
     def isLinux( self ):
-        return self.getMajorPlatform() == 0x05
+        return self.platform == 0x20000000
     
     def isMacOSX( self ):
-        return self.getMajorPlatform() == 0x02
+        return self.platform == 0x30000000
     
     def isIos( self ):
-        return self.getMajorPlatform() == 0x03
+        return self.platform == 0x40000000
     
     def isAndroid( self ):
-        return self.getMajorPlatform() == 0x04
+        return self.platform == 0x50000000
     
     def isX86( self ):
-        return self.getArchPlatform() == 0x01
+        return self.architecture == 0x00000001
 
     def isX64( self ):
-        return self.getArchPlatform() == 0x02
+        return self.architecture == 0x00000002
 
     def isWildcarded( self ):
-        return ( 0xFF == self.org or
-                 0xFF == self.subnet or
-                 0xFFFFFFFF == self.unique or
-                 3 == self.getArchPlatform() or
-                 7 == self.getMajorPlatform() or
-                 7 == self.getMinorPlatform() )
+        return ( self.sensor_id is None and
+                 ( self.org_id is None or
+                   self.ins_id is None or
+                   self.architecture is None or
+                   self.platform is None ) )
 
 
 class RingCache( object ):

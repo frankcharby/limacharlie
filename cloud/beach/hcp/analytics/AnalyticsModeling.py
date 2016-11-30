@@ -149,7 +149,7 @@ class AnalyticsModeling( Actor ):
             self.log( 'MOD_IN %s' % self.processedCounter )
 
         agent = AgentId( routing[ 'agentid' ] )
-        aid = agent.invariableToString()
+        aid = agent.sensor_id
         ts = _x_( event, '?/base.TIMESTAMP' )
 
         if ts is not None:

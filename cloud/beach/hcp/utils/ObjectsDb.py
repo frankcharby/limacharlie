@@ -193,13 +193,13 @@ class HostObjects( object ):
         def thisGen():
             for host in hosts:
                 if 0 == len( types ):
-                    for row in cls._db.execute( 'SELECT id, last FROM loc WHERE aid = %s', ( AgentId( host ).invariableToString(), ) ):
+                    for row in cls._db.execute( 'SELECT id, last FROM loc WHERE sid = %s', ( AgentId( host ).sensor_id, ) ):
                         if within is None or int( time.mktime( row[ 1 ].timetuple() ) ) >= within:
                             yield row[ 0 ]
                 else:
                     rows = []
                     for t in types:
-                        for row in cls._db.execute( 'SELECT id, last FROM loc WHERE aid = %s AND otype = %s', ( AgentId( host ).invariableToString(), cls._castType( t ) ) ):
+                        for row in cls._db.execute( 'SELECT id, last FROM loc WHERE sid = %s AND otype = %s', ( AgentId( host ).sensor_id, cls._castType( t ) ) ):
                             if within is None or int( time.mktime( row[ 1 ].timetuple() ) ) >= within:
                                 yield row[ 0 ]
 
@@ -325,7 +325,7 @@ class HostObjects( object ):
             within = int( time.time() ) - int( within )
 
         for ids in chunks( self._ids, self._queryChunks ):
-            for row in self._db.execute( 'SELECT id, aid , last FROM loc_by_id WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
+            for row in self._db.execute( 'SELECT id, sid , last FROM loc_by_id WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
                 ts = self._db.timeToMsTs( row[ 2 ] )
                 if within is None:
                     yield ( row[ 0 ], row[ 1 ], ts )
@@ -383,9 +383,9 @@ class HostObjects( object ):
     def lastSeen( self, forAgents = None ):
         if forAgents is not None and type( forAgents ) is not tuple and type( forAgents ) is not list:
             forAgents = ( forAgents, )
-        forAgents = [ x.invariableToString() for x in forAgents ]
+        forAgents = [ x.sensor_id for x in forAgents ]
         for ids in chunks( self._ids, self._queryChunks ):
-            for row in self._db.execute( 'SELECT id, aid, last FROM loc_by_id WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
+            for row in self._db.execute( 'SELECT id, sid, last FROM loc_by_id WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
                 if forAgents is not None:
                     if row[ 1 ] not in forAgents:
                         continue
@@ -437,10 +437,10 @@ class Host( object ):
     def __init__( self, agentid ):
         if type( agentid  ) is not AgentId:
             agentid = AgentId( agentid )
-        self.aid = agentid
+        self.sid = agentid.sensor_id
 
     def __str__( self ):
-        return str( self.aid )
+        return str( self.sid )
 
     def isOnline( self ):
         isOnline = False
@@ -454,8 +454,7 @@ class Host( object ):
     def getHostName( self ):
         hostname = None
 
-        aid = str( self.aid )
-        info = self._be.hcp_getAgentStates( aid = aid )
+        info = self._be.hcp_getAgentStates( aid = self.sid )
         if info.isSuccess and 'agents' in info.data and 0 != len( info.data[ 'agents' ] ):
             info = info.data[ 'agents' ].values()[ 0 ]
             hostname = info[ 'last_hostname' ]
@@ -467,7 +466,7 @@ class Host( object ):
 
         whereTs = ''
         filters = []
-        filters.append( self.aid.invariableToString() )
+        filters.append( self.sid )
         if within is not None:
             ts = tsToTime( int( within ) )
             whereTs = ' AND ts >= minTimeuuid(%s)'
@@ -491,8 +490,8 @@ class Host( object ):
         filters = []
         filterValues = []
 
-        filters.append( 'agentid = %s' )
-        filterValues.append( self.aid.invariableToString() )
+        filters.append( 'sid = %s' )
+        filterValues.append( self.sid )
 
         if before is not None and before != '':
             filters.append( 'ts <= %s' )
@@ -542,7 +541,7 @@ class Host( object ):
 
     def lastSeen( self ):
         last = None
-        record = self._db.getOne( 'SELECT last from recentlyActive WHERE agentid = %s', ( self.aid.invariableToString(), ) )
+        record = self._db.getOne( 'SELECT last from recentlyActive WHERE sid = %s', ( self.sid, ) )
         if record is not None:
             last = int( time.mktime( record[ 0 ].timetuple() ) )
 
@@ -551,7 +550,7 @@ class Host( object ):
     def lastEvents( self ):
         events = []
 
-        for row in self._db.execute( 'SELECT type, id FROM last_events WHERE agentid = %s', ( self.aid.invariableToString(), ) ):
+        for row in self._db.execute( 'SELECT type, id FROM last_events WHERE sid = %s', ( self.sid, ) ):
             events.append( { 'name' : row[ 0 ], 'id' : row[ 1 ] } )
 
         return events

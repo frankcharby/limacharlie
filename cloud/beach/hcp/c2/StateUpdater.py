@@ -32,9 +32,9 @@ class StateUpdater( Actor ):
                             maxConcurrent = parameters[ 'max_concurrent' ],
                             blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
 
-        self.recordLive = self.db.prepare( 'UPDATE sensor_states SET alive = dateOf(now()), ext_ip = ?, int_ip = ?, hostname = ? WHERE org = ? AND subnet = ? AND unique = ? AND platform = ?' )
-        self.recordHostName = self.db.prepare( 'INSERT INTO sensor_hostnames ( hostname, aid ) VALUES ( ?, ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
-        self.recordDead = self.db.prepare( 'UPDATE sensor_states SET dead = dateOf(now()) WHERE org = ? AND subnet = ? AND unique = ? AND platform = ?' )
+        self.recordLive = self.db.prepare( 'UPDATE sensor_states SET alive = dateOf(now()), ext_ip = ?, int_ip = ?, hostname = ?, oid = ?, iid = ?, plat = ?, arch = ? WHERE sid = ?' )
+        self.recordHostName = self.db.prepare( 'INSERT INTO sensor_hostnames ( hostname, sid ) VALUES ( ?, ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
+        self.recordDead = self.db.prepare( 'UPDATE sensor_states SET dead = dateOf(now()) WHERE sid = ?' )
 
         self.db.start()
 
@@ -50,11 +50,11 @@ class StateUpdater( Actor ):
         intIp = msg.data[ 'int_ip' ]
         hostName = msg.data[ 'hostname' ]
 
-        self.db.execute_async( self.recordLive.bind( ( extIp, intIp, hostName, aid.org, aid.subnet, aid.unique, aid.platform ) ) )
-        self.db.execute_async( self.recordHostName.bind( ( hostName.upper(), aid.invariableToString() ) ) )
+        self.db.execute_async( self.recordLive.bind( ( extIp, intIp, hostName, aid.org_id, aid.ins_id, aid.platform, aid.architecture, aid.sensor_id ) ) )
+        self.db.execute_async( self.recordHostName.bind( ( hostName.upper(), aid.sensor_id ) ) )
         return ( True, )
 
     def setDead( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )
-        self.db.execute_async( self.recordDead.bind( ( aid.org, aid.subnet, aid.unique, aid.platform ) ) )
+        self.db.execute_async( self.recordDead.bind( ( aid.sensor_id ) ) )
         return ( True, )

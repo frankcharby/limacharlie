@@ -64,23 +64,6 @@ class BEAdmin( object ):
             filters[ 'hostname' ] = hostname
         return self._query( 'hcp.get_agent_states', filters )
     
-    def hcp_getEnrollmentRules( self ):
-        return self._query( 'hcp.get_enrollment_rules' )
-    
-    def hcp_addEnrollmentRule( self, mask, externalIp, internalIp, newOrg, newSubnet, hostname ):
-        return self._query( 'hcp.add_enrollment_rule', { 'mask' : mask,
-                                                         'external_ip' : externalIp,
-                                                         'internal_ip' : internalIp,
-                                                         'new_org' : newOrg,
-                                                         'new_subnet' : newSubnet,
-                                                         'hostname' : hostname } )
-    
-    def hcp_delEnrollmentRule( self, mask, externalIp, internalIp, hostname ):
-        return self._query( 'hcp.del_enrollment_rule', { 'mask' : mask,
-                                                         'external_ip' : externalIp,
-                                                         'internal_ip' : internalIp,
-                                                         'hostname' : hostname } )
-    
     def hcp_getTaskings( self ):
         return self._query( 'hcp.get_taskings' )
     
@@ -98,14 +81,6 @@ class BEAdmin( object ):
     
     def hcp_delModule( self, moduleId, hashStr ):
         return self._query( 'hcp.remove_module', { 'module_id' : moduleId, 'hash' : hashStr } )
-    
-    def hcp_relocAgent( self, agentid, newOrg, newSubnet ):
-        return self._query( 'hcp.reloc_agent', { 'agentid' : agentid,
-                                                 'new_org' : newOrg,
-                                                 'new_subnet' : newSubnet } )
-    
-    def hcp_getRelocations( self ):
-        return self._query( 'hcp.get_relocations' )
     
     def hbs_getProfiles( self ):
         return self._query( 'hbs.get_profiles' )

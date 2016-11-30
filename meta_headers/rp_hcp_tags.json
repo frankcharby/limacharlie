@@ -15,7 +15,7 @@
            { "name" : "HCP_ARCHITECTURE", "value" : 6 },
            { "name" : "HCP_PLATFORM", "value" : 7 },
            { "name" : "HCP_IDENT", "value" : 8 },
-           { "name" : "_____", "value" : 9 },
+           { "name" : "HCP_INSTALLER_ID", "value" : 9 },
            { "name" : "HASH", "value" : 10 },
            { "name" : "MESSAGE", "value" : 11 },
            { "name" : "OPERATION", "value" : 12 },

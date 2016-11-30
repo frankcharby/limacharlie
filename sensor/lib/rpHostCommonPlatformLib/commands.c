@@ -394,6 +394,8 @@ RBOOL
                                                  RP_HCP_UUID_TO_COMPONENTS( g_hcpContext.currentId.sensor_id ) );
                                 rpal_debug_info( "org id set to " RP_HCP_FORMAT_UUID,
                                                  RP_HCP_UUID_TO_COMPONENTS( g_hcpContext.currentId.org_id ) );
+                                rpal_debug_info( "ins id set to " RP_HCP_FORMAT_UUID,
+                                                 RP_HCP_UUID_TO_COMPONENTS( g_hcpContext.currentId.ins_id ) );
                                 isSuccess = TRUE;
                             }
                             else

@@ -396,92 +396,6 @@ class HcpCli ( cmd.Cmd ):
             self.execAndPrintResponse( self.be.hcp_getAgentStates, arguments )
 
     @report_errors
-    def do_hcp_addEnrollmentRule( self, s ):
-        '''Add a new enrollment rule for new agents.'''
-
-        parser = self.getParser( 'addEnrollmentRule' )
-        parser.add_argument( '-m', '--mask',
-                             type = AgentId,
-                             required = True,
-                             help = 'agent id mask this rule applies to',
-                             dest = 'mask' )
-        parser.add_argument( '-i', '--internalip',
-                             type = str,
-                             required = False,
-                             default = '0.0.0.0/0',
-                             help = 'internal ip mask the rule applies to (255 wildcard)',
-                             dest = 'internalIp' )
-        parser.add_argument( '-e', '--externalip',
-                             type = str,
-                             required = False,
-                             default = '0.0.0.0/0',
-                             help = 'external ip mask the rule applies to (255 wildcard)',
-                             dest = 'externalIp' )
-        parser.add_argument( '-s', '--newsubnet',
-                             type = hexArg,
-                             required = True,
-                             help = 'new subnet to give to agents matching this rule (hex)',
-                             dest = 'newSubnet' )
-        parser.add_argument( '-o', '--neworg',
-                             type = hexArg,
-                             required = True,
-                             help = 'new org to give to agents matching this rule (hex)',
-                             dest = 'newOrg' )
-        parser.add_argument( '-n', '--hostname',
-                             type = str,
-                             required = False,
-                             default = '',
-                             help = 'hostname of the host',
-                             dest = 'hostname' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_addEnrollmentRule, arguments )
-
-    @report_errors
-    def do_hcp_delEnrollmentRule( self, s ):
-        '''Remove an enrollment rule for new agents.'''
-
-        parser = self.getParser( 'addEnrollmentRule' )
-        parser.add_argument( '-m', '--mask',
-                             type = AgentId,
-                             required = True,
-                             help = 'agent id mask this rule applies to',
-                             dest = 'mask' )
-        parser.add_argument( '-i', '--internalip',
-                             type = str,
-                             required = False,
-                             default = '255.255.255.255',
-                             help = 'internal ip mask the rule applies to (255 wildcard)',
-                             dest = 'internalIp' )
-        parser.add_argument( '-e', '--externalip',
-                             type = str,
-                             required = False,
-                             default = '255.255.255.255',
-                             help = 'external ip mask the rule applies to (255 wildcard)',
-                             dest = 'externalIp' )
-        parser.add_argument( '-n', '--hostname',
-                             type = str,
-                             required = False,
-                             default = '',
-                             help = 'hostname of the host',
-                             dest = 'hostname' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_delEnrollmentRule, arguments )
-
-    @report_errors
-    def do_hcp_getEnrollmentRules( self, s ):
-        '''Get the list of enrollment rules for new agents.'''
-
-        parser = self.getParser( 'getEnrollmentRules' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_getEnrollmentRules, arguments )
-
-    @report_errors
     def do_hcp_addTasking( self, s ):
         '''Task a module to a list of agents.'''
 
@@ -608,46 +522,7 @@ class HcpCli ( cmd.Cmd ):
 
         if arguments is not None:
             self.execAndPrintResponse( self.be.hcp_getModules, arguments )
-
-    @report_errors
-    def do_hcp_relocAgent( self, s ):
-        '''Relocate an agent to a new org and network.'''
-
-        parser = self.getParser( 'relocAgent' )
-        parser.add_argument( '-a', '--agentid',
-                             type = AgentId,
-                             required = True,
-                             help = 'agent id to relocate',
-                             dest = 'agentid' )
-        parser.add_argument( '-s', '--newsubnet',
-                             type = hexArg,
-                             required = True,
-                             help = 'new subnet to give to agents matching this rule (hex)',
-                             dest = 'newSubnet' )
-        parser.add_argument( '-o', '--neworg',
-                             type = hexArg,
-                             required = True,
-                             help = 'new org to give to agents matching this rule (hex)',
-                             dest = 'newOrg' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_relocAgent, arguments )
-
-    @report_errors
-    def do_hcp_getRelocations( self, s ):
-        '''Get the list of agent reolcations.'''
-
-        parser = self.getParser( 'getRelocations' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_getRelocations, arguments )
-
-
-
-
-
+            
     #===========================================================================
     #   HBS COMMANDS
     #===========================================================================

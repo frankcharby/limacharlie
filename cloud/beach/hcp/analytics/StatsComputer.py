@@ -67,8 +67,8 @@ class StatsComputer( Actor ):
         # Count the number of hosts per platform
         agents = [ AgentId( x ) for x in self.be.hcp_getAgentStates().data[ 'agents' ].keys() ]
         for agent in agents:
-            platforms.setdefault( agent.getMajorPlatform(), 0 )
-            platforms[ agent.getMajorPlatform() ] += 1
+            platforms.setdefault( agent.platform, 0 )
+            platforms[ agent.platform ] += 1
         del agents
 
         # Find the number of locations per process object

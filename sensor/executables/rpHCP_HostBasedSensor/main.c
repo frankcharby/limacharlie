@@ -141,6 +141,9 @@ RBOOL
         ( id1.org_id == id2.org_id ||
           id1.org_id == wildcardId.org_id ||
           id2.org_id == wildcardId.org_id ) &&
+        ( id1.ins_id == id2.ins_id ||
+          id1.ins_id == wildcardId.ins_id ||
+          id2.ins_id == wildcardId.ins_id ) &&
         ( id1.architecture == id2.architecture ||
           id1.architecture == wildcardId.architecture ||
           id2.architecture == wildcardId.architecture ) &&

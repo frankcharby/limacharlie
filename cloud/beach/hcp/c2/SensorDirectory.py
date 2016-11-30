@@ -38,25 +38,25 @@ class SensorDirectory( Actor ):
         pass
 
     def setLive( self, msg ):
-        aid = msg.data[ 'aid' ]
+        aid = AgentId( msg.data[ 'aid' ] )
         endpoint = msg.data[ 'endpoint' ]
-        self.directory[ aid ] = ( endpoint, 0 )
+        self.directory[ aid.sensor_id ] = ( endpoint, 0 )
         return ( True, )
 
     def setDead( self, msg ):
-        aid = msg.data[ 'aid' ]
-        del( self.directory[ aid ] )
+        aid = AgentId( msg.data[ 'aid' ] )
+        del( self.directory[ aid.sensor_id ] )
         return ( True, )
 
     def addTransfered( self, msg ):
-        aid = msg.data[ 'aid' ]
+        aid = AgentId( msg.data[ 'aid' ] )
         newBytes = msg.data[ 'bytes_transfered' ]
-        curEndpoint, curBytes = self.directory.get( aid, ( None, 0 ) )
-        self.directory[ aid ] = ( curEndpoint, curBytes + newBytes )
-        self.log( '%s transfered %d new bytes.' % ( aid, newBytes ) )
+        curEndpoint, curBytes = self.directory.get( aid.sensor_id, ( None, 0 ) )
+        self.directory[ aid.sensor_id ] = ( curEndpoint, curBytes + newBytes )
+        self.log( '%s transfered %d new bytes.' % ( aid.sensor_id, newBytes ) )
         return ( True, )
 
     def getEndpoint( self, msg ):
-        aid = AgentId( msg.data[ 'aid' ] ).invariableToString()
-        endpoint, transfered = self.directory.get( aid, ( None, 0 ) )
-        return ( True, { 'aid' : aid, 'endpoint' : endpoint, 'transfered' : transfered } )
+        aid = AgentId( msg.data[ 'aid' ] )
+        endpoint, transfered = self.directory.get( aid.sensor_id, ( None, 0 ) )
+        return ( True, { 'aid' : aid.sensor_id, 'endpoint' : endpoint, 'transfered' : transfered } )

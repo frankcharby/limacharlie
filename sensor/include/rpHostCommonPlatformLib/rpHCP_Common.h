@@ -31,6 +31,7 @@ typedef struct
 {
     RU8 sensor_id[ RP_HCP_UUID_SIZE ];
     RU8 org_id[ RP_HCP_UUID_SIZE ];
+    RU8 ins_id[ RP_HCP_UUID_SIZE ];
     RU32 architecture;
     RU32 platform;
 } rpHCPId;
