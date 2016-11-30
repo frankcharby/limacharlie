@@ -166,6 +166,14 @@ def dbgprint( s ):
     sys.stderr.write( s + "\n" )
     sys.stderr.flush()
 
+def _makeUuid( val ):
+    if type( val ) is not uuid:
+        try:
+            val = uuid.UUID( val )
+        except:
+            val = uuid.UUID( bytes = val )
+    return val
+
 class HostObjects( object ):
     _db = None
     _idRe = re.compile( '^[a-zA-Z0-9]{64}$' )
@@ -417,6 +425,8 @@ class Host( object ):
     def getSpecificEvent( self, id ):
         record = None
 
+        id = _makeUuid( id )
+
         event = self._db.getOne( 'SELECT sid, event FROM events WHERE eventid = %s', ( id, ) )
         if event is not None:
             record = ( id, event[ 0 ], event[ 1 ] )
@@ -427,7 +437,7 @@ class Host( object ):
     def getSpecificEvents( self, ids ):
         records = []
 
-        events = self._db.execute( 'SELECT eventid, sid, event FROM events WHERE eventid IN ( \'%s\' )' % ( '\',\''.join( ids ), ) )
+        events = self._db.execute( 'SELECT eventid, sid, event FROM events WHERE eventid IN ( \'%s\' )' % ( '\',\''.join( [ _makeUuid( x ) for x in ids ] ), ) )
         if events is not None:
             for event in events:
                 records.append( ( event[ 0 ], event[ 1 ], event[ 2 ] ) )
