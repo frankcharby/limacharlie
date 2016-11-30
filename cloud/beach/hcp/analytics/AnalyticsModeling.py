@@ -162,7 +162,7 @@ class AnalyticsModeling( Actor ):
             else:
                 ts = float( ts ) / 1000
 
-        eid = routing[ 'event_id' ]
+        eid = uuid.UUID( routing[ 'event_id' ] )
 
         self.db.execute_async( self.statements[ 'events' ].bind( ( eid,
                                                                    base64.b64encode( msgpack.packb( { 'routing' : routing, 'event' : event } ) ),

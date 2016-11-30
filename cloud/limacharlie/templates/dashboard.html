@@ -19,7 +19,7 @@ $var title = "Dashboard"
             $for sensor in sensors.values():
                 <tr>
                     <td>
-                        $sensor[ 'aid' ]
+                        $AgentId( sensor[ 'aid' ] ).sensor_id
                     </td>
                     <td>
                         $sensor[ 'last_hostname' ]
@@ -40,7 +40,7 @@ $var title = "Dashboard"
                         $sensor[ 'last_disconnect_date' ]
                     </td>
                     <td>
-                        <a href="/sensor?sensor_id=$sensor[ 'aid' ]" title="View Sensor Info" class="glyphicon glyphicon-log-in"></a>
+                        <a href="/sensor?sensor_id=$AgentId( sensor[ 'aid' ] ).sensor_id" title="View Sensor Info" class="glyphicon glyphicon-log-in"></a>
                     </td>
                 </tr>
             </tbody>

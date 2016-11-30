@@ -54,7 +54,7 @@ CREATE TABLE hbs_queue(
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE events(
-  eventid varchar,
+  eventid uuid,
   event varchar,
   sid uuid,
   PRIMARY KEY( eventid )
@@ -64,7 +64,7 @@ CREATE TABLE timeline(
   sid uuid,
   ts timeuuid,
   eventtype varchar,
-  eventid varchar,
+  eventid uuid,
   PRIMARY KEY( sid, ts )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
@@ -72,7 +72,7 @@ CREATE TABLE timeline_by_type(
   sid uuid,
   ts timeuuid,
   eventtype varchar,
-  eventid varchar,
+  eventid uuid,
   PRIMARY KEY( sid, eventtype, ts )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
@@ -150,7 +150,7 @@ CREATE TABLE last_events
 (
   sid uuid,
   type varchar,
-  id varchar,
+  id uuid,
   PRIMARY KEY( sid, type )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 

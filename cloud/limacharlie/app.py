@@ -19,6 +19,7 @@ import os
 import sys
 
 from beach.beach_api import Beach
+from hcp_helpers import AgentId
 from hcp_helpers import timeToTs
 from hcp_helpers import _x_
 from hcp_helpers import _xm_
@@ -148,7 +149,7 @@ class Sensor:
         if '' != params.after:
             after = params.after
 
-        return render.sensor( info.data[ 'id' ], before, after, params.max_size, params.per_page )
+        return render.sensor( AgentId( info.data[ 'id' ] ), before, after, params.max_size, params.per_page )
 
 class SensorState:
     @jsonApi
@@ -539,6 +540,7 @@ render = web.template.render( 'templates', base = 'base', globals = { 'json' : j
                                                                       'msTsToTime' : msTsToTime,
                                                                       '_x_' : _x_,
                                                                       '_xm_' : _xm_,
+                                                                      'AgentId' : AgentId,
                                                                       'hex' : hex,
                                                                       'sanitize' : sanitizeJson,
                                                                       'EventInterpreter' : EventInterpreter,
@@ -551,6 +553,7 @@ renderFullPage = web.template.render( 'templates', base = 'base_full', globals =
                                                                                    'msTsToTime' : msTsToTime,
                                                                                    '_x_' : _x_,
                                                                                    '_xm_' : _xm_,
+                                                                                   'AgentId' : AgentId,
                                                                                    'hex' : hex,
                                                                                    'sanitize' : sanitizeJson,
                                                                                    'EventInterpreter' : EventInterpreter,
@@ -562,6 +565,7 @@ eventRender = web.template.render( 'templates/custom_events', globals = { 'json'
                                                                           'msTsToTime' : msTsToTime,
                                                                           '_x_' : _x_,
                                                                           '_xm_' : _xm_,
+                                                                          'AgentId' : AgentId,
                                                                           'hex' : hex,
                                                                           'sanitize' : sanitizeJson,
                                                                           'EventInterpreter' : EventInterpreter,

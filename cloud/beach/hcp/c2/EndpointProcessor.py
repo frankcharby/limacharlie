@@ -385,7 +385,7 @@ class EndpointProcessor( Actor ):
             routing = { 'aid' : c.getAid(),
                         'moduleid' : HcpModuleId.HBS,
                         'event_type' : message.keys()[ 0 ],
-                        'event_id' : hashlib.sha256( str( uuid.uuid4() ) ).hexdigest() }
+                        'event_id' : uuid.uuid4() }
             invId = message.values()[ 0 ].get( 'hbs.INVESTIGATION_ID', None )
             if invId is not None:
                 routing[ 'investigation_id' ] = invId

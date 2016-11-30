@@ -49,8 +49,8 @@ class StatsComputer( Actor ):
         for oid, aid, ts in locs:
             if withPlatform:
                 agent = AgentId( aid )
-                tally.setdefault( agent.getMajorPlatform(), {} ).setdefault( oid, 0 )
-                tally[ agent.getMajorPlatform() ][ oid ] += 1
+                tally.setdefault( agent.platform, {} ).setdefault( oid, 0 )
+                tally[ agent.platform ][ oid ] += 1
             else:
                 tally.setdefault( oid, 0 )
                 tally[ oid ] += 1
