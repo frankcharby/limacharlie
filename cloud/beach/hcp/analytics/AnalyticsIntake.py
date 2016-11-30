@@ -113,9 +113,9 @@ class AnalyticsIntake( Actor ):
             self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, mainMod, ObjectTypes.FILE_PATH )
 
         if filePath is not None:
-            self._addObj( mtd, filePath, ObjectTypes.FILE_HASH )
-            self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, filePath, ObjectTypes.FILE_HASH )
-        elif h is not None:
+            self._addObj( mtd, filePath, ObjectTypes.FILE_PATH )
+            self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, filePath, ObjectTypes.FILE_PATH )
+        if h is not None:
             self._addObj( mtd, h, ObjectTypes.FILE_HASH )
             self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, h, ObjectTypes.FILE_HASH )
 

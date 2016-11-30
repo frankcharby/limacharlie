@@ -199,14 +199,14 @@ CREATE TABLE atoms_children
 (
   atomid uuid,
   child uuid,
-  eid varchar,
+  eid uuid,
   PRIMARY KEY( atomid, child )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE atoms_lookup
 (
   atomid uuid,
-  eid varchar,
+  eid uuid,
   PRIMARY KEY( atomid, eid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
@@ -214,7 +214,7 @@ CREATE TABLE investigation_data
 (
   invid varchar,
   ts timeuuid,
-  eid varchar,
+  eid uuid,
   etype varchar,
   PRIMARY KEY( invid, ts )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
