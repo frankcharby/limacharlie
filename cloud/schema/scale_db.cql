@@ -36,7 +36,7 @@ CREATE TABLE hcp_module_tasking(
   aid varchar,
   mid int,
   mhash varchar,
-  PRIMARY KEY( aid )
+  PRIMARY KEY( aid, mid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE hbs_profiles(

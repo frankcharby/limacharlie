@@ -89,6 +89,7 @@ RVOID
             else
             {
                 rpal_debug_warning( "could not acquire document" );
+                rSequence_unTaintRead( notif );
                 rSequence_addRU32( notif, RP_TAGS_ERROR, rpal_error_getLast() );
             }
 
