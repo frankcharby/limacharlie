@@ -40,10 +40,6 @@ class EnrollmentManager( Actor ):
     def deinit( self ):
         pass
 
-    def registerNewAid( self, aid ):
-            self.db.execute( 'INSERT INTO sensor_states ( sid, oid, iid, plat, arch, enroll ) VALUES ( %s, %s, %s, %s, %s, dateOf( now() ) )', 
-                             ( aid.sensor_id, aid.org_id, aid.ins_id, aid.platform, aid.architecture ) )
-
     def enroll( self, msg ):
         req = msg.data
 
@@ -52,7 +48,7 @@ class EnrollmentManager( Actor ):
         intIp = req[ 'internal_ip' ]
         hostName = req[ 'host_name' ]
 
-        aid.sensor_id = str( uuid.uuid4() )
+        aid.sensor_id = uuid.uuid4()
 
         self.db.execute( 'INSERT INTO sensor_states ( sid, oid, iid, plat, arch, enroll ) VALUES ( %s, %s, %s, %s, %s, dateOf( now() ) )', 
                          ( aid.sensor_id, aid.org_id, aid.ins_id, aid.platform, aid.architecture ) )

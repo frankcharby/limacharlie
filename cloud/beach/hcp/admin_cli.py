@@ -193,7 +193,7 @@ class HcpCli ( cmd.Cmd ):
             tmp = arguments
             arguments = argparse.Namespace()
 
-            if not tmp.toAgent.isValid or self.hbsKey is None:
+            if self.hbsKey is None:
                 self.outputString( 'Agent id and hbs key must be set in context.' )
                 return
 
@@ -213,11 +213,7 @@ class HcpCli ( cmd.Cmd ):
 
         for k, a in vars( arguments ).iteritems():
             if type( a ) is AgentId:
-                if not a.isValid:
-                    self.outputString( 'Invalid agent id: %s.' % str(a) )
-                    return
-                else:
-                    setattr( arguments, k, str( a ) )
+                setattr( arguments, k, str( a ) )
 
         results = command( **vars( arguments ) )
 
@@ -350,11 +346,8 @@ class HcpCli ( cmd.Cmd ):
 
         if arguments is not None:
             aid = arguments.aid
-            if aid.isValid:
-                self.aid = aid
-                self.updatePrompt()
-            else:
-                self.outputString( 'Agent Id is not valid.' )
+            self.aid = aid
+            self.updatePrompt()
 
     @report_errors
     def do_setInvestigationId( self, s ):

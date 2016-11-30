@@ -239,7 +239,7 @@ class EndpointProcessor( Actor ):
             hostName = headers.get( 'base.HOST_NAME', None )
             internalIp = headers.get( 'base.IP_ADDRESS', None )
             externalIp = address[ 0 ]
-            aid = AgentId( headers[ 'base.HCP_ID' ] )
+            aid = AgentId( headers[ 'base.HCP_IDENT' ] )
             if aid.org_id is None or aid.ins_id is None or aid.platform is None or aid.architecture is None:
                 aidInfo = str( aid )
                 if 0 == len( aidInfo ):
@@ -262,7 +262,7 @@ class EndpointProcessor( Actor ):
                 c.sendFrame( HcpModuleId.HCP,
                              ( rSequence().addInt8( Symbols.base.OPERATION, 
                                                     HcpOperations.SET_HCP_ID )
-                                          .addSequence( Symbols.base.HCP_ID, 
+                                          .addSequence( Symbols.base.HCP_IDENT, 
                                                         aid.toJson() )
                                           .addBuffer( Symbols.hcp.ENROLLMENT_TOKEN, 
                                                       enrollmentToken ), ) )

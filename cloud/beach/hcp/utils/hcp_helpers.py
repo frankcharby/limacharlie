@@ -455,8 +455,17 @@ class RWLock( object ):
 
 class AgentId( object ):
     
-    empty_uuid = str( uuid.UUID( bytes = "\x00" * 16 ) )
-    re_agent_id = re.compile( r'^((?:[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})|(?:0))(?:\.((?:[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})|(?:0))\.((?:[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})|(?:0))\.(\d+)\.(\d+))?$' )
+    empty_uuid = uuid.UUID( bytes = "\x00" * 16 )
+    re_agent_id = re.compile( r'^((?:[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})|(?:0))(?:\.((?:[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})|(?:0))\.((?:[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12})|(?:0))\.([0-9a-fA-F]+)\.([0-9a-fA-F]+))?$' )
+
+    PLATFORM_WINDOWS = 0x10000000
+    PLATFORM_LINUX = 0x20000000
+    PLATFORM_MACOS = 0x30000000
+    PLATFORM_IOS = 0x40000000
+    PLATFORM_ANDROID = 0x50000000
+
+    ARCHITECTURE_X86 = 0x00000001
+    ARCHITECTURE_X64 = 0x00000002
 
     def __init__( self, seq ):
         self.sensor_id = None
@@ -471,21 +480,19 @@ class AgentId( object ):
             self.ins_id = seq.get( 'base.HCP_INSTALLER_ID', seq.get( 'ins_id', None ) )
             self.architecture = seq.get( 'base.HCP_ARCHITECTURE', seq.get( 'architecture', None ) )
             self.platform = seq.get( 'base.HCP_PLATFORM', seq.get( 'platform', None ) )
-            
-            self.isValid = True
 
             if self.sensor_id is not None:
-                self.sensor_id = str( uuid.UUID( bytes = self.sensor_id ) )
+                self.sensor_id = uuid.UUID( bytes = self.sensor_id )
                 if self.sensor_id == self.empty_uuid:
                     self.sensor_id = None
 
             if self.org_id is not None:
-                self.org_id = str( uuid.UUID( bytes = self.org_id ) )
+                self.org_id = uuid.UUID( bytes = self.org_id )
                 if self.org_id == self.empty_uuid:
                     self.org_id = None
 
             if self.ins_id is not None:
-                self.ins_id = str( uuid.UUID( bytes = self.ins_id ) )
+                self.ins_id = uuid.UUID( bytes = self.ins_id )
                 if self.ins_id == self.empty_uuid:
                     self.ins_id = None
 
@@ -499,48 +506,53 @@ class AgentId( object ):
             if matches is not None:
                 matches = matches.groups()
                 if matches[ 1 ] is None:
-                    self.sensor_id = str( uuid.UUID( matches[ 0 ] ) )
+                    self.sensor_id = uuid.UUID( matches[ 0 ] )
                 else:
-                    self.org_id = str( uuid.UUID( matches[ 0 ] ) )
+                    self.org_id = matches[ 0 ]
+                    if self.org_id == '0' or self.org_id == self.empty_uuid:
+                        self.org_id = None
+                    else:
+                        self.org_id = uuid.UUID( self.org_id )
                     self.ins_id = matches[ 1 ]
                     if self.ins_id == '0' or self.ins_id == self.empty_uuid:
                         self.ins_id = None
                     else:
-                        self.ins_id = str( uuid.UUID( self.ins_id ) )
+                        self.ins_id = uuid.UUID( self.ins_id )
                     self.sensor_id = matches[ 2 ]
                     if self.sensor_id == '0' or self.sensor_id == self.empty_uuid:
                         self.sensor_id = None
                     else:
-                        self.sensor_id = str( uuid.UUID( self.sensor_id ) )
-                    self.platform = int( matches[ 3 ] ) if int( matches[ 3 ] ) != 0 else None
-                    self.architecture = int( matches[ 4 ] ) if int( matches[ 4 ] ) != 0 else None
+                        self.sensor_id = uuid.UUID( self.sensor_id )
+                    self.platform = int( matches[ 3 ], 16 ) if int( matches[ 3 ], 16 ) != 0 else None
+                    self.architecture = int( matches[ 4 ], 16 ) if int( matches[ 4 ], 16 ) != 0 else None
         elif type( seq ) is list or type( seq ) is tuple:
             if 1 == len( seq ):
                 self.sensor_id = seq[ 0 ]
                 if '0' == self.sensor_id or self.empty_uuid == self.sensor_id:
                     self.sensor_id = None
                 elif self.sensor_id is not None:
-                    self.sensor_id = str( uuid.UUID( self.sensor_id ) )
+                    self.sensor_id = uuid.UUID( self.sensor_id )
             else:
-                self.org_id = seq[ 0 ]
-                self.sensor_id = seq[ 1 ]
-                self.platform = seq[ 2 ]
-                self.architecture = seq[ 3 ]
+                self.org_id = str( seq[ 0 ] )
+                self.ins_id = str( seq[ 1 ] )
+                self.sensor_id = str( seq[ 2 ] )
+                self.platform = seq[ 3 ]
+                self.architecture = seq[ 4 ]
 
-                if '0' == self.org_id or self.empty_uuid == self.org_id:
+                if '0' == self.org_id or str( self.empty_uuid ) == self.org_id:
                     self.org_id = None
                 elif self.org_id is not None:
-                    self.org_id = str( uuid.UUID( self.org_id ) )
+                    self.org_id = uuid.UUID( self.org_id )
 
-                if '0' == self.ins_id or self.empty_uuid == self.ins_id:
+                if '0' == self.ins_id or str( self.empty_uuid ) == self.ins_id:
                     self.ins_id = None
                 elif self.ins_id is not None:
-                    self.ins_id = str( uuid.UUID( self.ins_id ) )
+                    self.ins_id = uuid.UUID( self.ins_id )
 
-                if '0' == self.sensor_id or self.empty_uuid == self.sensor_id:
+                if '0' == self.sensor_id or str( self.empty_uuid ) == self.sensor_id:
                     self.sensor_id = None
                 elif self.sensor_id is not None:
-                    self.sensor_id = str( uuid.UUID( self.sensor_id ) )
+                    self.sensor_id = uuid.UUID( self.sensor_id )
 
                 if self.architecture is not None:
                     self.architecture = int( self.architecture )
@@ -579,8 +591,8 @@ class AgentId( object ):
         s = '%s.%s.%s.%s.%s' % ( self.org_id if self.org_id is not None else '0',
                                  self.ins_id if self.ins_id is not None else '0',
                                  self.sensor_id if self.sensor_id is not None else '0',
-                                 self.platform if self.platform is not None else '0',
-                                 self.architecture if self.architecture is not None else '0' )
+                                 hex( self.platform )[ 2 : ] if self.platform is not None else '0',
+                                 hex( self.architecture )[ 2 : ] if self.architecture is not None else '0' )
 
         return s
 
@@ -607,13 +619,13 @@ class AgentId( object ):
         return {
                 'base.HCP_SENSOR_ID' : { 'tag' : 'base.HCP_SENSOR_ID', 
                                          'type' : 'buffer', 
-                                         'value' : uuid.UUID( self.sensor_id if self.sensor_id is not None else self.empty_uuid ).bytes },
+                                         'value' : ( self.sensor_id if self.sensor_id is not None else self.empty_uuid ).bytes },
                 'base.HCP_ORG_ID' : { 'tag' : 'base.HCP_ORG_ID', 
                                       'type' : 'buffer', 
-                                      'value' : uuid.UUID( self.org_id if self.org_id is not None else self.empty_uuid ).bytes },
+                                      'value' : ( self.org_id if self.org_id is not None else self.empty_uuid ).bytes },
                 'base.HCP_INSTALLER_ID' : { 'tag' : 'base.HCP_INSTALLER_ID', 
                                       'type' : 'buffer', 
-                                      'value' : uuid.UUID( self.ins_id if self.ins_id is not None else self.empty_uuid ).bytes },
+                                      'value' : ( self.ins_id if self.ins_id is not None else self.empty_uuid ).bytes },
                 'base.HCP_ARCHITECTURE' : { 'tag' : 'base.HCP_ARCHITECTURE', 
                                             'type' : 'int_32', 
                                             'value' : self.architecture },

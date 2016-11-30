@@ -67,15 +67,15 @@ class AnalyticsModeling( Actor ):
 
         self.statements[ 'obj_batch_man' ] = self.db.prepare( '''INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
         self.statements[ 'obj_batch_name' ] = self.db.prepare( '''INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
-        self.statements[ 'obj_batch_loc' ] = self.db.prepare( '''UPDATE loc USING TTL %d SET last = ? WHERE aid = ? AND otype = ? AND id = ?;''' % parameters[ 'retention_objects_primary' ] )
-        self.statements[ 'obj_batch_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
-        self.statements[ 'obj_batch_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_loc' ] = self.db.prepare( '''UPDATE loc USING TTL %d SET last = ? WHERE sid = ? AND otype = ? AND id = ?;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, sid, last ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, sid ) VALUES ( ?, ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
 
         self.statements[ 'obj_batch_tmp_man' ] = self.db.prepare( '''INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
         self.statements[ 'obj_batch_tmp_name' ] = self.db.prepare( '''INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
-        self.statements[ 'obj_batch_tmp_loc' ] = self.db.prepare( '''UPDATE loc USING TTL %d SET last = ? WHERE aid = ? AND otype = ? AND id = ?;''' % parameters[ 'retention_objects_secondary' ] )
-        self.statements[ 'obj_batch_tmp_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
-        self.statements[ 'obj_batch_tmp_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_loc' ] = self.db.prepare( '''UPDATE loc USING TTL %d SET last = ? WHERE sid = ? AND otype = ? AND id = ?;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, sid, last ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, sid ) VALUES ( ?, ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
 
         self.statements[ 'atoms_children' ] = self.db.prepare( 'INSERT INTO atoms_children ( atomid, child, eid ) VALUES ( ?, ?, ? ) USING TTL %d' % parameters[ 'retention_explorer' ] )
         self.statements[ 'atoms_lookup' ] = self.db.prepare( 'INSERT INTO atoms_lookup ( atomid, eid ) VALUES ( ?, ? ) USING TTL %d' % parameters[ 'retention_explorer' ] )

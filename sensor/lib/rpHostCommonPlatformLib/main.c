@@ -33,7 +33,11 @@ limitations under the License.
 #define RPAL_FILE_ID    53
 
 rpHCPContext g_hcpContext = { 0 };
-rpHCPId g_idTemplate = { 0 };
+rpHCPId g_idTemplate = { { 0 },                                                 // Sensor ID
+                         { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },    // Org ID
+                         { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },    // Installer ID
+                         0,                                                     // Architecture
+                         0 };                                                   // Platform
 
 // Large blank buffer to be used to patch configurations post-build
 #define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
@@ -112,7 +116,7 @@ rpHCPId
     {
         if( !rSequence_getBUFFER( seq, RP_TAGS_HCP_SENSOR_ID, &tmpSensorId, &tmpSize ) ||
             sizeof( id.sensor_id ) != tmpSize ||
-            !rSequence_getBUFFER( seq, RP_TAGS_HCP_ORG_ID, &tmpSensorId, &tmpSize ) ||
+            !rSequence_getBUFFER( seq, RP_TAGS_HCP_ORG_ID, &tmpOrgId, &tmpSize ) ||
             sizeof( id.org_id ) != tmpSize ||
             !rSequence_getBUFFER( seq, RP_TAGS_HCP_INSTALLER_ID, &tmpInsId, &tmpSize ) ||
             sizeof( id.ins_id ) != tmpSize ||
@@ -125,6 +129,7 @@ rpHCPId
         {
             rpal_memory_memcpy( id.sensor_id, tmpSensorId, sizeof( id.sensor_id ) );
             rpal_memory_memcpy( id.org_id, tmpOrgId, sizeof( id.org_id ) );
+            rpal_memory_memcpy( id.ins_id, tmpInsId, sizeof( id.ins_id ) );
         }
     }
 

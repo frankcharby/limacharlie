@@ -103,9 +103,6 @@ printStep( 'Downloading prebuilt release sensor binaries.',
            os.system( os.path.join( binaryPath, 'download_binaries.sh' ) ),
            os.chdir( cwd ) )
 
-printStep( 'Adding enrollment rule to the cloud to enroll all sensors into the 1.1 range.',
-    execInBackend( 'hcp_addEnrollmentRule -m ff.ff.ffffffff.fff.ff -o 1 -s 1' ) )
-
 binaries = os.listdir( binaryPath )
 for binary in binaries:
     if hcpConfig is not None:
@@ -130,24 +127,20 @@ for binary in binaries:
                                                          os.path.join( binaryPath, binary + '.sig' ) ) ) )
 
         if 'release' in binary or 'debug' in binary:
-            targetAgent = 'ff.ff.ffffffff.%s%s%s.ff'
+            targetAgent = '0.0.0.%s.%s'
             if 'x64' in binary:
                 arch = 2
             elif 'x86' in binary:
                 arch = 1
             if 'win' in binary:
-                major = 1
-                minor = 0
+                plat = 0x10000000
             elif 'osx' in binary:
-                major = 2
-                minor = 0
+                plat = 0x30000000
             elif 'ubuntu' in binary:
-                major = 5
-                minor = 4
+                plat = 0x20000000
 
-            targetAgent = targetAgent % ( hex( arch )[ 2: ],
-                                          hex( major )[ 2: ],
-                                          hex( minor )[ 2: ] )
+            targetAgent = targetAgent % ( hex( plat )[ 2: ],
+                                          hex( arch )[ 2: ] )
 
             with open( os.path.join( binaryPath, binary ) ) as f:
                 h = hashlib.sha256( f.read() ).hexdigest()
@@ -176,9 +169,9 @@ for binary in binaries:
                                                                                     h ) ) )
 
 printStep( 'Setting HBS profile.',
-           execInBackend( '''hbs_addProfile -m ff.ff.ffffffff.fff.ff -f %s''' % ( os.path.join( root,
-                                                                                                'cloud',
-                                                                                                'beach',
-                                                                                                'production_hbs.profile' ) ) ) )
+           execInBackend( '''hbs_addProfile -m 0.0.0.0.0 -f %s''' % ( os.path.join( root,
+                                                                                    'cloud',
+                                                                                    'beach',
+                                                                                    'production_hbs.profile' ) ) ) )
 
 os.chdir( originalDir )

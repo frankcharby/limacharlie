@@ -56,5 +56,5 @@ class StateUpdater( Actor ):
 
     def setDead( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )
-        self.db.execute_async( self.recordDead.bind( ( aid.sensor_id ) ) )
+        self.db.execute_async( self.recordDead.bind( ( aid.sensor_id, ) ) )
         return ( True, )

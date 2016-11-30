@@ -78,43 +78,42 @@ class AdminEndpoint( Actor ):
         elif hostName is not None:
             found = self.db.getOne( 'SELECT sid FROM sensor_hostnames WHERE hostname = %s', ( hostName.upper().strip(), ) )
             if found is not None:
-                aids = [ AgentId( x ) for x in found ]
+                aids.append( AgentId( found[ 0 ] ) )
         else:
             aids = None
 
         data = { 'agents' : {} }
 
         if aids is None:
-            for row in self.db.execute( 'SELECT sid, oid, plat, arch, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states' ):
-                    tmpAid = AgentId( ( row[ 1 ], row[ 0 ], row[ 2 ], row[ 3 ] ) )
-                    tmpData = {}
-                    tmpData[ 'aid' ] = str( tmpAid )
-                    tmpData[ 'last_external_ip' ] = row[ 8 ]
-                    tmpData[ 'last_internal_ip' ] = row[ 9 ]
-                    tmpData[ 'last_hostname' ] = row[ 7 ]
-                    tmpData[ 'enrollment_date' ] = str( row[ 4 ] )
-                    tmpData[ 'last_connect_date' ] = str( row[ 5 ] )
-                    tmpData[ 'last_disconnect_date' ] = str( row[ 6 ] )
-                    data[ 'agents' ][ tmpAid.sensor_id ] = tmpData
+            for row in self.db.execute( 'SELECT oid, iid, sid, plat, arch, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states' ):
+                tmpAid = AgentId( ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ], row[ 4 ] ) )
+                tmpData = {}
+                tmpData[ 'aid' ] = str( tmpAid )
+                tmpData[ 'last_external_ip' ] = row[ 9 ]
+                tmpData[ 'last_internal_ip' ] = row[ 10 ]
+                tmpData[ 'last_hostname' ] = row[ 8 ]
+                tmpData[ 'enrollment_date' ] = str( row[ 5 ] )
+                tmpData[ 'last_connect_date' ] = str( row[ 6 ] )
+                tmpData[ 'last_disconnect_date' ] = str( row[ 7 ] )
+                data[ 'agents' ][ tmpAid.sensor_id ] = tmpData
         elif 0 != len( aids ):
             for aid in aids:
                 filt = aid.asWhere()
                 if 0 == len( filt[ 0 ] ):
-                    q =  'SELECT sid, oid, plat, arch, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states%s'
+                    q =  'SELECT oid, iid, sid, plat, arch, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states%s'
                 else:
-                    q = 'SELECT sid, oid, plat, arch, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states WHERE %s'
+                    q = 'SELECT oid, iid, sid, plat, arch, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states WHERE %s'
                 for row in self.db.execute( q % filt[ 0 ], filt[ 1 ] ):
-                    tmpAid = AgentId( ( row[ 1 ], row[ 0 ], row[ 2 ], row[ 3 ] ) )
+                    tmpAid = AgentId( ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ], row[ 4 ] ) )
                     tmpData = {}
                     tmpData[ 'aid' ] = str( tmpAid )
-                    tmpData[ 'last_external_ip' ] = row[ 8 ]
-                    tmpData[ 'last_internal_ip' ] = row[ 9 ]
-                    tmpData[ 'last_hostname' ] = row[ 7 ]
-                    tmpData[ 'enrollment_date' ] = str( row[ 4 ] )
-                    tmpData[ 'last_connect_date' ] = str( row[ 5 ] )
-                    tmpData[ 'last_disconnect_date' ] = str( row[ 6 ] )
+                    tmpData[ 'last_external_ip' ] = row[ 9 ]
+                    tmpData[ 'last_internal_ip' ] = row[ 10 ]
+                    tmpData[ 'last_hostname' ] = row[ 8 ]
+                    tmpData[ 'enrollment_date' ] = str( row[ 5 ] )
+                    tmpData[ 'last_connect_date' ] = str( row[ 6 ] )
+                    tmpData[ 'last_disconnect_date' ] = str( row[ 7 ] )
                     data[ 'agents' ][ tmpAid.sensor_id ] = tmpData
-        
         return ( True, data )
 
     @audited
