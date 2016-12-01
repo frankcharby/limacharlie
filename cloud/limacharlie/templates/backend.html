@@ -7,25 +7,25 @@ $var title = 'Backend Config'
 	<h2>HCP</h2>
 	<br/>
 	<br/>
-	<h4>Enrollment rules</h4>
+	<h4>Installers</h4>
 	<table class="table table-bordered table-striped">
 		<thead>
-			<th>Org</th>
-			<th>Subnet</th>
-			<th>External IP</th>
-			<th>Internal Ip</th>
-			<th>Hostname</th>
-			<th>Mask</th>
+			<th>OrgId</th>
+			<th>InstallerId</th>
+			<th>Hash</th>
+			<th>Description</th>
+			<th>Creation</th>
+			<th></th>
 		</thead>
 		<tbody>
-			$for rule in info[ 'hcp_enrollments' ][ 'rules' ]:
+			$for installer in info[ 'hcp_installers' ][ 'installers' ]:
 				<tr>
-					<td>$rule[ 'new_org' ]</td>
-					<td>$rule[ 'new_subnet' ]</td>
-					<td>$rule[ 'external_ip' ]</td>
-					<td>$rule[ 'internal_ip' ]</td>
-					<td>$rule[ 'hostname' ]</td>
-					<td>$rule[ 'mask' ]</td>
+					<td>$installer[ 'oid' ]</td>
+					<td>$installer[ 'iid' ]</td>
+					<td>$installer[ 'hash' ]</td>
+					<td>$installer[ 'description' ]</td>
+					<td>$installer[ 'created' ]</td>
+					<td><a title="Download installer" class="glyphicon glyphicon-cloud-download" style="font-size: 30px;" href="/installer?oid=$installer[ 'oid' ]&iid=$installer[ 'iid' ]&hash=$installer[ 'hash' ]" target="_blank"></a></td>
 				</tr>
 		</tbody>
 	</table>

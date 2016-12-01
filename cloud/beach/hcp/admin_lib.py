@@ -81,6 +81,15 @@ class BEAdmin( object ):
     
     def hcp_delModule( self, moduleId, hashStr ):
         return self._query( 'hcp.remove_module', { 'module_id' : moduleId, 'hash' : hashStr } )
+
+    def hcp_getInstallers( self, oid = None, iid = None, withContent = False ):
+        return self._query( 'hcp.get_installers', { 'with_content' : withContent, 'oid' : oid, 'iid' : iid } )
+    
+    def hcp_addInstaller( self, oid, iid, description, installer ):
+        return self._query( 'hcp.add_installer', { 'oid' : oid, 'iid' : iid, 'description' : description, 'installer' : installer } )
+    
+    def hcp_delInstaller( self, oid, iid, hash ):
+        return self._query( 'hcp.remove_installer', { 'oid' : oid, 'iid' : iid, 'hash' : hash } )
     
     def hbs_getProfiles( self ):
         return self._query( 'hbs.get_profiles' )

@@ -39,6 +39,16 @@ CREATE TABLE hcp_module_tasking(
   PRIMARY KEY( aid, mid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
+CREATE TABLE hcp_installers(
+  oid uuid,
+  iid uuid,
+  ihash varchar,
+  description varchar,
+  created timestamp,
+  data blob,
+  PRIMARY KEY( oid, iid, ihash )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE hbs_profiles(
   aid varchar,
   cprofile blob,

@@ -18,6 +18,7 @@ import hashlib
 import time
 import ipaddress
 import uuid
+from sets import Set
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
@@ -35,10 +36,22 @@ class EnrollmentManager( Actor ):
 
         self.db.start()
 
+        self.installers = Set()
+
+        self.schedule( 3600, self.loadRules )
+
         self.handle( 'enroll', self.enroll )
+        self.handle( 'authorize', self.authorize )
+        self.handle( 'reload', self.loadRules )
 
     def deinit( self ):
         pass
+
+    def loadRules( self, msg = None ):
+        newRules = []
+        for row in self.db.execute( 'SELECT oid, iid FROM hcp_installers' ):
+            self.installers.add( ( row[ 0 ], row[ 1 ] ) )
+        self.rules = newRules
 
     def enroll( self, msg ):
         req = msg.data
@@ -54,3 +67,14 @@ class EnrollmentManager( Actor ):
                          ( aid.sensor_id, aid.org_id, aid.ins_id, aid.platform, aid.architecture ) )
 
         return ( True, { 'aid' : aid } )
+
+    def authorize( self, msg ):
+        req = msg.data
+
+        aid = AgentId( req[ 'aid' ] )
+
+        isAuthorized = False
+        if ( aid.org_id, aid.ins_id ) in self.installers:
+            isAuthorized = True
+
+        return ( True, { 'is_authorized' : isAuthorized } )

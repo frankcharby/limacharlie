@@ -53,6 +53,7 @@ class ModelView( Actor ):
         self.handle( 'get_file_in_event', self.get_file_in_event )
         self.handle( 'get_atoms_from_root', self.get_atoms_from_root )
         self.handle( 'get_backend_config', self.get_backend_config )
+        self.handle( 'get_installer', self.get_installer )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -352,9 +353,17 @@ class ModelView( Actor ):
     def get_backend_config( self, msg ):
         info = {}
 
-        info[ 'hcp_enrollments' ] = self.admin.hcp_getEnrollmentRules().data
+        info[ 'hcp_installers' ] = self.admin.hcp_getInstallers().data
         info[ 'hcp_taskings' ] = self.admin.hcp_getTaskings().data
         info[ 'hcp_modules' ] = self.admin.hcp_getModules().data
         info[ 'hbs_profiles' ] = self.admin.hbs_getProfiles().data
 
         return ( True, info )
+
+    def get_installer( self, msg ):
+        oid = msg.data[ 'oid' ]
+        iid = msg.data[ 'iid' ]
+        hash = msg.data[ 'hash' ]
+        data = self.admin.hcp_getInstallers( oid = oid, iid = iid, withContent = True ).data
+
+        return ( True, data )

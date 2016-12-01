@@ -16,6 +16,7 @@ from beach.actor import Actor
 import traceback
 import hashlib
 import time
+import uuid
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
 rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
@@ -50,6 +51,9 @@ class AdminEndpoint( Actor ):
         self.handle( 'hcp.get_modules', self.cmd_hcp_getModules )
         self.handle( 'hcp.add_module', self.cmd_hcp_addModule )
         self.handle( 'hcp.remove_module', self.cmd_hcp_delModule )
+        self.handle( 'hcp.get_installers', self.cmd_hcp_getInstallers )
+        self.handle( 'hcp.add_installer', self.cmd_hcp_addInstaller )
+        self.handle( 'hcp.remove_installer', self.cmd_hcp_delInstaller )
         self.handle( 'hbs.set_profile', self.cmd_hbs_addProfile )
         self.handle( 'hbs.get_profiles', self.cmd_hbs_getProfiles )
         self.handle( 'hbs.del_profile', self.cmd_hbs_delProfile )
@@ -193,6 +197,67 @@ class AdminEndpoint( Actor ):
                          ( moduleid, h ) )
 
         return ( True, )
+
+    @audited
+    def cmd_hcp_getInstallers( self, msg ):
+        installers = []
+        data = { 'installers' : installers }
+
+        withContent = msg.data.get( 'with_content', False )
+        oid = msg.data.get( 'oid', None )
+        iid = msg.data.get( 'iid', None )
+
+        filters = []
+        filterValues = []
+        if oid is not None:
+            filters.append( 'oid = %s' )
+            filterValues.append( uuid.UUID( oid ) )
+            if iid is not None:
+                filters.append( 'iid = %s' )
+                filterValues.append( uuid.UUID( iid ) )
+
+        filters = ' AND '.join( filters )
+        if 0 != len( filters ):
+            filters = ' WHERE ' + filters
+
+        for row in self.db.execute( 'SELECT oid, iid, ihash, description, created, data FROM hcp_installers%s' % filters, filterValues ):
+            installers.append( { 'oid' : row[ 0 ],
+                                 'iid' : row[ 1 ],
+                                 'hash' : row[ 2 ],
+                                 'description' : row[ 3 ],
+                                 'created' : row[ 4 ],
+                                 'data' : row[ 5 ] if withContent else None } )
+
+        return ( True, data )
+
+    @audited
+    def cmd_hcp_addInstaller( self, msg ):
+        oid = uuid.UUID( msg.data[ 'oid' ] )
+        iid = uuid.UUID( msg.data[ 'iid' ] )
+        description = msg.data[ 'description' ]
+        installer = msg.data[ 'installer' ]
+        installerHash = hashlib.sha256( installer ).hexdigest()
+
+        self.db.execute( 'INSERT INTO hcp_installers ( oid, iid, ihash, description, data, created ) VALUES ( %s, %s, %s, %s, %s, dateOf( now() ) )',
+                         ( oid, iid, installerHash, description, bytearray( installer ) ) )
+
+        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+
+        return ( True, { 'oid' : oid, 'iid' : iid, 'description' : description, 'hash' : installerHash } )
+
+    @audited
+    def cmd_hcp_delInstaller( self, msg ):
+        oid = uuid.UUID( msg.data[ 'oid' ] )
+        iid = uuid.UUID( msg.data[ 'iid' ] )
+        installerHash = msg.data[ 'hash' ]
+
+        self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s AND iid = %s AND ihash = %s',
+                         ( oid, iid, installerHash ) )
+
+        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+
+        return ( True, )
+
 
     @audited
     def cmd_hbs_getProfiles( self, msg ):

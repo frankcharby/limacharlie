@@ -16,6 +16,7 @@ import os
 import sys
 import hashlib
 import argparse
+import uuid
 
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
 originalDir = os.getcwd()
@@ -24,8 +25,17 @@ binaryPath = os.path.join( root, 'prebuilt_binaries' )
 hcpRootKey = os.path.join( root, 'keys', 'root.priv.der' )
 hcpConfig = None
 hbsConfig = None
+oid = None
+iid = None
+isDownload = True
 
 parser = argparse.ArgumentParser()
+parser.add_argument( '--nodownload',
+                     action = 'store_false',
+                     required = False,
+                     default = True,
+                     help = 'set to prevent the latest binaries from being downloaded, use current binaries instead.',
+                     dest = 'isDownload' )
 parser.add_argument( '-b', '--binaries',
                      type = str ,
                      required = False,
@@ -46,6 +56,18 @@ parser.add_argument( '-k', '--rootkey',
                      required = False,
                      help = 'Path to the HCP root private key to sign modules with.',
                      dest = 'key' )
+parser.add_argument( '-o', '--oid', 
+                     type = uuid.UUID,
+                     required = False,
+                     default = uuid.UUID( '00000000-0000-0000-0000-000000000001' ),
+                     help = 'the org id used for everything',
+                     dest = 'oid' )
+parser.add_argument( '-i', '--iid', 
+                     type = uuid.UUID,
+                     required = False,
+                     default = uuid.UUID( '00000000-0000-0000-0000-000000000001' ),
+                     help = 'the installer id used for everything',
+                     dest = 'iid' )
 arguments = parser.parse_args()
 
 if arguments.binaries is not None:
@@ -63,6 +85,16 @@ if arguments.hcp is not None:
 if arguments.hbs is not None:
     hbsConfig = os.path.abspath( arguments.hbs )
     print( 'Using HBS config: %s' % hbsConfig )
+
+if arguments.oid is not None:
+    oid = arguments.oid
+    print( 'Using org id: %s' % oid )
+
+if arguments.iid is not None:
+    iid = arguments.iid
+    print( 'Using installer id: %s' % iid )
+
+isDownload = arguments.isDownload
 
 cwd = os.path.curdir
 
@@ -98,19 +130,26 @@ def execInBackend( script ):
     os.unlink( '_tmp_script' )
     return ret
 
-printStep( 'Downloading prebuilt release sensor binaries.',
-           os.chdir( binaryPath ),
-           os.system( os.path.join( binaryPath, 'download_binaries.sh' ) ),
-           os.chdir( cwd ) )
+if isDownload:
+    printStep( 'Downloading prebuilt release sensor binaries.',
+               os.chdir( binaryPath ),
+               os.system( os.path.join( binaryPath, 'download_binaries.sh' ) ),
+               os.chdir( cwd ) )
 
 binaries = os.listdir( binaryPath )
 for binary in binaries:
-    if hcpConfig is not None:
-        if binary.startswith( 'hcp_' ) and not binary.endswith( '.sig' ):
+    if binary.startswith( 'hcp_' ) and not binary.endswith( '.sig' ):
+        if hcpConfig is not None:
             printStep( 'Setting HCP to config: %s' % hcpConfig,
-                       os.system( 'python %s %s %s' % ( os.path.join( root, 'sensor', 'scripts', 'set_sensor_config.py' ),
-                                                        hcpConfig,
-                                                        os.path.join( binaryPath, binary ) ) ) )
+                       os.system( 'python %s %s %s %s' % ( os.path.join( root, 'sensor', 'scripts', 'set_sensor_config.py' ),
+                                                           hcpConfig,
+                                                           os.path.join( binaryPath, binary ),
+                                                           iid ) ) )
+        printStep( 'Uploading installer: %s.' % binary,
+                   execInBackend( '''hcp_addInstaller -o %s -i %s -d %s -f %s''' % ( oid, 
+                                                                                     iid,
+                                                                                     binary,
+                                                                                     os.path.join( binaryPath, binary ) ) ) )
 
     if hbsConfig is not None:
         if binary.startswith( 'hbs_' ) and not binary.endswith( '.sig' ):

@@ -507,6 +507,37 @@ class Capabilities:
 
         return render.capabilities( capabilities = cap )
 
+class Installer:
+    @fileDownload
+    def GET( self ):
+        params = web.input( oid = None, iid = None, hash = None )
+
+        if params.oid is None or params.iid is None or params.hash is None:
+            raise web.HTTPError( '400 Bad Request: event id required' )
+
+        info = model.request( 'get_installer', { 'oid' : params.oid, 'iid' : params.iid, 'hash' : params.hash } )
+
+        if not info.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
+
+        toDownload = None
+        for installer in info.data[ 'installers' ]:
+            if ( installer[ 'oid' ].lower() == params.oid.lower() and 
+                 installer[ 'iid' ].lower() == params.iid.lower() and 
+                 installer[ 'hash' ].lower() == params.hash.lower() ):
+                toDownload = installer
+                break
+
+        if toDownload is None:
+            return render.error( 'could not find the right installer' )
+
+        downloadFileName( '%s__%s' % ( ( toDownload[ 'description' ].replace( '/', '_' )
+                                                                    .replace( '\\', '_' )
+                                                                    .replace( '.', '_' ) ),
+                                       toDownload[ 'hash' ] ) )
+
+        return toDownload[ 'data' ]
+
 ###############################################################################
 # BOILER PLATE
 ###############################################################################
@@ -531,7 +562,8 @@ urls = ( r'/', 'Index',
          r'/hostchanges', 'HostChanges',
          r'/downloadfileinevent', 'DownloadFileInEvent',
          r'/backend', 'Backend',
-         r'/capabilities', 'Capabilities' )
+         r'/capabilities', 'Capabilities',
+         r'/installer', 'Installer' )
 
 web.config.debug = False
 app = web.application( urls, globals() )

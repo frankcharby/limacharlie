@@ -515,7 +515,82 @@ class HcpCli ( cmd.Cmd ):
 
         if arguments is not None:
             self.execAndPrintResponse( self.be.hcp_getModules, arguments )
-            
+
+    @report_errors
+    def do_hcp_addInstaller( self, s ):
+        '''Add a whitelisted installer.'''
+
+        parser = self.getParser( 'addInstaller' )
+        parser.add_argument( '-o', '--orgid',
+                             type = uuid.UUID,
+                             required = True,
+                             help = 'the org uuid this installer relates to',
+                             dest = 'oid' )
+        parser.add_argument( '-i', '--installerid',
+                             type = uuid.UUID,
+                             required = True,
+                             help = 'the installer uuid this installer uses',
+                             dest = 'iid' )
+        parser.add_argument( '-d', '--description',
+                             type = str,
+                             required = True,
+                             help = 'human readable description of this installer',
+                             dest = 'description' )
+        parser.add_argument( '-f', '--installerfile',
+                             type = argparse.FileType( 'r' ),
+                             required = True,
+                             help = 'path to the installer file',
+                             dest = 'installer' )
+        arguments = self.parse( parser, s )
+
+        if arguments is not None:
+            self.execAndPrintResponse( self.be.hcp_addInstaller, arguments )
+
+    @report_errors
+    def do_hcp_delInstaller( self, s ):
+        '''Add a whitelisted installer.'''
+
+        parser = self.getParser( 'delInstaller' )
+        parser.add_argument( '-o', '--orgid',
+                             type = uuid.UUID,
+                             required = True,
+                             help = 'the org uuid this installer relates to',
+                             dest = 'oid' )
+        parser.add_argument( '-i', '--installerid',
+                             type = uuid.UUID,
+                             required = True,
+                             help = 'the installer uuid this installer uses',
+                             dest = 'iid' )
+        parser.add_argument( '-c', '--hash',
+                             type = str,
+                             required = True,
+                             help = 'the hash of the installer',
+                             dest = 'hash' )
+        arguments = self.parse( parser, s )
+
+        if arguments is not None:
+            self.execAndPrintResponse( self.be.hcp_delInstaller, arguments )
+
+    @report_errors
+    def do_hcp_getInstallers( self, s ):
+        '''Add a whitelisted installer.'''
+
+        parser = self.getParser( 'getInstallers' )
+        parser.add_argument( '-o', '--orgid',
+                             type = uuid.UUID,
+                             required = False,
+                             help = 'the org uuid this installer relates to',
+                             dest = 'oid' )
+        parser.add_argument( '-i', '--installerid',
+                             type = uuid.UUID,
+                             required = False,
+                             help = 'the installer uuid this installer uses',
+                             dest = 'iid' )
+        arguments = self.parse( parser, s )
+
+        if arguments is not None:
+            self.execAndPrintResponse( self.be.hcp_getInstallers, arguments )
+
     #===========================================================================
     #   HBS COMMANDS
     #===========================================================================

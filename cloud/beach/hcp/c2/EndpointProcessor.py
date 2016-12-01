@@ -245,6 +245,11 @@ class EndpointProcessor( Actor ):
                 if 0 == len( aidInfo ):
                     aidInfo = str( headers )
                 raise DisconnectException( 'Invalid sensor id: %s' % aidInfo )
+
+            resp = self.enrollmentManager.request( 'authorize', { 'aid' : aid.asString() }, timeout = 10 )
+            if not resp.isSuccess or not resp.data.get( 'is_authorized', False ):
+                raise DisconnectException( 'Could not authorize %s' % aid )
+
             enrollmentToken = headers.get( 'hcp.ENROLLMENT_TOKEN', None )
             if aid.sensor_id is None:
                 self.log( 'Sensor requires enrollment' )
