@@ -1,11 +1,14 @@
-$def with ( sensor_id, before, after, max_size, per_page )
-$var title = sensor_id
+$def with ( agent_id, hostname, before, after, max_size, per_page )
+$var title = agent_id.sensor_id
 <div class="row">
     <div class="col-lg-2">
-        <h4>$sensor_id</h4>
-        <h4>Online: <i id="status_indicator" class="glyphicon glyphicon-remove"></i></h4>
+        <h5>Online: <i id="status_indicator" class="glyphicon glyphicon-remove"></i></h5>
         <i id="last_seen"></i>
         <i id="transfered"></i>
+        <h5>Sensor:</h5>
+        <b>Org: </b>$agent_id.org_id<br/>
+        <b>Sensor: </b>$agent_id.sensor_id<br/>
+        <b>Hostname: </b>$hostname<br/>
         <h5>Events per page:</h5>
         <select id="eventsperpage">
             $for t in ('10','50','100','500'):
@@ -40,7 +43,7 @@ $var title = sensor_id
         <form method="GET" action="/sensor">
             <input type="hidden" name="per_page" class="eventsperpage_form" value="$per_page"/>
             <input type="hidden" name="max_size" class="maxeventsize_form" value="$max_size"/>
-            <input type="hidden" name="sensor_id" value="$sensor_id"/>
+            <input type="hidden" name="sensor_id" value="$agent_id.sensor_id"/>
             <div class="form-group">
                 <div class='input-group date datetimepicker'>
                     <span class="input-group-addon">From</span>
@@ -67,7 +70,7 @@ $var title = sensor_id
         <form method="GET" action="/sensor">
             <input type="hidden" name="per_page" class="eventsperpage_form" value="$per_page"/>
             <input type="hidden" name="max_size" class="maxeventsize_form" value="$max_size"/>
-            <input type="hidden" name="sensor_id" value="$sensor_id"/>
+            <input type="hidden" name="sensor_id" value="$agent_id.sensor_id"/>
             <button type="submit" class="btn btn-default" id="flux_live">
                 <span class="glyphicon glyphicon-play"></span> Live
             </button>
@@ -78,19 +81,19 @@ $var title = sensor_id
         <table class="table table-striped">
             <tr>
                 <td>Processes</td>
-                <td><a href="/hostobjects?sensor_id=$sensor_id&otype=PROCESS_NAME" title="View All" class="glyphicon glyphicon-log-in"></a></td>
+                <td><a href="/hostobjects?sensor_id=$agent_id.sensor_id&otype=PROCESS_NAME" title="View All" class="glyphicon glyphicon-log-in"></a></td>
             </tr>
             <tr>
                 <td>Modules</td>
-                <td><a href="/hostobjects?sensor_id=$sensor_id&otype=MODULE_NAME" title="View All" class="glyphicon glyphicon-log-in"></a></td>
+                <td><a href="/hostobjects?sensor_id=$agent_id.sensor_id&otype=MODULE_NAME" title="View All" class="glyphicon glyphicon-log-in"></a></td>
             </tr>
             <tr>
                 <td>Services</td>
-                <td><a href="/hostobjects?sensor_id=$sensor_id&otype=SERVICE_NAME" title="View All" class="glyphicon glyphicon-log-in"></a></td>
+                <td><a href="/hostobjects?sensor_id=$agent_id.sensor_id&otype=SERVICE_NAME" title="View All" class="glyphicon glyphicon-log-in"></a></td>
             </tr>
             <tr>
                 <td>Autoruns</td>
-                <td><a href="/hostobjects?sensor_id=$sensor_id&otype=AUTORUNS" title="View All" class="glyphicon glyphicon-log-in"></a></td>
+                <td><a href="/hostobjects?sensor_id=$agent_id.sensor_id&otype=AUTORUNS" title="View All" class="glyphicon glyphicon-log-in"></a></td>
             </tr>
         </table>
     </div>
@@ -168,7 +171,7 @@ $var title = sensor_id
     function do_refresh_online()
     {
         jQuery.getJSON( '/sensor_state',
-                    { sensor_id : "$sensor_id" } ).done(function(data){set_connected(data.live_status, data.lastseen, data.transfered);})
+                    { sensor_id : "$agent_id.sensor_id" } ).done(function(data){set_connected(data.live_status, data.lastseen, data.transfered);})
                                                   .fail(function(){set_connected(false);})
                                                   .always(function(){setTimeout( do_refresh_online, 5000 );});
     }
@@ -247,7 +250,7 @@ $var title = sensor_id
 
     function do_refresh_timeline()
     {
-        jQuery('#raw_url').html('/timeline?sensor_id=$sensor_id&rich=false&max_size=' + 
+        jQuery('#raw_url').html('/timeline?sensor_id=$agent_id.sensor_id&rich=false&max_size=' + 
                                 jQuery('#maxeventsize').find(":selected").text() + '&'
                                 $if before is not None:
                                     + 'before=' + Date.parse("$before" + " GMT") / 1000
@@ -257,7 +260,7 @@ $var title = sensor_id
                                     + 'after=' + from_time
                                 );
         future = jQuery.getJSON( '/timeline',
-                    { sensor_id : "$sensor_id",
+                    { sensor_id : "$agent_id.sensor_id",
                       rich : "true",
                       max_size : jQuery('#maxeventsize').find(":selected").text(),
                       $if before is not None:
@@ -345,14 +348,14 @@ $var title = sensor_id
     function do_refresh_lastevents()
     {
         jQuery.getJSON( '/lastevents',
-                        { sensor_id : "$sensor_id" } ).done(function(data){set_lastevents(data);})
+                        { sensor_id : "$agent_id.sensor_id" } ).done(function(data){set_lastevents(data);})
                                                       .always(function(){setTimeout( do_refresh_lastevents, 10000 );});
     }
 
     function do_refresh_changes()
     {
         jQuery.getJSON( '/hostchanges',
-                        { sensor_id : "$sensor_id" } ).done(function(data){set_changes(data);})
+                        { sensor_id : "$agent_id.sensor_id" } ).done(function(data){set_changes(data);})
                                                       .always(function(){setTimeout( do_refresh_changes, 3600000 );});
     }
 

@@ -77,7 +77,7 @@ class ModelView( Actor ):
             if 0 != len( hosts ):
                 host = hosts[ 0 ]
         if host is not None:
-            info[ 'id' ] = host.sid
+            info[ 'id' ] = host.aid
             info[ 'is_online' ] = host.isOnline()
             info[ 'hostname' ] = host.getHostName()
             info[ 'lastseen' ] = host.lastSeen()

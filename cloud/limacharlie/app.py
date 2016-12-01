@@ -149,7 +149,7 @@ class Sensor:
         if '' != params.after:
             after = params.after
 
-        return render.sensor( AgentId( info.data[ 'id' ] ), before, after, params.max_size, params.per_page )
+        return render.sensor( AgentId( info.data[ 'id' ] ), info.data[ 'hostname' ], before, after, params.max_size, params.per_page )
 
 class SensorState:
     @jsonApi
@@ -359,7 +359,13 @@ class JsonDetects:
         if not detects.isSuccess:
             return render.error( str( detects ) )
         else:
-            return detects.data
+            # Massage the reports a bit
+            reports = []
+            for report in detects.data[ 'reports' ]:
+                report = list( report )
+                report[ 2 ] = ' / '.join( [ str( AgentId( x ).sensor_id ) for x in report[ 2 ].split( ' / ' ) ] )
+                reports.append( report )
+            return { 'reports' : reports }
 
 class ViewDetects:
     def GET( self ):

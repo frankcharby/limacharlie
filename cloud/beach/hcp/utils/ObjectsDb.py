@@ -447,6 +447,7 @@ class Host( object ):
     def __init__( self, agentid ):
         if type( agentid  ) is not AgentId:
             agentid = AgentId( agentid )
+        self.aid = agentid
         self.sid = agentid.sensor_id
 
     def __str__( self ):

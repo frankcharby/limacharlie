@@ -29,7 +29,7 @@ $var title = 'Detect'
             <tbody>
                 $for host in detect[ 2 ].split(' / '):
                     <tr>
-                        <td><a href="/sensor?sensor_id=$host">$host</a></td>
+                        <td><a href="/sensor?sensor_id=$host" target="_blank">$AgentId( host ).sensor_id</a></td>
                     </tr>
             </tbody>
         </table>
