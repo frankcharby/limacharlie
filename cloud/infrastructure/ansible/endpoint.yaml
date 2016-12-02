@@ -1,6 +1,0 @@
----
-- hosts: endpoints
-  roles:
-    - common
-    - beach_user
-    - endpoint
