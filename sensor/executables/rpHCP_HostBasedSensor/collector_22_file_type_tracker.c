@@ -32,7 +32,7 @@ typedef struct
 
 } ProcExtInfo;
 
-static rVector g_procContexts = NULL;
+static rBTree g_procContexts = NULL;
 static rMutex g_mutex = NULL;
 static HObs g_extensions = NULL;
 
@@ -40,21 +40,32 @@ static
 RS32
     _cmpContext
     (
-        ProcExtInfo** ctx1,
-        ProcExtInfo** ctx2
+        ProcExtInfo* ctx1,
+        ProcExtInfo* ctx2
     )
 {
     RS32 ret = 0;
 
     if( NULL != ctx1 &&
-        NULL != ctx2 &&
-        NULL != *ctx1 &&
-        NULL != *ctx2 )
+        NULL != ctx2 )
     {
-        ret = rpal_memory_memcmp( (*ctx1)->atomId, (*ctx2)->atomId, sizeof( (*ctx1)->atomId ) );
+        ret = rpal_memory_memcmp( ctx1->atomId, ctx2->atomId, sizeof( ctx1->atomId ) );
     }
 
     return ret;
+}
+
+static
+RVOID
+    _freeContext
+    (
+        ProcExtInfo* ctx
+    )
+{
+    if( rpal_memory_isValid( ctx ) )
+    {
+        rpal_memory_free( ctx->processPath );
+    }
 }
 
 static
@@ -83,48 +94,58 @@ RBOOL
 }
 
 static
-ProcExtInfo*
-    getProcContext
+RBOOL
+    checkFileType
     (
-        RPU8 atomId
+        RPU8 atomId,
+        RU8 patternId,
+        RPNCHAR newProcessPath,
+        RPNCHAR* pReportPath
     )
 {
-    ProcExtInfo* procInfo = NULL;
-    RU32 index = 0;
+    RBOOL isShouldReport = FALSE;
 
-    if( (RU32)-1 != ( index = rpal_binsearch_array( g_procContexts->elements,
-                                                    g_procContexts->nElements,
-                                                    sizeof( ProcExtInfo* ),
-                                                    &atomId,
-                                                    (rpal_ordering_func)_cmpContext ) ) )
+    ProcExtInfo tmpCtx = { 0 };
+    RBOOL isAlreadyThere = TRUE;
+
+    if( NULL != atomId )
     {
-        procInfo = g_procContexts->elements[ index ];
-    }
-    else
-    {
-        if( NULL != ( procInfo = rpal_memory_alloc( sizeof( *procInfo ) ) ) )
+        if( !rpal_btree_search( g_procContexts, atomId, &tmpCtx, TRUE ) )
         {
-            rpal_memory_memcpy( procInfo->atomId, atomId, sizeof( procInfo->atomId ) );
+            rpal_memory_memcpy( tmpCtx.atomId, atomId, sizeof( tmpCtx.atomId ) );
+            isAlreadyThere = FALSE;
+        }
 
-            if( !rpal_vector_add( g_procContexts, procInfo ) )
+        if( NULL != newProcessPath )
+        {
+            tmpCtx.processPath = rpal_string_strdup( newProcessPath );
+        }
+
+        if( !isAlreadyThere )
+        {
+            rpal_btree_add( g_procContexts, &tmpCtx, TRUE );
+        }
+
+        if( patternId <= sizeof( RU64 ) * 8 &&
+            !IS_FLAG_ENABLED( tmpCtx.extBitMask, (RU64)1 << patternId ) )
+        {
+            isShouldReport = TRUE;
+            if( NULL != pReportPath )
             {
-                rpal_memory_free( procInfo );
-                rpal_debug_error( "error adding new process to history" );
-                procInfo = NULL;
+                *pReportPath = tmpCtx.processPath;
             }
-            else
+            ENABLE_FLAG( tmpCtx.extBitMask, (RU64)1 << patternId );
+
+            if( !rpal_btree_update( g_procContexts, atomId, &tmpCtx, TRUE ) )
             {
-                rpal_sort_array( g_procContexts->elements, 
-                                 g_procContexts->nElements, 
-                                 sizeof( ProcExtInfo* ), 
-                                 (rpal_ordering_func)_cmpContext );
+                // Something went wrong so we will not report to avoid spam.
+                isShouldReport = FALSE;
             }
         }
     }
 
-    return procInfo;
+    return isShouldReport;
 }
-
 
 static
 RVOID
@@ -134,7 +155,6 @@ RVOID
         rSequence event
     )
 {
-    ProcExtInfo* ctx = NULL;
     RPNCHAR path = NULL;
     RPU8 atomId = NULL;
 
@@ -143,27 +163,12 @@ RVOID
     if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &path ) &&
         HbsGetThisAtom( event, &atomId ) )
     {
-        path = rpal_string_strdup( path );
-
-        if( NULL != path &&
-            rMutex_lock( g_mutex ) )
+        if( rMutex_lock( g_mutex ) )
         {
-            if( NULL != ctx ||
-                NULL != ( ctx = getProcContext( atomId ) ) )
-            {
-                rpal_memory_free( ctx->processPath );
-                ctx->processPath = path;
-                path = NULL;
-            }
-            else
-            {
-                rpal_debug_error( "error getting process context" );
-            }
+            checkFileType( atomId, (RU8)-1, path, NULL );
 
             rMutex_unlock( g_mutex );
         }
-
-        rpal_memory_free( path );
     }
 }
 
@@ -176,7 +181,7 @@ RVOID
     )
 {
     RPU8 atomId = NULL;
-    RU32 index = 0;
+    ProcExtInfo tmpCtx = { 0 };
 
     UNREFERENCED_PARAMETER( notifType );
 
@@ -184,15 +189,9 @@ RVOID
     {
         if( HbsGetParentAtom( event, &atomId ) )
         {
-            if( (RU32)-1 != ( index = rpal_binsearch_array( g_procContexts->elements,
-                                                            g_procContexts->nElements,
-                                                            sizeof( ProcExtInfo* ),
-                                                            &atomId,
-                                                            (rpal_ordering_func)_cmpContext ) ) )
+            if( rpal_btree_remove( g_procContexts, atomId, &tmpCtx, TRUE ) )
             {
-                rpal_memory_free( ( (ProcExtInfo*)g_procContexts->elements[ index ] )->processPath );
-                rpal_memory_free( g_procContexts->elements[ index ] );
-                rpal_vector_remove( g_procContexts, index );
+                rpal_memory_free( tmpCtx.processPath );
             }
         }
 
@@ -208,13 +207,13 @@ RVOID
         rSequence event
     )
 {
-    ProcExtInfo* ctx = NULL;
     RPNCHAR path = NULL;
     RPVOID patternCtx = 0;
     RU8 patternId = 0;
     RPU8 atomId = NULL;
     RU32 pid = 0;
     rSequence newEvent = NULL;
+    RPNCHAR processPath = NULL;
 
     UNREFERENCED_PARAMETER( notifType );
 
@@ -231,33 +230,23 @@ RVOID
             {
                 while( obsLib_nextHit( g_extensions, &patternCtx, NULL ) )
                 {
-                    if( NULL != ctx ||
-                        NULL != ( ctx = getProcContext( atomId ) ) )
-                    {
-                        patternId = (RU8)PTR_TO_NUMBER( patternCtx );
+                    patternId = (RU8)PTR_TO_NUMBER( patternCtx );
 
-                        if( !IS_FLAG_ENABLED( ctx->extBitMask, (RU64)1 << patternId ) )
+                    if( checkFileType( atomId, patternId, NULL, &processPath ) )
+                    {
+                        rpal_debug_info( "process " RF_U32 " observed file io " RF_U64, 
+                                            pid, patternId + 1 );
+
+                        if( NULL != ( newEvent = rSequence_new() ) )
                         {
-                            rpal_debug_info( "process " RF_U32 " observed file io " RF_U64, 
-                                             pid, patternId + 1 );
-                            ENABLE_FLAG( ctx->extBitMask, (RU64)1 << patternId );
-                            
-                            if( NULL != ( newEvent = rSequence_new() ) )
-                            {
-                                HbsSetParentAtom( newEvent, atomId );
-                                rSequence_addRU32( newEvent, RP_TAGS_PROCESS_ID, pid );
-                                rSequence_addRU8( newEvent, RP_TAGS_RULE_NAME, patternId + 1 );
-                                rSequence_addSTRINGN( newEvent, RP_TAGS_FILE_PATH, ctx->processPath );
+                            HbsSetParentAtom( newEvent, atomId );
+                            rSequence_addRU32( newEvent, RP_TAGS_PROCESS_ID, pid );
+                            rSequence_addRU8( newEvent, RP_TAGS_RULE_NAME, patternId + 1 );
+                            rSequence_addSTRINGN( newEvent, RP_TAGS_FILE_PATH, processPath );
 
-                                hbs_publish( RP_TAGS_NOTIFICATION_FILE_TYPE_ACCESSED, newEvent );
-                                rSequence_free( newEvent );
-                            }
+                            hbs_publish( RP_TAGS_NOTIFICATION_FILE_TYPE_ACCESSED, newEvent );
+                            rSequence_free( newEvent );
                         }
-                    }
-                    else
-                    {
-                        rpal_debug_error( "error getting process context" );
-                        break;
                     }
                 }
             }
@@ -288,7 +277,6 @@ RBOOL
     RPWCHAR strW = NULL;
     RPNCHAR tmpN = NULL;
     RU8 patternId = 0;
-    RU32 i = 0;
 
     if( NULL != hbsState &&
         NULL != ( g_extensions = obsLib_new( 0, 0 ) ) )
@@ -339,7 +327,9 @@ RBOOL
             }
 
             if( NULL != ( g_mutex = rMutex_create() ) &&
-                NULL != ( g_procContexts = rpal_vector_new() ) &&
+                NULL != ( g_procContexts = rpal_btree_create( sizeof( ProcExtInfo ), 
+                                                              (rpal_btree_comp_f)_cmpContext, 
+                                                              (rpal_btree_free_f)_freeContext ) ) &&
                 notifications_subscribe( RP_TAGS_NOTIFICATION_FILE_CREATE, NULL, 0, NULL, processFileIo ) &&
                 notifications_subscribe( RP_TAGS_NOTIFICATION_FILE_DELETE, NULL, 0, NULL, processFileIo ) &&
                 notifications_subscribe( RP_TAGS_NOTIFICATION_FILE_MODIFIED, NULL, 0, NULL, processFileIo ) &&
@@ -364,15 +354,7 @@ RBOOL
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, processTerminateProcesses );
         obsLib_free( g_extensions );
         g_extensions = NULL;
-        if( NULL != g_procContexts )
-        {
-            for( i = 0; i < g_procContexts->nElements; i++ )
-            {
-                rpal_memory_free( ( (ProcExtInfo*)g_procContexts->elements[ i ] )->processPath );
-                rpal_memory_free( g_procContexts->elements[ i ] );
-            }
-        }
-        rpal_vector_free( g_procContexts );
+        rpal_btree_destroy( g_procContexts, TRUE );
         g_procContexts = NULL;
         rMutex_free( g_mutex );
         g_mutex = NULL;
@@ -389,7 +371,6 @@ RBOOL
     )
 {
     RBOOL isSuccess = FALSE;
-    RU32 i = 0;
 
     UNREFERENCED_PARAMETER( config );
 
@@ -404,15 +385,7 @@ RBOOL
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, processTerminateProcesses );
         obsLib_free( g_extensions );
         g_extensions = NULL;
-        if( NULL != g_procContexts )
-        {
-            for( i = 0; i < g_procContexts->nElements; i++ )
-            {
-                rpal_memory_free( ( (ProcExtInfo*)g_procContexts->elements[ i ] )->processPath );
-                rpal_memory_free( g_procContexts->elements[ i ] );
-            }
-        }
-        rpal_vector_free( g_procContexts );
+        rpal_btree_destroy( g_procContexts, TRUE );
         g_procContexts = NULL;
         rMutex_free( g_mutex );
         g_mutex = NULL;
