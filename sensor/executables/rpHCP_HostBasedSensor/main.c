@@ -46,7 +46,7 @@ RpHcp_ModuleId g_current_Module_id = 2;
 #define HBS_EXFIL_QUEUE_MAX_SIZE                (1024*1024*10)
 #define HBS_MAX_OUBOUND_FRAME_SIZE              (100)
 #define HBS_SYNC_INTERVAL                       (60*5)
-#define HBS_KACQ_RETRY_N_FRAMES                 (30)
+#define HBS_KACQ_RETRY_N_FRAMES                 (10)
 
 // Large blank buffer to be used to patch configurations post-build
 #define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
