@@ -122,6 +122,11 @@ void test_AddAndRemove(void)
 
     CU_ASSERT_TRUE( rSequence_getLIST( seq, 66, &tmpList ) );
 
+    CU_ASSERT_FALSE( rSequence_getSTRINGA( seq, 66, &tmpStringA ) );
+    CU_ASSERT_TRUE( rSequence_removeElement( seq, 66, RPCM_LIST ) );
+
+    CU_ASSERT_FALSE( rSequence_getLIST( seq, 66, &tmpList ) );
+
     rSequence_free( seq );
 }
 

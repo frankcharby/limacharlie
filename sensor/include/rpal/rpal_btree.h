@@ -95,6 +95,7 @@ RBOOL
         RBOOL isBypassLocks
     );
 
+// Finds the node after the node with key
 RBOOL
     rpal_btree_next
     (
@@ -104,6 +105,7 @@ RBOOL
         RBOOL isBypassLocks
     );
 
+// Finds the next value up from this value, regarless of whether or not the previous value is in tree.
 RBOOL
     rpal_btree_after
     (
@@ -113,6 +115,7 @@ RBOOL
         RBOOL isBypassLocks
     );
 
+// Finds the value before the node with this value
 RBOOL
     rpal_btree_previous
     (
