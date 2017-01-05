@@ -574,7 +574,10 @@ void test_sortsearch( void )
 {
     RU32 toSort[] = { 2, 6, 7, 8, 32, 10, 14, 64, 99, 100 };
     RU32 sorted[] = { 2, 6, 7, 8, 10, 14, 32, 64, 99, 100 };
+    RU32 repeated[] = { 2, 6, 7, 8, 10, 10, 14, 32, 64, 99, 100 };
     RU32 toFind = 7;
+    RU32 toFind2 = 10;
+    RU32 toFind3 = 14;
     RU32 toFindRel = 9;
     RU32 toFindRel2 = 3;
     RU32 toFindRel3 = 98;
@@ -591,6 +594,29 @@ void test_sortsearch( void )
     {
         CU_ASSERT_EQUAL( toSort[ i ], sorted[ i ] );
     }
+
+    CU_ASSERT_TRUE( rpal_sort_array( repeated,
+                                     ARRAY_N_ELEM( repeated ),
+                                     sizeof( RU32 ),
+                                     (rpal_ordering_func)rpal_order_RU32 ) );
+
+    CU_ASSERT_EQUAL( 2, rpal_binsearch_array( repeated,
+                                              ARRAY_N_ELEM( repeated ),
+                                              sizeof( RU32 ),
+                                              &toFind,
+                                              (rpal_ordering_func)rpal_order_RU32 ) );
+
+    CU_ASSERT_EQUAL( 5, rpal_binsearch_array( repeated,
+                                              ARRAY_N_ELEM( repeated ),
+                                              sizeof( RU32 ),
+                                              &toFind2,
+                                              (rpal_ordering_func)rpal_order_RU32 ) );
+
+    CU_ASSERT_EQUAL( 6, rpal_binsearch_array( repeated,
+                                              ARRAY_N_ELEM( repeated ),
+                                              sizeof( RU32 ),
+                                              &toFind3,
+                                              (rpal_ordering_func)rpal_order_RU32 ) );
 
     CU_ASSERT_EQUAL( 2, rpal_binsearch_array( toSort, 
                                               ARRAY_N_ELEM( toSort ), 
@@ -890,7 +916,7 @@ int
                     NULL == CU_add_test( suite, "file", test_file ) ||
                     NULL == CU_add_test( suite, "bloom", test_bloom ) ||
                     NULL == CU_add_test( suite, "btree", test_btree ) ||
-                    //NULL == CU_add_test( suite, "threadpool", test_threadpool ) ||
+                    NULL == CU_add_test( suite, "threadpool", test_threadpool ) ||
                     NULL == CU_add_test( suite, "sortsearch", test_sortsearch ) ||
                     NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
                 {
