@@ -42,14 +42,6 @@ python ./sensor/scripts/set_sensor_config.py ./sensor/sample_configs/sample_kern
 python ./sensor/scripts/set_sensor_config.py ./sensor/sample_configs/sample_kernel_win32.conf ./prebuilt_binaries/kernel_win_x86_debug_*.dll
 python ./sensor/scripts/set_sensor_config.py ./sensor/sample_configs/sample_kernel_win32.conf ./prebuilt_binaries/kernel_win_x86_release_*.dll
 
-cp "./prebuilt_binaries/hcp_osx_x64_debug_$1" ./sensor/scripts/installers/nix/bin
-makeself ./sensor/scripts/installers/nix/ ./prebuilt_binaries/osx_debug_x64_$1_installer.run "LIMA CHARLIE $1 OSX x64 Debug Installer" ./install.sh
-rm ./sensor/scripts/installers/nix/bin
-
-cp "./prebuilt_binaries/hcp_osx_x64_release_$1" ./sensor/scripts/installers/nix/bin
-makeself ./sensor/scripts/installers/nix/ ./prebuilt_binaries/osx_release_x64_$1_installer.run "LIMA CHARLIE $1 OSX x64 Release Installer" ./install.sh
-rm ./sensor/scripts/installers/nix/bin
-
 cp "./prebuilt_binaries/hcp_ubuntu_x64_debug_$1" ./sensor/scripts/installers/nix/bin
 makeself ./sensor/scripts/installers/nix/ ./prebuilt_binaries/ubuntu_debug_x64_$1_installer.run "LIMA CHARLIE $1 Ubuntu x64 Debug Installer" ./install.sh
 rm ./sensor/scripts/installers/nix/bin

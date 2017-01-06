@@ -72,7 +72,7 @@ static int
 #endif
 {
     #ifdef _USE_KAUTH
-    vnode_t prog __unused = (vnode_t)arg0;
+    vnode_t prog = (vnode_t)arg0;
     const char* file_path = (const char*)arg1;
     #else
     int pathLen = sizeof( g_processes[ 0 ].path );
@@ -83,7 +83,9 @@ static int
     uid_t uid = 0;
     
     #ifdef _USE_KAUTH
-    if( KAUTH_FILEOP_EXEC != action )
+    if( KAUTH_FILEOP_EXEC != action ||
+        ( NULL != prog &&
+          VREG != vnode_vtype( prog ) ) )
     {
         return KAUTH_RESULT_DEFER;
     }

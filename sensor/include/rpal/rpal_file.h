@@ -92,6 +92,13 @@ RBOOL
     );
 
 RBOOL
+    rpal_file_copy
+    (
+        RPNCHAR srcFilePath,
+        RPNCHAR dstFilePath
+    );
+
+RBOOL
     rpal_file_getInfo
     (
         RPNCHAR filePath,

@@ -144,10 +144,67 @@ RBOOL
             }
 #endif
         }
+
+        rpal_memory_free( tmpPath1 );
+        rpal_memory_free( tmpPath2 );
     }
 
     return isMoved;
 }
+
+RBOOL
+    rpal_file_copy
+    (
+        RPNCHAR srcFilePath,
+        RPNCHAR dstFilePath
+    )
+{
+    RBOOL isCopied = FALSE;
+
+    if( NULL != srcFilePath && NULL != dstFilePath )
+    {
+#ifdef RPAL_PLATFORM_WINDOWS
+        RPNCHAR tmpPath1 = NULL;
+        RPNCHAR tmpPath2 = NULL;
+
+        if( rpal_string_expand( srcFilePath, &tmpPath1 ) &&
+            rpal_string_expand( dstFilePath, &tmpPath2 ) &&
+            CopyFileW( tmpPath1, tmpPath2, FALSE ) )
+        {
+            isCopied = TRUE;
+        }
+
+        rpal_memory_free( tmpPath1 );
+        rpal_memory_free( tmpPath2 );
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+        rFile fileIn = NULL;
+        rFile fileOut = NULL;
+        RU8 buff[ 4 * 1024 ] = { 0 };
+        RU32 read = 0;
+
+        if( rFile_open( srcFilePath, &fileIn, RPAL_FILE_OPEN_READ | RPAL_FILE_OPEN_EXISTING ) &&
+            rFile_open( dstFilePath, &fileOut, RPAL_FILE_OPEN_WRITE | RPAL_FILE_OPEN_ALWAYS ) )
+        {
+            isCopied = TRUE;
+
+            while( ( read = rFile_readUpTo( fileIn, sizeof( buff ), buff ) ) > 0 )
+            {
+                if( !rFile_write( fileOut, read, buff ) )
+                {
+                    isCopied = FALSE;
+                    break;
+                }
+            }
+        }
+
+        rFile_close( fileIn );
+        rFile_close( fileOut );
+#endif
+    }
+
+    return isCopied;
+}
+
 RBOOL
     rpal_file_getInfo
     (
