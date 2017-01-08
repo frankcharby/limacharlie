@@ -54,7 +54,7 @@ def tarGzOf( filePath, archiveName, payloadName ):
 
 if 3 > len( sys.argv ):
     print( "Usage: set_sensor_config.py configFile sensorExec [installer-uuid]" )
-    sys.exit()
+    sys.exit( -1 )
 
 configFile = open( sys.argv[ 1 ], 'r' ).read()
 sensorFile = open( sys.argv[ 2 ], 'r' )
