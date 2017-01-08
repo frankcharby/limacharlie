@@ -52,7 +52,7 @@ def tarGzOf( filePath, archiveName, payloadName ):
     os.unlink( '/tmp/%s' % ( archiveName, ) )
     return val
 
-if 3 != len( sys.argv ):
+if 3 > len( sys.argv ):
     print( "Usage: set_sensor_config.py configFile sensorExec [installer-uuid]" )
     sys.exit()
 
