@@ -108,13 +108,15 @@ static VOID
 RBOOL
     collector_3_initialize
     (
-        PDRIVER_OBJECT driverObject
+        PDRIVER_OBJECT driverObject,
+        PDEVICE_OBJECT deviceObject
     )
 {
     RBOOL isSuccess = FALSE;
-    RU32 status = 0;
+    NTSTATUS status = STATUS_SUCCESS;
 
     UNREFERENCED_PARAMETER( driverObject );
+    UNREFERENCED_PARAMETER( deviceObject );
 
     KeInitializeSpinLock( &g_collector_3_mutex );
 
@@ -139,7 +141,7 @@ RBOOL
     )
 {
     RBOOL isSuccess = FALSE;
-    RU32 status = 0;
+    NTSTATUS status = STATUS_SUCCESS;
     
     status = PsRemoveLoadImageNotifyRoutine( LoadImageNotify );
 

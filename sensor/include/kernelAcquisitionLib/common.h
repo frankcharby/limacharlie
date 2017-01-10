@@ -40,7 +40,8 @@ limitations under the License.
 #define KERNEL_ACQ_OP_GET_NEW_PROCESSES     1
 #define KERNEL_ACQ_OP_GET_NEW_FILE_IO       2
 #define KERNEL_ACQ_OP_MODULE_LOAD           3
-#define KERNEL_ACQ_OP_COUNT                 4
+#define KERNEL_ACQ_OP_NETWORK_CONN          4
+#define KERNEL_ACQ_OP_COUNT                 5
 
 #pragma warning( disable: 4200 ) // Disabling error on zero-sized arrays
 
@@ -103,5 +104,17 @@ typedef struct
     RU64 ts;
     RNCHAR path[ 513 ];
 } KernelAcqModule;
+
+typedef struct
+{
+    RU32 pid;
+    RU8 proto;
+    RU8 isIncoming;
+    RIpAddress srcIp;
+    RU16 srcPort;
+    RIpAddress dstIp;
+    RU16 dstPort;
+    RU64 ts;
+} KernelAcqNetwork;
 
 #endif
