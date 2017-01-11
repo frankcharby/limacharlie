@@ -1,6 +1,0 @@
----
-- hosts: beach_nodes
-  roles:
-    - common
-    - beach_user
-    - beach_node
