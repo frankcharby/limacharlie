@@ -30,6 +30,11 @@ limitations under the License.
     #endif
     #ifdef RPAL_PLATFORM_KERNEL
         #include <fltKernel.h>
+        #pragma warning(push)
+        #pragma warning(disable:4201)       // unnamed struct/union
+        #include <fwpsk.h>
+        #pragma warning(pop)
+        #include <fwpmk.h>
     #else
         #define WIN32_LEAN_AND_MEAN
         #include <windows.h>
@@ -224,6 +229,18 @@ limitations under the License.
 #endif
 
 #define IS_PTR_ALIGNED(ptr) (0 == (RSIZET)(ptr) % sizeof(RU32))
+
+typedef struct
+{
+    RU8 byteArray[ 16 ];
+} RIpV6;
+
+typedef union
+{
+    RU8 isV6;
+    RU32 v4;
+    RIpV6 v6;
+} RIpAddress;
 
 // Export Visibility Control
 #ifdef RPAL_PLATFORM_WINDOWS

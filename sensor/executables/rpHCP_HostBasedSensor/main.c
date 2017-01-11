@@ -46,7 +46,7 @@ RpHcp_ModuleId g_current_Module_id = 2;
 #define HBS_EXFIL_QUEUE_MAX_SIZE                (1024*1024*10)
 #define HBS_MAX_OUBOUND_FRAME_SIZE              (100)
 #define HBS_SYNC_INTERVAL                       (60*5)
-#define HBS_KACQ_RETRY_N_FRAMES                 (30)
+#define HBS_KACQ_RETRY_N_FRAMES                 (10)
 
 // Large blank buffer to be used to patch configurations post-build
 #define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
@@ -122,6 +122,39 @@ rSequence
     }
 
     return config;
+}
+
+static
+RBOOL
+    isHcpIdMatch
+    (
+        rpHCPId id1,
+        rpHCPId id2
+    )
+{
+    RBOOL isMatch = FALSE;
+    rpHCPId wildcardId = { 0 };
+
+    if( ( id1.sensor_id == id2.sensor_id ||
+          id1.sensor_id == wildcardId.sensor_id ||
+          id2.sensor_id == wildcardId.sensor_id ) &&
+        ( id1.org_id == id2.org_id ||
+          id1.org_id == wildcardId.org_id ||
+          id2.org_id == wildcardId.org_id ) &&
+        ( id1.ins_id == id2.ins_id ||
+          id1.ins_id == wildcardId.ins_id ||
+          id2.ins_id == wildcardId.ins_id ) &&
+        ( id1.architecture == id2.architecture ||
+          id1.architecture == wildcardId.architecture ||
+          id2.architecture == wildcardId.architecture ) &&
+        ( id1.platform == id2.platform ||
+          id1.platform == wildcardId.platform ||
+          id2.platform == wildcardId.platform ) )
+    {
+        isMatch = TRUE;
+    }
+
+    return isMatch;
 }
 
 #ifdef RPAL_PLATFORM_WINDOWS
@@ -700,7 +733,7 @@ static RVOID
 
         if( rpal_memory_isValid( cloudEvent ) )
         {
-            if( rSequence_getSEQUENCE( cloudEvent, RP_TAGS_HCP_ID, &targetId ) &&
+            if( rSequence_getSEQUENCE( cloudEvent, RP_TAGS_HCP_IDENT, &targetId ) &&
                 rSequence_getRU32( cloudEvent, RP_TAGS_HBS_NOTIFICATION_ID, &(cloudEventStub->eventId) ) &&
                 rSequence_getSEQUENCE( cloudEvent, RP_TAGS_HBS_NOTIFICATION, &(cloudEventStub->event) ) )
             {
@@ -712,9 +745,6 @@ static RVOID
                 hbs_timestampEvent( cloudEvent, 0 );
                 
                 tmpId = rpHcpI_seqToHcpId( targetId );
-
-                curId.id.configId = 0;
-                tmpId.id.configId = 0;
                 
                 if( NULL != ( receipt = rSequence_new() ) )
                 {
@@ -729,7 +759,7 @@ static RVOID
                     }
                 }
 
-                if( curId.raw == tmpId.raw &&
+                if( isHcpIdMatch( curId, tmpId ) &&
                     ( 0 == expiry ||
                       rpal_time_getGlobal() <= expiry ) )
                 {

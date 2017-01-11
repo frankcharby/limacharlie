@@ -24,7 +24,7 @@ limitations under the License.
 // ARE ONE AND THE SAME, COPY OUT AN DATA YOU NEED FROM THE ARGS BEFORE WRITING RESULTS.
 typedef int( *collector_task )( RPU8 pArgs, RU32 argsSize, RPU8 pResult, RU32* resultSize );
 
-#define _DECLARE_COLLECTOR(cId) RBOOL collector_ ## cId ## _initialize( PDRIVER_OBJECT driverObject );\
+#define _DECLARE_COLLECTOR(cId) RBOOL collector_ ## cId ## _initialize( PDRIVER_OBJECT driverObject, PDEVICE_OBJECT deviceObject );\
                                 RBOOL collector_ ## cId ## _deinitialize();
 
 #define _DECLARE_TASK(name) RBOOL name( RPU8 pArgs, RU32 argSize, RPU8 pResult, RU32* resultSize )
@@ -32,9 +32,11 @@ typedef int( *collector_task )( RPU8 pArgs, RU32 argsSize, RPU8 pResult, RU32* r
 _DECLARE_COLLECTOR( 1 );
 _DECLARE_COLLECTOR( 2 );
 _DECLARE_COLLECTOR( 3 );
+_DECLARE_COLLECTOR( 4 );
 _DECLARE_TASK( task_get_new_processes );
 _DECLARE_TASK( task_get_new_module_loads );
 _DECLARE_TASK( task_get_new_files );
+_DECLARE_TASK( task_get_new_network );
 
 
 #endif

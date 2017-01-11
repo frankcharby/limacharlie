@@ -25,6 +25,7 @@ from hcp.utils.hcp_helpers import AgentId
 
 import sys
 import tarfile
+import uuid
 
 # This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
 # and used with the same algorithm as obfuscationLib
@@ -51,12 +52,13 @@ def tarGzOf( filePath, archiveName, payloadName ):
     os.unlink( '/tmp/%s' % ( archiveName, ) )
     return val
 
-if 3 != len( sys.argv ):
-    print( "Usage: set_sensor_config.py configFile sensorExec" )
-    sys.exit()
+if 3 > len( sys.argv ):
+    print( "Usage: set_sensor_config.py configFile sensorExec [installer-uuid]" )
+    sys.exit( -1 )
 
 configFile = open( sys.argv[ 1 ], 'r' ).read()
 sensorFile = open( sys.argv[ 2 ], 'r' )
+installerUuid = uuid.UUID( sys.argv[ 3 ] ) if len( sys.argv ) >= 4 else uuid.UUID( '00000000-0000-0000-0000-000000000001' )
 sensor = sensorFile.read()
 sensorFile.close()
 
@@ -64,7 +66,7 @@ prevPath = os.getcwd()
 os.chdir( os.path.join( os.path.dirname( __file__ ), '..', '..' ) )
 
 r = rpcm( isDebug = True )
-rpcm_environment = { '_' : Symbols(), 'rList' : rList, 'rSequence' : rSequence, 'AgentId' : AgentId, 'tarGzOf' : tarGzOf }
+rpcm_environment = { '_' : Symbols(), 'rList' : rList, 'rSequence' : rSequence, 'AgentId' : AgentId, 'tarGzOf' : tarGzOf, 'INSTALLER_UUID' : installerUuid, 'uuid' : uuid }
 
 conf = eval( configFile.replace( '\n', '' ), rpcm_environment )
 

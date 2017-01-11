@@ -142,11 +142,11 @@ rSequence
 
     if( NULL != ( seq = rSequence_new() ) )
     {
-        if( !rSequence_addRU8( seq, RP_TAGS_HCP_ID_ORG, id.id.orgId ) ||
-            !rSequence_addRU8( seq, RP_TAGS_HCP_ID_SUBNET, id.id.subnetId ) ||
-            !rSequence_addRU32( seq, RP_TAGS_HCP_ID_UNIQUE, id.id.uniqueId ) ||
-            !rSequence_addRU8( seq, RP_TAGS_HCP_ID_PLATFORM, id.id.platformId ) ||
-            !rSequence_addRU8( seq, RP_TAGS_HCP_ID_CONFIG, id.id.configId ) )
+        if( !rSequence_addBUFFER( seq, RP_TAGS_HCP_SENSOR_ID, id.sensor_id, sizeof( id.sensor_id ) ) ||
+            !rSequence_addBUFFER( seq, RP_TAGS_HCP_ORG_ID, id.org_id, sizeof( id.org_id ) ) ||
+            !rSequence_addBUFFER( seq, RP_TAGS_HCP_INSTALLER_ID, id.ins_id, sizeof( id.ins_id ) ) ||
+            !rSequence_addRU32( seq, RP_TAGS_HCP_ARCHITECTURE, id.architecture ) ||
+            !rSequence_addRU32( seq, RP_TAGS_HCP_PLATFORM, id.platform ) )
         {
             DESTROY_AND_NULL( seq, rSequence_free );
         }
@@ -162,27 +162,33 @@ rpHCPId
     )
 {
     rpHCPId id = {0};
+    RPU8 tmpSensorId = NULL;
+    RU32 tmpSize = 0;
+    RPU8 tmpOrgId = NULL;
+    RPU8 tmpInsId = NULL;
 
     if( NULL != seq )
     {
-        if( !rSequence_getRU8( seq, 
-                               RP_TAGS_HCP_ID_ORG, 
-                               &(id.id.orgId) ) ||
-            !rSequence_getRU8( seq, 
-                               RP_TAGS_HCP_ID_SUBNET, 
-                               &(id.id.subnetId) ) ||
-            !rSequence_getRU32( seq, 
-                                RP_TAGS_HCP_ID_UNIQUE, 
-                                &(id.id.uniqueId) ) ||
-            !rSequence_getRU8( seq, 
-                               RP_TAGS_HCP_ID_PLATFORM, 
-                               &(id.id.platformId) ) ||
-            !rSequence_getRU8( seq, 
-                               RP_TAGS_HCP_ID_CONFIG, 
-                               &(id.id.configId) ) )
+        if( rSequence_getBUFFER( seq, RP_TAGS_HCP_SENSOR_ID, &tmpSensorId, &tmpSize ) &&
+            sizeof( id.sensor_id ) == tmpSize )
         {
-            id.raw = 0;
+            rpal_memory_memcpy( id.sensor_id, tmpSensorId, sizeof( id.sensor_id ) );
         }
+
+        if( rSequence_getBUFFER( seq, RP_TAGS_HCP_ORG_ID, &tmpOrgId, &tmpSize ) &&
+            sizeof( id.org_id ) == tmpSize )
+        {
+            rpal_memory_memcpy( id.org_id, tmpOrgId, sizeof( id.org_id ) );
+        }
+
+        if( rSequence_getBUFFER( seq, RP_TAGS_HCP_INSTALLER_ID, &tmpInsId, &tmpSize ) &&
+            sizeof( id.ins_id ) == tmpSize )
+        {
+            rpal_memory_memcpy( id.ins_id, tmpInsId, sizeof( id.ins_id ) );
+        }
+
+        rSequence_getRU32( seq, RP_TAGS_HCP_ARCHITECTURE, &id.architecture );
+        rSequence_getRU32( seq, RP_TAGS_HCP_PLATFORM, &id.platform );
     }
 
     return id;

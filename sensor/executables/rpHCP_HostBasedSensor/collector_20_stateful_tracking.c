@@ -30,11 +30,14 @@ static rVector g_liveMachines = NULL;
 static StatefulMachineDescriptor* g_statefulMachines[] =
 {
     // Need to set various platform recon categories
-    ENABLED_STATEFUL( 0 ),
+    //ENABLED_STATEFUL( 0 ),
+    DISABLED_STATEFUL( 0 ),
     // Need more timely module notifications on other platforms for this to be relevant
-    ENABLED_WINDOWS_STATEFUL( 1 ),
+    //ENABLED_WINDOWS_STATEFUL( 1 ),
+    DISABLED_STATEFUL( 1 ),
     // Need to categorize document software on other platforms
-    ENABLED_WINDOWS_STATEFUL( 2 )
+    //ENABLED_WINDOWS_STATEFUL( 2 )
+    DISABLED_STATEFUL( 2 )
 };
 
 // For now this is a hardcoded list of events, TODO: make it dynamic based on info from FSMs.

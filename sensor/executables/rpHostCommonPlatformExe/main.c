@@ -19,6 +19,10 @@ limitations under the License.
 
 #ifdef RPAL_PLATFORM_LINUX
 #include <signal.h>
+#elif defined( RPAL_PLATFORM_MACOSX )
+#include <mach-o/dyld.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #endif
 
 
@@ -84,7 +88,6 @@ void
 #define _SERVICE_NAMEW _WCH( "rphcpsvc" )
 static SERVICE_STATUS g_svc_status = { 0 };
 static SERVICE_STATUS_HANDLE g_svc_status_handle = NULL;
-static RU8 g_svc_conf = 0;
 static RPNCHAR g_svc_primary = NULL;
 static RPNCHAR g_svc_secondary = NULL;
 static RPNCHAR g_svc_mod = NULL;
@@ -113,7 +116,7 @@ RU32
     {
         if( ARRAY_N_ELEM( curPath ) > GetModuleFileNameW( hModule, curPath, ARRAY_N_ELEM( curPath ) ) )
         {
-            if( rpal_file_move( curPath, destPath ) )
+            if( rpal_file_copy( curPath, destPath ) )
             {
                 if( NULL != ( hScm = OpenSCManagerA( NULL, NULL, SC_MANAGER_CREATE_SERVICE ) ) )
                 {
@@ -341,7 +344,7 @@ VOID WINAPI
     }
 
     rpal_debug_info( "initialising rpHCP." );
-    if( !rpHostCommonPlatformLib_launch( g_svc_conf, g_svc_primary, g_svc_secondary ) )
+    if( !rpHostCommonPlatformLib_launch( g_svc_primary, g_svc_secondary ) )
     {
         rpal_debug_warning( "error launching hcp." );
     }
@@ -389,6 +392,138 @@ VOID WINAPI
     SetServiceStatus( g_svc_status_handle, &g_svc_status );
 }
 
+#elif defined( RPAL_PLATFORM_MACOSX )
+
+#define _SERVICE_DESC_FILE  _NC("/Library/LaunchDaemons/com.refractionpoint.rphcp.plist")
+#define _SERVICE_NAME       _NC("com.refractionpoint.rphcp")
+#define _SERVICE_DIR        _NC("/usr/local/bin/")
+#define _SERVICE_FILE       _NC("/usr/local/bin/rphcp")
+#define _SERVICE_LOAD       _NC("launchctl load ") _SERVICE_DESC_FILE
+#define _SERVICE_START      _NC("launchctl start ") _SERVICE_NAME
+#define _SERVICE_UNLOAD     _NC("launchctl unload ") _SERVICE_DESC_FILE
+#define _SERVICE_DESC       _NC("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\
+<plist version=\"1.0\">\
+    <dict>\
+        <key>Label</key>\
+        <string>com.refractionpoint.rphcp</string>\
+        <key>ProgramArguments</key>\
+        <array>\
+            <string>/usr/local/bin/rphcp</string>\
+        </array>\
+        <key>KeepAlive</key>\
+        <true/>\
+    </dict>\
+</plist>\
+")
+
+static
+RU32
+    installService
+    (
+
+    )
+{
+    RU32 res = (RU32)-1;
+
+    RNCHAR currentPath[ RPAL_MAX_PATH ] = {0};
+    RU32 currentPathSize = sizeof( currentPath );
+    RNCHAR svcDir[] = { _SERVICE_DIR };
+    RNCHAR svcPath[] = { _SERVICE_FILE };
+    RNCHAR svcDescPath[] = { _SERVICE_DESC_FILE };
+    RNCHAR svcDesc[] = { _SERVICE_DESC };
+    RBOOL isOnDisk = FALSE;
+    RNCHAR svcLoad[] = { _SERVICE_LOAD };
+    RNCHAR svcStart[] = { _SERVICE_START };
+
+    if( 0 == _NSGetExecutablePath( currentPath, &currentPathSize ) )
+    {
+        if( rDir_create( svcDir ) )
+        {
+            chmod( svcDir, S_IRWXU );
+        }
+
+        if( rpal_file_copy( currentPath, svcPath ) )
+        {
+            if( 0 != chmod( svcPath, S_IRWXU ) )
+            {
+                rpal_debug_warning( "could not set restricted permissions on executable" );
+            }
+
+            if( rpal_file_write( svcDescPath, svcDesc, rpal_string_strlen( svcDesc ), TRUE ) )
+            {
+                if( 0 != chmod( svcDescPath, S_IRWXU ) )
+                {
+                    rpal_debug_warning( "could not set restricted permissions on service descriptor" );
+                }
+
+                isOnDisk = TRUE;
+            }
+            else
+            {
+                rpal_debug_error( "could not write service descriptor" );
+            }
+        }
+        else
+        {
+            rpal_debug_error( "could not copy executable to service location" );
+        }
+    }
+    else
+    {
+        rpal_debug_error( "could not get current executable path" );
+    }
+
+    if( isOnDisk )
+    {
+        if( 0 != system( svcLoad ) )
+        {
+            rpal_debug_warning( "failed to load service, already exists?" );
+        }
+
+        if( 0 != system( svcStart ) )
+        {
+            rpal_debug_warning( "failed to start service, already running?" );
+        }
+        else
+        {
+            rpal_debug_info( "successfully installed" );
+            res = 0;
+        }
+    }
+
+    return res;
+}
+
+static
+RU32
+    uninstallService
+    (
+
+    )
+{
+    RU32 res = (RU32)-1;
+
+    RNCHAR svcUnload[] = { _SERVICE_UNLOAD };
+    RNCHAR svcPath[] = { _SERVICE_FILE };
+
+    if( 0 != system( svcUnload ) )
+    {
+        rpal_debug_warning( "failed to unload service, already unloaded?" );
+    }
+
+    if( !rpal_file_delete( svcPath, FALSE ) )
+    {
+        rpal_debug_warning( "failed to delete file from disk, not present?" );
+    }
+    else
+    {
+        rpal_debug_info( "uninstalled successfully" );
+        res = 0;
+    }
+
+    return res;
+}
 
 #endif
 
@@ -397,7 +532,6 @@ RPAL_NATIVE_MAIN
 {
     RNCHAR argFlag = 0;
     RPNCHAR argVal = NULL;
-    RU32 conf = 0;
     RPNCHAR primary = NULL;
     RPNCHAR secondary = NULL;
     RPNCHAR tmpMod = NULL;
@@ -406,7 +540,6 @@ RPAL_NATIVE_MAIN
     RBOOL asService = FALSE;
 
     rpal_opt switches[] = { { _NC( 'h' ), _NC( "help" ), FALSE },
-                            { _NC( 'c' ), _NC( "config" ), TRUE },
                             { _NC( 'p' ), _NC( "primary" ), TRUE },
                             { _NC( 's' ), _NC( "secondary" ), TRUE },
                             { _NC( 'm' ), _NC( "manual" ), TRUE },
@@ -416,6 +549,10 @@ RPAL_NATIVE_MAIN
                             { _NC( 'i' ), _NC( "install" ), FALSE },
                             { _NC( 'r' ), _NC( "uninstall" ), FALSE },
                             { _NC( 'w' ), _NC( "service" ), FALSE }
+#elif defined( RPAL_PLATFORM_MACOSX )
+                            ,
+                            { _NC( 'i' ), _NC( "install" ), FALSE },
+                            { _NC( 'r' ), _NC( "uninstall" ), FALSE }
 #endif
                           };
 
@@ -425,10 +562,6 @@ RPAL_NATIVE_MAIN
         {
             switch( argFlag )
             {
-                case _NC( 'c' ):
-                    rpal_string_stoi( argVal, &conf );
-                    rpal_debug_info( "Setting config id: %d.", conf );
-                    break;
                 case _NC( 'p' ):
                     primary = argVal;
                     rpal_debug_info( "Setting primary URL: %s.", primary );
@@ -461,12 +594,18 @@ RPAL_NATIVE_MAIN
                 case _NC( 'w' ):
                     asService = TRUE;
                     break;
+#elif defined( RPAL_PLATFORM_MACOSX )
+                case _NC( 'i' ):
+                    return installService();
+                    break;
+                case _NC( 'r' ):
+                    return uninstallService();
+                    break;
 #endif
                 case _NC( 'h' ):
                 default:
 #ifdef RPAL_PLATFORM_DEBUG
-                    printf( "Usage: %s [ -c configId ] [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].\n", argv[ 0 ] );
-                    printf( "-c: configuration Id used to enroll agent to different ranges as determined by the site configurations.\n" );
+                    printf( "Usage: %s [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].\n", argv[ 0 ] );
                     printf( "-p: primary Url used to communicate home.\n" );
                     printf( "-s: secondary Url used to communicate home if the primary failed.\n" );
                     printf( "-m: module to be loaded manually, only available in debug builds.\n" );
@@ -475,6 +614,9 @@ RPAL_NATIVE_MAIN
                     printf( "-i: install executable as a service.\n" );
                     printf( "-r: uninstall executable as a service.\n" );
                     printf( "-w: executable is running as a Windows service.\n" );
+#elif defined( RPAL_PLATFORM_MACOSX )
+                    printf( "-i: install executable as a service.\n" );
+                    printf( "-r: uninstall executable as a service.\n" );
 #endif
                     printf( "-h: this help.\n" );
                     return 0;
@@ -495,7 +637,6 @@ RPAL_NATIVE_MAIN
 
             DispatchTable[ 0 ].lpServiceName = svcName;
 
-            g_svc_conf = (RU8)conf;
             g_svc_primary = primary;
             g_svc_secondary = secondary;
             g_svc_mod = tmpMod;
@@ -512,7 +653,7 @@ RPAL_NATIVE_MAIN
 #endif
 
         rpal_debug_info( "initialising rpHCP." );
-        if( !rpHostCommonPlatformLib_launch( (RU8)conf, primary, secondary ) )
+        if( !rpHostCommonPlatformLib_launch( primary, secondary ) )
         {
             rpal_debug_warning( "error launching hcp." );
         }

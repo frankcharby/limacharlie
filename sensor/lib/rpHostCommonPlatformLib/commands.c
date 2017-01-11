@@ -315,7 +315,8 @@ RBOOL
     RBOOL isSuccess = FALSE;
     RU8 command = 0;
     rSequence idSeq = NULL;
-    rpHCPId tmpId = {0};
+    rpHCPId tmpId = { 0 };
+    rpHCPId emptyId = { 0 };
     RU64 tmpTime = 0;
     rThread hQuitThread = 0;
 
@@ -340,11 +341,11 @@ RBOOL
                 isSuccess = unloadModule( seq );
                 break;
             case RP_HCP_COMMAND_SET_HCP_ID:
-                if( rSequence_getSEQUENCE( seq, RP_TAGS_HCP_ID, &idSeq ) )
+                if( rSequence_getSEQUENCE( seq, RP_TAGS_HCP_IDENT, &idSeq ) )
                 {
                     tmpId = seqToHcpId( idSeq );
 
-                    if( 0 != tmpId.raw )
+                    if( 0 != rpal_memory_memcmp( &emptyId, &tmpId, sizeof( emptyId ) ) )
                     {
                         g_hcpContext.currentId = tmpId;
                         
@@ -389,12 +390,12 @@ RBOOL
                                                  sizeof( g_hcpContext.currentId ), 
                                                  TRUE ) )
                             {
-                                rpal_debug_info( "agentid set to %x.%x.%x.%x.%x", 
-                                                 g_hcpContext.currentId.id.orgId, 
-                                                 g_hcpContext.currentId.id.subnetId, 
-                                                 g_hcpContext.currentId.id.uniqueId, 
-                                                 g_hcpContext.currentId.id.platformId, 
-                                                 g_hcpContext.currentId.id.configId );
+                                rpal_debug_info( "sensor id set to " RP_HCP_FORMAT_UUID,
+                                                 RP_HCP_UUID_TO_COMPONENTS( g_hcpContext.currentId.sensor_id ) );
+                                rpal_debug_info( "org id set to " RP_HCP_FORMAT_UUID,
+                                                 RP_HCP_UUID_TO_COMPONENTS( g_hcpContext.currentId.org_id ) );
+                                rpal_debug_info( "ins id set to " RP_HCP_FORMAT_UUID,
+                                                 RP_HCP_UUID_TO_COMPONENTS( g_hcpContext.currentId.ins_id ) );
                                 isSuccess = TRUE;
                             }
                             else

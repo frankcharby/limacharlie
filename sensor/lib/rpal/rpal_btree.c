@@ -353,12 +353,12 @@ static btnode node_Next( BTREE tree, btnode node, void *key )
 
             if( result > 0 )
             {
-                wasLow = FALSE;;
+                wasLow = TRUE;
                 node = left( node );
             }
             else
             {
-                wasLow = TRUE;
+                wasLow = FALSE;
                 node = right( node );
             }
         }
@@ -375,7 +375,7 @@ static btnode node_Next( BTREE tree, btnode node, void *key )
             }
             else
             {
-                node = node_Predecessor( lastTraversed );
+                node = node_Successor( lastTraversed );
             }
         }
     }
@@ -430,7 +430,8 @@ static int btree_Insert(BTREE tree, void *data)
 
   while (node) {
     parent = node;
-    if (data_compare(tree, data, data(tree, node)) < 0) {
+    if( data_compare( tree, data( tree, node ), data ) > 0 )
+    {
       is_max = 0;
       node = left(node);
     }
@@ -446,7 +447,8 @@ static int btree_Insert(BTREE tree, void *data)
     root(tree) = newnode;
   }
   else {
-    if (data_compare(tree, data, data(tree, parent)) < 0) {
+    if( data_compare( tree, data( tree, parent ), data ) > 0 )
+    {
       is_max = 0;
       left(parent) = newnode;
     }
@@ -969,6 +971,7 @@ RBOOL
             }
             else
             {
+                isEmpty = FALSE;
                 RPAL_ASSERT( 0 != btree_NumElements( pTree->tree ) );
             }
 
@@ -1139,9 +1142,19 @@ RBOOL
         if( isBypassLocks ||
             rRwLock_read_lock( pTree->lock ) )
         {
-            if( 0 == btree_Successor( pTree->tree, key, ret ) )
+            if( NULL != key )
             {
-                isSuccess = TRUE;
+                if( 0 == btree_Successor( pTree->tree, key, ret ) )
+                {
+                    isSuccess = TRUE;
+                }
+            }
+            else
+            {
+                if( 0 == btree_Minimum( pTree->tree, ret ) )
+                {
+                    isSuccess = TRUE;
+                }
             }
 
             if( !isBypassLocks )

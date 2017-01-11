@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cunit", "..\lib\CUnit-2.1-2\cunit.vcxproj", "{8ABC417D-E059-4BCF-A265-E1A7B679736B}"
 EndProject
@@ -18,8 +18,6 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "processLib", "..\lib\processLib\processLib.vcxproj", "{55ED069A-2899-3DFA-CCCD-9036543E919F}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libOs", "..\lib\libOs\libOs.vcxproj", "{B344474D-101C-4EEB-AC48-40F1D5489BFD}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libsha1", "..\lib\libsha1\libsha1.vcxproj", "{CC6E1827-8E9D-4BB2-8C10-CC8EA471EDD7}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libOs_test", "..\tests\libOs_test\libOs_test.vcxproj", "{01B124C1-D905-F99A-DC08-759EA9658E01}"
 EndProject
@@ -105,14 +103,6 @@ Global
 		{B344474D-101C-4EEB-AC48-40F1D5489BFD}.Release|Win32.Build.0 = Release|Win32
 		{B344474D-101C-4EEB-AC48-40F1D5489BFD}.Release|x64.ActiveCfg = Release|x64
 		{B344474D-101C-4EEB-AC48-40F1D5489BFD}.Release|x64.Build.0 = Release|x64
-		{CC6E1827-8E9D-4BB2-8C10-CC8EA471EDD7}.Debug|Win32.ActiveCfg = Debug|Win32
-		{CC6E1827-8E9D-4BB2-8C10-CC8EA471EDD7}.Debug|Win32.Build.0 = Debug|Win32
-		{CC6E1827-8E9D-4BB2-8C10-CC8EA471EDD7}.Debug|x64.ActiveCfg = Debug|x64
-		{CC6E1827-8E9D-4BB2-8C10-CC8EA471EDD7}.Debug|x64.Build.0 = Debug|x64
-		{CC6E1827-8E9D-4BB2-8C10-CC8EA471EDD7}.Release|Win32.ActiveCfg = Release|Win32
-		{CC6E1827-8E9D-4BB2-8C10-CC8EA471EDD7}.Release|Win32.Build.0 = Release|Win32
-		{CC6E1827-8E9D-4BB2-8C10-CC8EA471EDD7}.Release|x64.ActiveCfg = Release|x64
-		{CC6E1827-8E9D-4BB2-8C10-CC8EA471EDD7}.Release|x64.Build.0 = Release|x64
 		{01B124C1-D905-F99A-DC08-759EA9658E01}.Debug|Win32.ActiveCfg = Debug|Win32
 		{01B124C1-D905-F99A-DC08-759EA9658E01}.Debug|Win32.Build.0 = Debug|Win32
 		{01B124C1-D905-F99A-DC08-759EA9658E01}.Debug|x64.ActiveCfg = Debug|x64

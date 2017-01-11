@@ -574,7 +574,10 @@ void test_sortsearch( void )
 {
     RU32 toSort[] = { 2, 6, 7, 8, 32, 10, 14, 64, 99, 100 };
     RU32 sorted[] = { 2, 6, 7, 8, 10, 14, 32, 64, 99, 100 };
+    RU32 repeated[] = { 2, 6, 7, 8, 10, 10, 14, 32, 64, 99, 100 };
     RU32 toFind = 7;
+    RU32 toFind2 = 10;
+    RU32 toFind3 = 14;
     RU32 toFindRel = 9;
     RU32 toFindRel2 = 3;
     RU32 toFindRel3 = 98;
@@ -591,6 +594,29 @@ void test_sortsearch( void )
     {
         CU_ASSERT_EQUAL( toSort[ i ], sorted[ i ] );
     }
+
+    CU_ASSERT_TRUE( rpal_sort_array( repeated,
+                                     ARRAY_N_ELEM( repeated ),
+                                     sizeof( RU32 ),
+                                     (rpal_ordering_func)rpal_order_RU32 ) );
+
+    CU_ASSERT_EQUAL( 2, rpal_binsearch_array( repeated,
+                                              ARRAY_N_ELEM( repeated ),
+                                              sizeof( RU32 ),
+                                              &toFind,
+                                              (rpal_ordering_func)rpal_order_RU32 ) );
+
+    CU_ASSERT_EQUAL( 5, rpal_binsearch_array( repeated,
+                                              ARRAY_N_ELEM( repeated ),
+                                              sizeof( RU32 ),
+                                              &toFind2,
+                                              (rpal_ordering_func)rpal_order_RU32 ) );
+
+    CU_ASSERT_EQUAL( 6, rpal_binsearch_array( repeated,
+                                              ARRAY_N_ELEM( repeated ),
+                                              sizeof( RU32 ),
+                                              &toFind3,
+                                              (rpal_ordering_func)rpal_order_RU32 ) );
 
     CU_ASSERT_EQUAL( 2, rpal_binsearch_array( toSort, 
                                               ARRAY_N_ELEM( toSort ), 
@@ -688,6 +714,172 @@ void test_sortsearch( void )
                                                       FALSE ) );
 }
 
+RS32
+    _cmp_number
+    (
+        RU32* nCur,
+        RU32* nNew
+    )
+{
+    return *nCur - *nNew;
+}
+
+void test_btree( void )
+{
+    rBTree tree = NULL;
+
+    RU32 n0 = 0;
+    RU32 n1 = 1;
+    RU32 n2 = 2;
+    RU32 n3 = 3;
+    RU32 n4 = 4;
+    RU32 res = 0;
+
+    tree = rpal_btree_create( sizeof( RU32 ), (rpal_btree_comp_f)_cmp_number, NULL );
+    CU_ASSERT_NOT_EQUAL( tree, NULL );
+
+    CU_ASSERT_TRUE( rpal_btree_isEmpty( tree, FALSE ) );
+    CU_ASSERT_EQUAL( rpal_btree_getSize( tree, FALSE ), 0 );
+
+    // Accessors on empty tree
+    CU_ASSERT_FALSE( rpal_btree_search( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    CU_ASSERT_FALSE( rpal_btree_remove( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_FALSE( rpal_btree_maximum( tree, &res, FALSE ) );
+    CU_ASSERT_FALSE( rpal_btree_minimum( tree, &res, FALSE ) );
+    CU_ASSERT_FALSE( rpal_btree_next( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_FALSE( rpal_btree_after( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_FALSE( rpal_btree_previous( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_FALSE( rpal_btree_optimize( tree, FALSE ) );
+    CU_ASSERT_FALSE( rpal_btree_update( tree, &n1, &n1, FALSE ) );
+
+    CU_ASSERT_TRUE( rpal_btree_add( tree, &n1, FALSE ) );
+
+    CU_ASSERT_FALSE( rpal_btree_isEmpty( tree, FALSE ) );
+    CU_ASSERT_EQUAL( rpal_btree_getSize( tree, FALSE ), 1 );
+
+    // One item
+    CU_ASSERT_TRUE( rpal_btree_search( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 1 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_maximum( tree, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 1 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_minimum( tree, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 1 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_next( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_next( tree, NULL, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 1 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_next( tree, &n2, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+
+    CU_ASSERT_FALSE( rpal_btree_after( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_after( tree, &n0, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 1 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_after( tree, &n2, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_previous( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_previous( tree, &n2, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_previous( tree, &n0, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_optimize( tree, FALSE ) );
+    CU_ASSERT_TRUE( rpal_btree_update( tree, &n1, &n2, FALSE ) );
+    CU_ASSERT_TRUE( rpal_btree_minimum( tree, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 2 );
+    res = 0;
+
+    CU_ASSERT_FALSE( rpal_btree_remove( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_isEmpty( tree, FALSE ) );
+    CU_ASSERT_NOT_EQUAL( rpal_btree_getSize( tree, FALSE ), 0 );
+    CU_ASSERT_TRUE( rpal_btree_remove( tree, &n2, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 2 );
+    res = 0;
+
+    CU_ASSERT_TRUE( rpal_btree_isEmpty( tree, FALSE ) );
+    CU_ASSERT_EQUAL( rpal_btree_getSize( tree, FALSE ), 0 );
+
+    CU_ASSERT_TRUE( rpal_btree_add( tree, &n1, FALSE ) );
+    CU_ASSERT_TRUE( rpal_btree_add( tree, &n3, FALSE ) );
+    CU_ASSERT_TRUE( rpal_btree_add( tree, &n4, FALSE ) );
+
+    CU_ASSERT_FALSE( rpal_btree_isEmpty( tree, FALSE ) );
+    CU_ASSERT_EQUAL( rpal_btree_getSize( tree, FALSE ), 3 );
+
+    // Multi items
+    CU_ASSERT_FALSE( rpal_btree_search( tree, &n2, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_search( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 1 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_maximum( tree, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 4 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_minimum( tree, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 1 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_next( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 3 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_next( tree, NULL, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 1 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_next( tree, &n2, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_next( tree, &n3, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 4 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_next( tree, &n4, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+
+    CU_ASSERT_TRUE( rpal_btree_after( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 3 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_after( tree, &n2, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 3 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_after( tree, &n4, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_previous( tree, &n1, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_previous( tree, &n2, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_FALSE( rpal_btree_previous( tree, &n0, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 0 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_previous( tree, &n3, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 1 );
+    res = 0;
+    CU_ASSERT_TRUE( rpal_btree_optimize( tree, FALSE ) );
+    CU_ASSERT_TRUE( rpal_btree_update( tree, &n4, &n3, FALSE ) );
+    CU_ASSERT_TRUE( rpal_btree_maximum( tree, &res, FALSE ) );
+    CU_ASSERT_EQUAL( res, 3 );
+    res = 0;
+
+    rpal_btree_destroy( tree, FALSE );
+}
+
 
 int
     main
@@ -723,6 +915,7 @@ int
                     NULL == CU_add_test( suite, "crawl", test_crawler ) ||
                     NULL == CU_add_test( suite, "file", test_file ) ||
                     NULL == CU_add_test( suite, "bloom", test_bloom ) ||
+                    NULL == CU_add_test( suite, "btree", test_btree ) ||
                     NULL == CU_add_test( suite, "threadpool", test_threadpool ) ||
                     NULL == CU_add_test( suite, "sortsearch", test_sortsearch ) ||
                     NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )

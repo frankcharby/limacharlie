@@ -32,8 +32,12 @@ limitations under the License.
 
 #define RPAL_FILE_ID    53
 
-rpHCPContext g_hcpContext = {0};
-rpHCPId g_idTemplate = {0};
+rpHCPContext g_hcpContext = { 0 };
+rpHCPId g_idTemplate = { { 0 },                                                 // Sensor ID
+                         { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },    // Org ID
+                         { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 },    // Installer ID
+                         0,                                                     // Architecture
+                         0 };                                                   // Platform
 
 // Large blank buffer to be used to patch configurations post-build
 #define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
@@ -83,11 +87,11 @@ rSequence
 
     if( NULL != ( seq = rSequence_new() ) )
     {
-        if( !rSequence_addRU8( seq, RP_TAGS_HCP_ID_ORG, id.id.orgId ) ||
-            !rSequence_addRU8( seq, RP_TAGS_HCP_ID_SUBNET, id.id.subnetId ) ||
-            !rSequence_addRU32( seq, RP_TAGS_HCP_ID_UNIQUE, id.id.uniqueId ) ||
-            !rSequence_addRU8( seq, RP_TAGS_HCP_ID_PLATFORM, id.id.platformId ) ||
-            !rSequence_addRU8( seq, RP_TAGS_HCP_ID_CONFIG, id.id.configId ) )
+        if( !rSequence_addBUFFER( seq, RP_TAGS_HCP_SENSOR_ID, id.sensor_id, sizeof( id.sensor_id ) ) ||
+            !rSequence_addBUFFER( seq, RP_TAGS_HCP_ORG_ID, id.org_id, sizeof( id.org_id ) ) ||
+            !rSequence_addBUFFER( seq, RP_TAGS_HCP_INSTALLER_ID, id.ins_id, sizeof( id.ins_id ) ) ||
+            !rSequence_addRU32( seq, RP_TAGS_HCP_ARCHITECTURE, id.architecture ) ||
+            !rSequence_addRU32( seq, RP_TAGS_HCP_PLATFORM, id.platform ) )
         {
             DESTROY_AND_NULL( seq, rSequence_free );
         }
@@ -103,26 +107,29 @@ rpHCPId
     )
 {
     rpHCPId id = g_idTemplate;
+    RPU8 tmpSensorId = NULL;
+    RU32 tmpSize = 0;
+    RPU8 tmpOrgId = NULL;
+    RPU8 tmpInsId = NULL;
 
     if( NULL != seq )
     {
-        if( !rSequence_getRU8( seq, 
-                               RP_TAGS_HCP_ID_ORG, 
-                               &(id.id.orgId) ) ||
-            !rSequence_getRU8( seq, 
-                               RP_TAGS_HCP_ID_SUBNET, 
-                               &(id.id.subnetId) ) ||
-            !rSequence_getRU32( seq, 
-                                RP_TAGS_HCP_ID_UNIQUE, 
-                                &(id.id.uniqueId) ) ||
-            !rSequence_getRU8( seq, 
-                               RP_TAGS_HCP_ID_PLATFORM, 
-                               &(id.id.platformId) ) ||
-            !rSequence_getRU8( seq, 
-                               RP_TAGS_HCP_ID_CONFIG, 
-                               &(id.id.configId) ) )
+        if( !rSequence_getBUFFER( seq, RP_TAGS_HCP_SENSOR_ID, &tmpSensorId, &tmpSize ) ||
+            sizeof( id.sensor_id ) != tmpSize ||
+            !rSequence_getBUFFER( seq, RP_TAGS_HCP_ORG_ID, &tmpOrgId, &tmpSize ) ||
+            sizeof( id.org_id ) != tmpSize ||
+            !rSequence_getBUFFER( seq, RP_TAGS_HCP_INSTALLER_ID, &tmpInsId, &tmpSize ) ||
+            sizeof( id.ins_id ) != tmpSize ||
+            !rSequence_getRU32( seq, RP_TAGS_HCP_ARCHITECTURE, &id.architecture ) ||
+            !rSequence_getRU32( seq, RP_TAGS_HCP_PLATFORM, &id.platform ) )
         {
-            id.raw = 0;
+            rpal_memory_zero( &id, sizeof( id ) );
+        }
+        else
+        {
+            rpal_memory_memcpy( id.sensor_id, tmpSensorId, sizeof( id.sensor_id ) );
+            rpal_memory_memcpy( id.org_id, tmpOrgId, sizeof( id.org_id ) );
+            rpal_memory_memcpy( id.ins_id, tmpInsId, sizeof( id.ins_id ) );
         }
     }
 
@@ -141,27 +148,27 @@ RBOOL
     RPU8 storeFile = NULL;
     RU32 storeFileSize = 0;
 
-    rpHCPIdentStore* storeV2 = NULL;
+    rpHCPIdentStore* store = NULL;
 
-    OBFUSCATIONLIB_DECLARE( store, RP_HCP_CONFIG_IDENT_STORE );
+    OBFUSCATIONLIB_DECLARE( storePath, RP_HCP_CONFIG_IDENT_STORE );
 
-    OBFUSCATIONLIB_TOGGLE( store );
+    OBFUSCATIONLIB_TOGGLE( storePath );
 
-    if( rpal_file_read( (RPNCHAR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
+    if( rpal_file_read( (RPNCHAR)storePath, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
     {
         if( sizeof( rpHCPIdentStore ) <= storeFileSize )
         {
-            storeV2 = (rpHCPIdentStore*)storeFile;
-            if( storeV2->enrollmentTokenSize == storeFileSize - sizeof( rpHCPIdentStore ) )
+            store = (rpHCPIdentStore*)storeFile;
+            if( store->enrollmentTokenSize == storeFileSize - sizeof( rpHCPIdentStore ) )
             {
                 isSuccess = TRUE;
                 rpal_debug_info( "ident store found" );
-                if( NULL != ( g_hcpContext.enrollmentToken = rpal_memory_alloc( storeV2->enrollmentTokenSize ) ) )
+                if( NULL != ( g_hcpContext.enrollmentToken = rpal_memory_alloc( store->enrollmentTokenSize ) ) )
                 {
-                    rpal_memory_memcpy( g_hcpContext.enrollmentToken, storeV2->enrollmentToken, storeV2->enrollmentTokenSize );
-                    g_hcpContext.enrollmentTokenSize = storeV2->enrollmentTokenSize;
+                    rpal_memory_memcpy( g_hcpContext.enrollmentToken, store->enrollmentToken, store->enrollmentTokenSize );
+                    g_hcpContext.enrollmentTokenSize = store->enrollmentTokenSize;
                 }
-                g_hcpContext.currentId = storeV2->agentId;
+                g_hcpContext.currentId = store->agentId;
             }
             else
             {
@@ -173,10 +180,11 @@ RBOOL
         rpal_memory_free( storeFile );
     }
 
-    OBFUSCATIONLIB_TOGGLE( store );
+    OBFUSCATIONLIB_TOGGLE( storePath );
 
     // Set some always-correct defaults
-    g_hcpContext.currentId.id.platformId = RP_HCP_ID_MAKE_PLATFORM( RP_HCP_PLATFORM_CURRENT_CPU, RP_HCP_PLATFORM_CURRENT_MAJOR, RP_HCP_PLATFORM_CURRENT_MINOR );
+    g_hcpContext.currentId.architecture = RP_HCP_PLATFORM_CURRENT_ARCH;
+    g_hcpContext.currentId.platform = RP_HCP_PLATFORM_CURRENT;
 
     return isSuccess;
 }
@@ -219,7 +227,6 @@ rSequence
 RBOOL
     rpHostCommonPlatformLib_launch
     (
-        RU8 configHint,
         RPNCHAR primaryHomeUrl,
         RPNCHAR secondaryHomeUrl
     )
@@ -260,7 +267,7 @@ RBOOL
                 return FALSE;
             }
 
-            g_hcpContext.currentId.raw = g_idTemplate.raw;
+            g_hcpContext.currentId = g_idTemplate;
 
             // We attempt to load some initial config from the serialized
             // rSequence that can be patched in this binary.
@@ -281,7 +288,7 @@ RBOOL
                     g_hcpContext.secondaryPort = tmpPort;
                     rpal_debug_info( "loading secondary url from static config" );
                 }
-                if( rSequence_getSEQUENCE( staticConfig, RP_TAGS_HCP_ID, &tmpSeq ) )
+                if( rSequence_getSEQUENCE( staticConfig, RP_TAGS_HCP_IDENT, &tmpSeq ) )
                 {
                     g_hcpContext.currentId = seqToHcpId( tmpSeq );
                     rpal_debug_info( "loading default id from static config" );
@@ -336,9 +343,6 @@ RBOOL
             g_hcpContext.enrollmentTokenSize = 0;
 
             getStoreConf();  /* Sets the agent ID platform. */
-            
-            // Set the current configId
-            g_hcpContext.currentId.id.configId = configHint;
 
             if( startBeacons() )
             {

@@ -34,6 +34,9 @@
     <ClCompile Include="collector_2_files.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="collector_4_network.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="collectors.h">

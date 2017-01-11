@@ -73,13 +73,11 @@ RVOID
 {
     RNCHAR argFlag = 0;
     RPNCHAR argVal = NULL;
-    RU32 conf = 0;
     RPNCHAR primary = NULL;
     RPNCHAR secondary = NULL;
     RU32 memUsed = 0;
 
     rpal_opt switches[] = { { _NC( 'h' ), _NC( "help" ), FALSE },
-                            { _NC( 'c' ), _NC( "config" ), TRUE },
                             { _NC( 'p' ), _NC( "primary" ), TRUE },
                             { _NC( 's' ), _NC( "secondary" ), TRUE },
                             { _NC( 'm' ), _NC( "manual" ), TRUE } };
@@ -111,12 +109,6 @@ RVOID
             {
                 switch( argFlag )
                 {
-                    case _NC( 'c' ):
-                        if( rpal_string_stoi( argVal, &conf ) && ( ( conf & 0xFF ) == conf ) )
-                        {
-                            rpal_debug_info( "Setting config id: %d.", (RU8)conf );
-                        }
-                        break;
                     case _NC( 'p' ):
                         primary = argVal;
                         rpal_debug_info( "Setting primary URL: %s.", primary );
@@ -128,8 +120,7 @@ RVOID
                     case _NC( 'h' ):
                     default:
     #ifdef RPAL_PLATFORM_DEBUG
-                        printf( "Usage: %s [ -c configId ] [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].", argv[ 0 ] );
-                        printf( "-c: configuration Id used to enroll agent to different ranges as determined by the site configurations.\n" );
+                        printf( "Usage: %s [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].", argv[ 0 ] );
                         printf( "-p: primary Url used to communicate home.\n" );
                         printf( "-s: secondary Url used to communicate home if the primary failed.\n" );
                         printf( "-m: module to be loaded manually, only available in debug builds.\n" );
@@ -143,7 +134,7 @@ RVOID
 
             rpal_debug_info( "launching rpHCP" );
 
-            if( rpHostCommonPlatformLib_launch( (RU8)conf, primary, secondary ) )
+            if( rpHostCommonPlatformLib_launch( primary, secondary ) )
             {
                 ServiceStatus.dwCurrentState = SERVICE_RUNNING;
                 touchStatus();

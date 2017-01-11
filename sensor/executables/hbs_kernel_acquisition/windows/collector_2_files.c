@@ -872,11 +872,14 @@ RBOOL
 RBOOL
     collector_2_initialize
     (
-        PDRIVER_OBJECT driverObject
+        PDRIVER_OBJECT driverObject,
+        PDEVICE_OBJECT deviceObject
     )
 {
     RBOOL isSuccess = FALSE;
-    RU32 status = 0;
+    NTSTATUS status = STATUS_SUCCESS;
+
+    UNREFERENCED_PARAMETER( deviceObject );
 
     KeInitializeSpinLock( &g_collector_2_mutex );
 
@@ -910,7 +913,7 @@ RBOOL
     )
 {
     RBOOL isSuccess = FALSE;
-    RU32 status = STATUS_SUCCESS;
+    NTSTATUS status = STATUS_SUCCESS;
 
     if( NT_SUCCESS( status ) )
     {

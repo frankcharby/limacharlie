@@ -66,4 +66,15 @@ RBOOL
         RU32* nEntries
     );
 
+// Shortcut for RFC 1700 protocol numbers
+#define RPROTOCOL_IP_TCP    6
+#define RPROTOCOL_IP_UDP    17
+
+RBOOL
+    kAcq_getNewConnections
+    (
+        KernelAcqNetwork* entries,
+        RU32* nEntries
+    );
+
 #endif
