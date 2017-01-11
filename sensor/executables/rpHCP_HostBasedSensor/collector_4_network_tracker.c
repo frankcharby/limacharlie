@@ -21,8 +21,11 @@ limitations under the License.
 #include <networkLib/networkLib.h>
 #include <libOs/libOs.h>
 #include <rpHostCommonPlatformLib/rTags.h>
+#include <kernelAcquisitionLib/kernelAcquisitionLib.h>
 
 #define RPAL_FILE_ID        79
+
+static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
 
 static
 RBOOL
@@ -70,10 +73,9 @@ RBOOL
 
 static 
 RPVOID
-    networkDiffThread
+    networkUmDiffThread
     (
-        rEvent isTimeToStop,
-        RPVOID ctx
+        rEvent isTimeToStop
     )
 {
     NetLib_Tcp4Table* currentTcp4Table = NULL;
@@ -103,10 +105,10 @@ RPVOID
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.timeoutIncrementPerSec = 10;
 
-    UNREFERENCED_PARAMETER( ctx );
-
     while( rpal_memory_isValid( isTimeToStop ) &&
-           !rEvent_wait( isTimeToStop, 0 ) )
+           !rEvent_wait( isTimeToStop, 0 ) &&
+           ( !kAcq_isAvailable() ||
+             g_is_kernel_failure ) )
     {
         libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
@@ -212,12 +214,12 @@ RPVOID
                             }
 
                             rpal_debug_info( "new tcp connection: 0x%08X = 0x%08X:0x%04X ---> 0x%08X:0x%04X -- 0x%08X.",
-                                currentTcp4Table->rows[ i ].state,
-                                currentTcp4Table->rows[ i ].sourceIp,
-                                currentTcp4Table->rows[ i ].sourcePort,
-                                currentTcp4Table->rows[ i ].destIp,
-                                currentTcp4Table->rows[ i ].destPort,
-                                currentTcp4Table->rows[ i ].pid );
+                                             currentTcp4Table->rows[ i ].state,
+                                             currentTcp4Table->rows[ i ].sourceIp,
+                                             currentTcp4Table->rows[ i ].sourcePort,
+                                             currentTcp4Table->rows[ i ].destIp,
+                                             currentTcp4Table->rows[ i ].destPort,
+                                             currentTcp4Table->rows[ i ].pid );
                             hbs_publish( RP_TAGS_NOTIFICATION_NEW_TCP4_CONNECTION, notif );
                         }
 
@@ -281,9 +283,9 @@ RPVOID
                         else
                         {
                             rpal_debug_info( "new udp connection: 0x%08X:0x%04X -- 0x%08X.",
-                                currentUdpTable->rows[ i ].localIp,
-                                currentUdpTable->rows[ i ].localPort,
-                                currentUdpTable->rows[ i ].pid );
+                                             currentUdpTable->rows[ i ].localIp,
+                                             currentUdpTable->rows[ i ].localPort,
+                                             currentUdpTable->rows[ i ].pid );
                             hbs_publish( RP_TAGS_NOTIFICATION_NEW_UDP4_CONNECTION, notif );
                         }
 
@@ -313,12 +315,177 @@ RPVOID
     return NULL;
 }
 
+static
+RBOOL
+    addIpToSequence
+    (
+        RIpAddress ip,
+        rSequence seq
+    )
+{
+    RBOOL isAdded = FALSE;
+
+    if( NULL != seq )
+    {
+        if( ip.isV6 )
+        {
+            isAdded = rSequence_addIPV6( seq, RP_TAGS_IP_ADDRESS, (RU8*)&ip.v6.byteArray );
+        }
+        else
+        {
+            isAdded = rSequence_addIPV4( seq, RP_TAGS_IP_ADDRESS, ip.v4 );
+        }
+    }
+
+    return isAdded;
+}
+
+static
+RPVOID
+    networkKmDiffThread
+    (
+        rEvent isTimeToStop
+    )
+{
+    rpcm_tag event = RP_TAGS_INVALID;
+    rSequence notif = NULL;
+    rSequence tmpSeq = NULL;
+    RU32 nScratch = 0;
+    RU32 prev_nScratch = 0;
+    KernelAcqNetwork new_from_kernel[ 200 ] = { 0 };
+    KernelAcqNetwork prev_from_kernel[ 200 ] = { 0 };
+    RU32 i = 0;
+    Atom parentAtom = { 0 };
+
+    while( rpal_memory_isValid( isTimeToStop ) &&
+        !rEvent_wait( isTimeToStop, 1000 ) )
+    {
+        nScratch = ARRAY_N_ELEM( new_from_kernel );
+        rpal_memory_zero( new_from_kernel, sizeof( new_from_kernel ) );
+        if( !kAcq_getNewConnections( new_from_kernel, &nScratch ) )
+        {
+            rpal_debug_warning( "kernel acquisition for new network connections failed" );
+            g_is_kernel_failure = TRUE;
+            break;
+        }
+
+        for( i = 0; i < prev_nScratch; i++ )
+        {
+            if( RPROTOCOL_IP_TCP == prev_from_kernel[ i ].proto )
+            {
+                if( 0 != prev_from_kernel[ i ].srcIp.isV6 )
+                {
+                    event = RP_TAGS_NOTIFICATION_NEW_TCP6_CONNECTION;
+                }
+                else
+                {
+                    event = RP_TAGS_NOTIFICATION_NEW_TCP4_CONNECTION;
+                }
+            }
+            else if( RPROTOCOL_IP_UDP == prev_from_kernel[ i ].proto )
+            {
+                if( 0 != prev_from_kernel[ i ].srcIp.isV6 )
+                {
+                    event = RP_TAGS_NOTIFICATION_NEW_UDP6_CONNECTION;
+                }
+                else
+                {
+                    event = RP_TAGS_NOTIFICATION_NEW_UDP4_CONNECTION;
+                }
+            }
+            else
+            {
+                continue;
+            }
+
+            prev_from_kernel[ i ].ts += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
+
+            if( NULL != ( notif = rSequence_new() ) )
+            {
+                parentAtom.key.process.pid = prev_from_kernel[ i ].pid;
+                parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                if( atoms_query( &parentAtom, prev_from_kernel[ i ].ts ) )
+                {
+                    HbsSetParentAtom( notif, parentAtom.id );
+                }
+
+                if( NULL != ( tmpSeq = rSequence_new() ) )
+                {
+                    if( !addIpToSequence( prev_from_kernel[ i ].srcIp, tmpSeq ) ||
+                        !rSequence_addRU16( tmpSeq, RP_TAGS_PORT, prev_from_kernel[ i ].srcPort ) ||
+                        !rSequence_addSEQUENCE( notif, RP_TAGS_SOURCE, tmpSeq ) )
+                    {
+                        rSequence_free( tmpSeq );
+                    }
+                }
+
+                if( NULL != ( tmpSeq = rSequence_new() ) )
+                {
+                    if( !addIpToSequence( prev_from_kernel[ i ].dstIp, tmpSeq ) ||
+                        !rSequence_addRU16( tmpSeq, RP_TAGS_PORT, prev_from_kernel[ i ].dstPort ) ||
+                        !rSequence_addSEQUENCE( notif, RP_TAGS_DESTINATION, tmpSeq ) )
+                    {
+                        rSequence_free( tmpSeq );
+                    }
+                }
+
+                if( rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, prev_from_kernel[ i ].pid ) &&
+                    hbs_timestampEvent( notif, prev_from_kernel[ i ].ts ) )
+                {
+                    hbs_publish( event, notif );
+                }
+
+                rSequence_free( notif );
+            }
+        }
+
+        rpal_memory_memcpy( prev_from_kernel, new_from_kernel, sizeof( prev_from_kernel ) );
+        prev_nScratch = nScratch;
+    }
+
+    return NULL;
+}
+
+static
+RPVOID
+    networkDiffThread
+    (
+        rEvent isTimeToStop,
+        RPVOID ctx
+    )
+{
+    UNREFERENCED_PARAMETER( ctx );
+
+    while( !rEvent_wait( isTimeToStop, 0 ) )
+    {
+        if( kAcq_isAvailable() &&
+            !g_is_kernel_failure )
+        {
+            // We first attempt to get new network connections through
+            // the kernel mode acquisition driver
+            rpal_debug_info( "running kernel acquisition network notification" );
+            networkKmDiffThread( isTimeToStop );
+        }
+        // If the kernel mode fails, or is not available, try
+        // to revert to user mode
+        else if( !rEvent_wait( isTimeToStop, 0 ) )
+        {
+            rpal_debug_info( "running usermode acquisition network notification" );
+            networkUmDiffThread( isTimeToStop );
+        }
+    }
+
+    return NULL;
+}
+
 //=============================================================================
 // COLLECTOR INTERFACE
 //=============================================================================
 
 rpcm_tag collector_4_events[] = { RP_TAGS_NOTIFICATION_NEW_TCP4_CONNECTION,
                                   RP_TAGS_NOTIFICATION_NEW_UDP4_CONNECTION,
+                                  RP_TAGS_NOTIFICATION_NEW_TCP6_CONNECTION,
+                                  RP_TAGS_NOTIFICATION_NEW_UDP6_CONNECTION,
                                   0 };
 
 RBOOL

@@ -339,7 +339,7 @@ NTSTATUS
         if( !g_collectors[ i ].initializer( DriverObject, DriverObject->DeviceObject ) )
         {
             rpal_debug_kernel( "Failed to initialize collector %d.", i + 1 );
-            status = (-1);
+            status = STATUS_FAILED_DRIVER_ENTRY;
             break;
         }
     }

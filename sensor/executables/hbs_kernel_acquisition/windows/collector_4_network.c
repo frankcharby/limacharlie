@@ -90,7 +90,7 @@ static LayerInfo g_layerAuthRecvAccept6 = {
 };
 
 static LayerInfo* g_layers[] = { &g_layerAuthConnect4,
-                                 &g_layerAuthConnect4,
+                                 &g_layerAuthConnect6,
                                  &g_layerAuthRecvAccept4,
                                  &g_layerAuthRecvAccept6 };
 
@@ -122,7 +122,6 @@ RBOOL
         NULL != resultSize &&
         0 != *resultSize )
     {
-        rpal_debug_kernel( "GET NETWORK" );
         KeAcquireInStackQueuedSpinLock( &g_collector_4_mutex, &hMutex );
 
         toCopy = ( *resultSize ) / sizeof( g_connections[ 0 ] );
@@ -226,8 +225,6 @@ RVOID
     UNREFERENCED_PARAMETER( flt );
     UNREFERENCED_PARAMETER( flowCtx );
 
-    rpal_debug_kernel( "Callback authConnect" );
-
     if( IS_FLAG_ENABLED( result->rights, FWPS_RIGHT_ACTION_WRITE ) )
     {
         result->actionType = FWP_ACTION_CONTINUE;
@@ -239,10 +236,8 @@ RVOID
 
     if( getIpTuple( fixVals->layerId, fixVals, &g_connections[ g_nextConnection ] ) )
     {
-        rpal_debug_kernel( "AuthConnect got tuple" );
         if( FWPS_IS_METADATA_FIELD_PRESENT( metaVals, FWPS_METADATA_FIELD_PROCESS_ID ) )
         {
-            rpal_debug_kernel( "AuthConnect got pid" );
             g_connections[ g_nextConnection ].pid = (RU32)metaVals->processId;
         }
 
@@ -255,9 +250,9 @@ RVOID
     }
     else
     {
+        rpal_debug_kernel( "Failed to get tuple: 0x%08X", status );
         status = STATUS_INTERNAL_ERROR;
         RtlZeroMemory( &g_connections[ g_nextConnection ], sizeof( g_connections[ g_nextConnection ] ) );
-        rpal_debug_kernel( "Failed to get tuple" );
     }
 
     KeReleaseInStackQueuedSpinLock( &hMutex );
@@ -282,8 +277,6 @@ RVOID
     UNREFERENCED_PARAMETER( flt );
     UNREFERENCED_PARAMETER( flowCtx );
 
-    rpal_debug_kernel( "Callback recvAccept" );
-
     if( IS_FLAG_ENABLED( result->rights, FWPS_RIGHT_ACTION_WRITE ) )
     {
         result->actionType = FWP_ACTION_CONTINUE;
@@ -295,10 +288,8 @@ RVOID
 
     if( getIpTuple( fixVals->layerId, fixVals, &g_connections[ g_nextConnection ] ) )
     {
-        rpal_debug_kernel( "RecvAccept got tuple" );
         if( FWPS_IS_METADATA_FIELD_PRESENT( metaVals, FWPS_METADATA_FIELD_PROCESS_ID ) )
         {
-            rpal_debug_kernel( "RecvAccept got pid" );
             g_connections[ g_nextConnection ].pid = (RU32)metaVals->processId;
         }
 
@@ -311,9 +302,9 @@ RVOID
     }
     else
     {
+        rpal_debug_kernel( "Failed to get tuple: 0x%08X", status );
         status = STATUS_INTERNAL_ERROR;
         RtlZeroMemory( &g_connections[ g_nextConnection ], sizeof( g_connections[ g_nextConnection ] ) );
-        rpal_debug_kernel( "Failed to get tuple" );
     }
 
     KeReleaseInStackQueuedSpinLock( &hMutex );
@@ -343,8 +334,7 @@ static RVOID
     )
 {
     RU32 i = 0;
-    rpal_debug_kernel( "Unregistering callouts" );
-
+    
     for( i = 0; i < ARRAY_N_ELEM( g_layers ); i++ )
     {
         if( g_layers[ i ]->coActive )
@@ -353,8 +343,6 @@ static RVOID
             g_layers[ i ]->coActive = FALSE;
         }
     }
-
-    rpal_debug_kernel( "Finished unregistering callouts" );
 }
 
 static RVOID
@@ -365,8 +353,6 @@ static RVOID
 {
     NTSTATUS status = STATUS_SUCCESS;
     RU32 i = 0;
-
-    rpal_debug_kernel( "Deactivating layers" );
 
     if( NULL == g_engineHandle ) return;
 
@@ -414,8 +400,6 @@ static RVOID
         FwpmEngineClose0( g_engineHandle );
         g_engineHandle = NULL;
     }
-
-    rpal_debug_kernel( "Finished deactivating layers" );
 }
 
 static NTSTATUS
@@ -454,7 +438,7 @@ static NTSTATUS
 
         if( !NT_SUCCESS( status = FwpsCalloutRegister( deviceObject, &callout, NULL ) ) )
         {
-            rpal_debug_kernel( "Failed to register callout: 0x%08X", status );
+            rpal_debug_kernel( "Failed to register callout %d: 0x%08X", i, status );
             break;
         }
 
@@ -464,6 +448,9 @@ static NTSTATUS
     if( !NT_SUCCESS( status ) )
     {
         unregisterCallouts();
+        FwpmTransactionAbort( g_engineHandle );
+        FwpmEngineClose( g_engineHandle );
+        g_engineHandle = NULL;
         return status;
     }
 
@@ -516,6 +503,8 @@ static NTSTATUS
     {
         unregisterCallouts();
         FwpmTransactionAbort( g_engineHandle );
+        FwpmEngineClose( g_engineHandle );
+        g_engineHandle = NULL;
         return status;
     }
 
@@ -537,8 +526,6 @@ RVOID
     )
 {
     PDEVICE_OBJECT deviceObject = (PDEVICE_OBJECT)ctx;
-
-    rpal_debug_kernel( "State change: 0x%08X", newState );
 
     switch( newState )
     {

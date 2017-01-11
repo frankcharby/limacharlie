@@ -115,6 +115,7 @@ typedef struct
     RIpAddress dstIp;
     RU16 dstPort;
     RU64 ts;
+    RU32 nBytes;
 } KernelAcqNetwork;
 
 #endif
