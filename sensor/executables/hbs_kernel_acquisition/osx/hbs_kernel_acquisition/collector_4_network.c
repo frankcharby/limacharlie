@@ -20,7 +20,6 @@
 #include <sys/kpi_mbuf.h>
 #include <netinet/in.h>
 #include <sys/types.h>
-#include <IOKit/IOLib.h>
 
 #define _NUM_BUFFERED_CONNECTIONS   200
 #define _FLT_HANDLE_BASE            0x52484350// RHCP
@@ -34,8 +33,12 @@ static RBOOL g_shuttingDown = FALSE;
 
 typedef struct
 {
+    RBOOL isReported;
+    RBOOL isConnected;
     int addrFamily;
     int sockType;
+    struct sockaddr_in peerAtConnect4;
+    struct sockaddr_in6 peerAtConnect6;
     KernelAcqNetwork netEvent;
     
 } SockCookie;
@@ -82,21 +85,21 @@ errno_t
     
     if( isShuttingDown ) return ret;
     
-    if( KERN_SUCCESS == sock_gettype( so, &addrFamily, &sockType, &protocol) )
+    if( KERN_SUCCESS == sock_gettype( so, &addrFamily, &sockType, &protocol ) )
     {
         if( ( PF_INET == addrFamily || PF_INET6 == addrFamily ) &&
             ( IPPROTO_TCP == protocol || IPPROTO_UDP == protocol ) )
         {
             if( NULL != ( sc = rpal_memory_alloc( sizeof( SockCookie ) ) ) )
             {
-                sc->netEvent.pid = proc_selfpid();
                 sc->addrFamily = addrFamily;
                 sc->sockType = sockType;
-                sc->netEvent.proto = protocol;
+                sc->netEvent.proto = (RU8)protocol;
                 sc->netEvent.ts = rpal_time_getLocal();
+                sc->isReported = FALSE;
                 
                 *cookie = sc;
-                ret = 0;
+                ret = KERN_SUCCESS;
             }
             else
             {
@@ -121,7 +124,7 @@ errno_t
 
 static
 void
-    cbDettach
+    cbDetach
     (
         void* cookie,
         socket_t so
@@ -137,6 +140,218 @@ void
 }
 
 static
+RBOOL
+    populateCookie
+    (
+        SockCookie* sc,
+        socket_t so,
+        const struct sockaddr* remote
+    )
+{
+    RBOOL isPopulated = FALSE;
+    
+    errno_t ret = KERN_SUCCESS;
+    RBOOL isIpV6 = FALSE;
+    struct sockaddr_in local4 = { 0 };
+    struct sockaddr_in remote4 = { 0 };
+    struct sockaddr_in6 local6 = { 0 };
+    struct sockaddr_in6 remote6 = { 0 };
+    
+    if( NULL != sc )
+    {
+        if( PF_INET == sc->addrFamily )
+        {
+            isIpV6 = FALSE;
+        }
+        else
+        {
+            isIpV6 = TRUE;
+        }
+        
+        sc->netEvent.pid = proc_selfpid();
+        
+        if( !isIpV6 )
+        {
+            if( 0 != ( ret = sock_getsockname( so, (struct sockaddr*)&local4, sizeof( local4 ) ) ) )
+            {
+                rpal_debug_info( "^^^^^^ ERROR getting local sockname4: %d", ret );
+            }
+            
+            if( 0 != ( ret = sock_getpeername( so, (struct sockaddr*)&remote4, sizeof( remote4 ) ) ) ||
+                0 == remote4.sin_addr.s_addr )
+            {
+                if( NULL != remote )
+                {
+                    memcpy( &remote4, (struct sockaddr_in*)remote, sizeof( remote4 ) );
+                }
+                else if( 0 != sc->peerAtConnect4.sin_addr.s_addr )
+                {
+                    memcpy( &remote4, &sc->peerAtConnect4, sizeof( remote4 ) );
+                }
+            }
+        }
+        else
+        {
+            // We only receive IP4 or IP6 so this is always IP6
+            if( 0 != ( ret = sock_getsockname( so, (struct sockaddr*)&local6, sizeof( local6 ) ) ) )
+            {
+                rpal_debug_info( "^^^^^^ ERROR getting local sockname6: %d", ret );
+            }
+            if( 0 != ( ret = sock_getpeername( so, (struct sockaddr*)&remote6, sizeof( remote6 ) ) ) &&
+                NULL != remote )
+            {
+                memcpy( &remote6, (struct sockaddr_in6*)remote, sizeof( remote6 ) );
+            }
+        }
+        
+        if( sc->netEvent.isIncoming )
+        {
+            if( !isIpV6 )
+            {
+                sc->netEvent.srcIp.isV6 = FALSE;
+                sc->netEvent.srcIp.v4 = remote4.sin_addr.s_addr;
+                sc->netEvent.srcPort = ntohs( remote4.sin_port );
+                sc->netEvent.dstIp.isV6 = FALSE;
+                sc->netEvent.dstIp.v4 = local4.sin_addr.s_addr;
+                sc->netEvent.dstPort = ntohs( local4.sin_port );
+            }
+            else
+            {
+                sc->netEvent.srcIp.isV6 = TRUE;
+                memcpy( &sc->netEvent.srcIp.v6.byteArray,
+                        &remote6.sin6_addr,
+                        sizeof( sc->netEvent.srcIp.v6.byteArray ) );
+                sc->netEvent.srcPort = ntohs( remote6.sin6_port );
+                sc->netEvent.dstIp.isV6 = TRUE;
+                memcpy( &sc->netEvent.dstIp.v6.byteArray,
+                        &local6.sin6_addr,
+                        sizeof( sc->netEvent.dstIp.v6.byteArray ) );
+                sc->netEvent.srcPort = ntohs( local6.sin6_port );
+            }
+        }
+        else
+        {
+            if( !isIpV6 )
+            {
+                sc->netEvent.srcIp.isV6 = FALSE;
+                sc->netEvent.srcIp.v4 = local4.sin_addr.s_addr;
+                sc->netEvent.srcPort = ntohs( local4.sin_port );
+                sc->netEvent.dstIp.isV6 = FALSE;
+                sc->netEvent.dstIp.v4 = remote4.sin_addr.s_addr;
+                sc->netEvent.dstPort = ntohs( remote4.sin_port );
+            }
+            else
+            {
+                sc->netEvent.srcIp.isV6 = TRUE;
+                memcpy( &sc->netEvent.srcIp.v6.byteArray,
+                        &local6.sin6_addr,
+                        sizeof( sc->netEvent.srcIp.v6.byteArray ) );
+                sc->netEvent.srcPort = ntohs( local6.sin6_port );
+                sc->netEvent.dstIp.isV6 = TRUE;
+                memcpy( &sc->netEvent.dstIp.v6.byteArray,
+                        &remote6.sin6_addr,
+                        sizeof( sc->netEvent.dstIp.v6.byteArray ) );
+                sc->netEvent.srcPort = ntohs( remote6.sin6_port );
+            }
+        }
+        
+        if( !isIpV6 )
+        {
+            rpal_debug_info( "^^^^^^ CONNECTION V4 (%d): incoming=%d 0x%08X:%d ---> 0x%08X:%d", (RU32)sc->netEvent.proto, (RU32)sc->netEvent.isIncoming, sc->netEvent.srcIp.v4, (RU32)sc->netEvent.srcPort, sc->netEvent.dstIp.v4, (RU32)sc->netEvent.dstPort );
+        }
+        else
+        {
+            rpal_debug_info( "^^^^^^ CONNECTION V6 (%d): incoming=%d %d ---> %d", (RU32)sc->netEvent.proto, (RU32)sc->netEvent.isIncoming, (RU32)sc->netEvent.srcPort, (RU32)sc->netEvent.dstPort );
+        }
+        
+        isPopulated = TRUE;
+    }
+    
+    return isPopulated;
+}
+
+static
+errno_t
+    cbDataIn
+    (
+        void* cookie,
+        socket_t so,
+        const struct sockaddr* from,
+        mbuf_t* data,
+        mbuf_t* control,
+        sflt_data_flag_t flags
+    )
+{
+    SockCookie* sc = (SockCookie*)cookie;
+    
+    UNREFERENCED_PARAMETER( data );
+    UNREFERENCED_PARAMETER( control );
+    UNREFERENCED_PARAMETER( flags );
+    
+    if( NULL != cookie &&
+        !sc->isReported )
+    {
+        if( !sc->isConnected )
+        {
+            sc->netEvent.isIncoming = TRUE;
+        }
+        
+        populateCookie( sc, so, from );
+        
+        rpal_mutex_lock( g_collector_4_mutex );
+    
+        sc->isReported = TRUE;
+        g_connections[ g_nextConnection ] = sc->netEvent;
+        next_connection();
+        
+        rpal_mutex_unlock( g_collector_4_mutex );
+    }
+    
+    return KERN_SUCCESS;
+}
+
+
+static
+errno_t
+    cbDataOut
+    (
+        void* cookie,
+        socket_t so,
+        const struct sockaddr* to,
+        mbuf_t* data,
+        mbuf_t* control,
+        sflt_data_flag_t flags
+    )
+{
+    SockCookie* sc = (SockCookie*)cookie;
+    
+    UNREFERENCED_PARAMETER( data );
+    UNREFERENCED_PARAMETER( control );
+    UNREFERENCED_PARAMETER( flags );
+    
+    if( NULL != cookie &&
+        !sc->isReported )
+    {
+        if( !sc->isConnected )
+        {
+            sc->netEvent.isIncoming = FALSE;
+        }
+        
+        populateCookie( sc, so, to );
+        
+        rpal_mutex_lock( g_collector_4_mutex );
+    
+        sc->isReported = TRUE;
+        g_connections[ g_nextConnection ] = sc->netEvent;
+        next_connection();
+        
+        rpal_mutex_unlock( g_collector_4_mutex );
+    }
+    
+    return KERN_SUCCESS;
+}
+
+static
 errno_t
     cbConnectIn
     (
@@ -145,63 +360,27 @@ errno_t
         const struct sockaddr* from
     )
 {
-    errno_t ret = EINVAL;
     SockCookie* sc = (SockCookie*)cookie;
-    
-    struct sockaddr_in to4 = { 0 };
-    struct sockaddr_in realFrom4 = { 0 };
-    
-    struct sockaddr_in6 to6 = { 0 };
-    struct sockaddr_in6 realFrom6 = { 0 };
     
     if( NULL != cookie )
     {
         sc->netEvent.isIncoming = TRUE;
+        sc->isConnected = TRUE;
         
-        if( PF_INET == sc->addrFamily )
+        if( NULL != from )
         {
-            sock_getsockname( so, (struct sockaddr*)&to4, sizeof( to4 ) );
-            if( 0 != sock_getpeername( so, (struct sockaddr*)&realFrom4, sizeof( realFrom4 ) ) &&
-                NULL != from )
+            if( PF_INET == sc->addrFamily )
             {
-                realFrom4 = *(struct sockaddr_in*)from;
+                memcpy( &sc->peerAtConnect4, (struct sockaddr_in*)from, sizeof( sc->peerAtConnect4 ) );
             }
-            sc->netEvent.dstPort = ntohs( to4.sin_port );
-            sc->netEvent.dstIp.v4 = to4.sin_addr.s_addr;
-            sc->netEvent.dstIp.isV6 = 0;
-            sc->netEvent.srcPort = ntohs( realFrom4.sin_port );
-            sc->netEvent.srcIp.v4 = realFrom4.sin_addr.s_addr;
-            sc->netEvent.srcIp.isV6 = 0;
-        }
-        else
-        {
-            sock_getsockname( so, (struct sockaddr*)&to6, sizeof( to6 ) );
-            if( 0 != sock_getpeername( so, (struct sockaddr*)&realFrom6, sizeof( realFrom6 ) ) &&
-                NULL != from )
+            else
             {
-                realFrom6 = *(struct sockaddr_in6*)from;
+                memcpy( &sc->peerAtConnect6, (struct sockaddr_in6*)from, sizeof( sc->peerAtConnect6 ) );
             }
-            sc->netEvent.dstPort = ntohs( to6.sin6_port );
-            memcpy( &sc->netEvent.dstIp.v6.byteArray,
-                    &to6.sin6_addr,
-                    sizeof( sc->netEvent.dstIp.v6.byteArray ) );
-            sc->netEvent.dstIp.isV6 = 1;
-            sc->netEvent.srcPort = ntohs( realFrom6.sin6_port );
-            memcpy( &sc->netEvent.srcIp.v6.byteArray,
-                    &realFrom6.sin6_addr,
-                    sizeof( sc->netEvent.srcIp.v6.byteArray ) );
-            sc->netEvent.srcIp.isV6 = 1;
         }
-        
-        rpal_mutex_lock( g_collector_4_mutex );
-    
-        g_connections[ g_nextConnection ] = sc->netEvent;
-        next_connection();
-        
-        rpal_mutex_lock( g_collector_4_mutex );
     }
     
-    return ret;
+    return KERN_SUCCESS;
 }
 
 static
@@ -213,63 +392,27 @@ errno_t
         const struct sockaddr* to
     )
 {
-    errno_t ret = EINVAL;
     SockCookie* sc = (SockCookie*)cookie;
-    
-    struct sockaddr_in realTo4 = { 0 };
-    struct sockaddr_in from4 = { 0 };
-    
-    struct sockaddr_in6 realTo6 = { 0 };
-    struct sockaddr_in6 from6 = { 0 };
     
     if( NULL != cookie )
     {
         sc->netEvent.isIncoming = FALSE;
+        sc->isConnected = TRUE;
         
-        if( PF_INET == sc->addrFamily )
+        if( NULL != to )
         {
-            sock_getsockname( so, (struct sockaddr*)&from4, sizeof( from4 ) );
-            if( 0 != sock_getpeername( so, (struct sockaddr*)&realTo4, sizeof( realTo4 ) ) &&
-                NULL != to )
+            if( PF_INET == sc->addrFamily )
             {
-                realTo4 = *(struct sockaddr_in*)to;
+                memcpy( &sc->peerAtConnect4, (struct sockaddr_in*)to, sizeof( sc->peerAtConnect4 ) );
             }
-            sc->netEvent.dstPort = ntohs( realTo4.sin_port );
-            sc->netEvent.dstIp.v4 = realTo4.sin_addr.s_addr;
-            sc->netEvent.dstIp.isV6 = 0;
-            sc->netEvent.srcPort = ntohs( from4.sin_port );
-            sc->netEvent.srcIp.v4 = from4.sin_addr.s_addr;
-            sc->netEvent.srcIp.isV6 = 0;
-        }
-        else
-        {
-            sock_getsockname( so, (struct sockaddr*)&from6, sizeof( from6 ) );
-            if( 0 != sock_getpeername( so, (struct sockaddr*)&realTo6, sizeof( realTo6 ) ) &&
-                NULL != to )
+            else
             {
-                realTo6 = *(struct sockaddr_in6*)to;
+                memcpy( &sc->peerAtConnect6, (struct sockaddr_in6*)to, sizeof( sc->peerAtConnect6 ) );
             }
-            sc->netEvent.dstPort = ntohs( realTo6.sin6_port );
-            memcpy( &sc->netEvent.dstIp.v6.byteArray,
-                    &realTo6.sin6_addr,
-                    sizeof( sc->netEvent.dstIp.v6.byteArray ) );
-            sc->netEvent.dstIp.isV6 = 1;
-            sc->netEvent.srcPort = ntohs( from6.sin6_port );
-            memcpy( &sc->netEvent.srcIp.v6.byteArray,
-                    &from6.sin6_addr,
-                    sizeof( sc->netEvent.srcIp.v6.byteArray ) );
-            sc->netEvent.srcIp.isV6 = 1;
         }
-        
-        rpal_mutex_lock( g_collector_4_mutex );
-    
-        g_connections[ g_nextConnection ] = sc->netEvent;
-        next_connection();
-        
-        rpal_mutex_lock( g_collector_4_mutex );
     }
     
-    return ret;
+    return KERN_SUCCESS;
 }
 
 static
@@ -289,9 +432,11 @@ RBOOL
     flt.sf_flags = SFLT_GLOBAL;
     flt.sf_name = _FLT_NAME;
     flt.sf_attach = cbAttach;
-    flt.sf_detach = cbDettach;
+    flt.sf_detach = cbDetach;
     flt.sf_connect_in = cbConnectIn;
     flt.sf_connect_out = cbConnectOut;
+    flt.sf_data_in = cbDataIn;
+    flt.sf_data_out = cbDataOut;
     
     if( 0 == sflt_register( &flt, addrFamily, sockType, protocol ) )
     {
@@ -332,8 +477,8 @@ int
     int toCopy = 0;
     
     if( NULL != pResult &&
-       NULL != resultSize &&
-       0 != *resultSize )
+        NULL != resultSize &&
+        0 != *resultSize )
     {
         rpal_mutex_lock( g_collector_4_mutex );
         toCopy = (*resultSize) / sizeof( KernelAcqNetwork );
@@ -421,9 +566,11 @@ int
         
         if( !isDone )
         {
-            IOSleep( 500 );
+            //IOSleep( 500 );
         }
     }
+    
+    rpal_mutex_free( g_collector_4_mutex );
     
     return 1;
 }

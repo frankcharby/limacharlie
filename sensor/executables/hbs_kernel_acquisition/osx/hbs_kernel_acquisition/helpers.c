@@ -45,6 +45,7 @@ void*
     
     if( NULL != realPtr )
     {
+        bzero( realPtr, size );
         *(uint32_t*)realPtr = size;
         ptr = realPtr + sizeof( uint32_t );
     }
