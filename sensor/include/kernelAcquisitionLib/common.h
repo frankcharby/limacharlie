@@ -67,6 +67,7 @@ typedef struct
 //==============================================================================
 //  Collector Specific Data Structures
 //==============================================================================
+#pragma pack(push)
 #pragma pack(4)
 
 #define KERNEL_ACQ_NO_USER_ID               ((RU32)(-1))
@@ -108,6 +109,7 @@ typedef struct
 
 typedef struct
 {
+    RU64 ts;
     RU32 pid;
     RU8 proto;
     RU8 isIncoming;
@@ -115,10 +117,9 @@ typedef struct
     RU16 srcPort;
     RIpAddress dstIp;
     RU16 dstPort;
-    RU64 ts;
     RU32 nBytes;
 } KernelAcqNetwork;
 
-#pragma options align=reset
+#pragma pack(pop)
 
 #endif
