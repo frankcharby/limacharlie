@@ -329,11 +329,11 @@ RBOOL
     {
         if( ip.isV6 )
         {
-            isAdded = rSequence_addIPV6( seq, RP_TAGS_IP_ADDRESS, (RU8*)&ip.v6.byteArray );
+            isAdded = rSequence_addIPV6( seq, RP_TAGS_IP_ADDRESS, (RU8*)&ip.value.v6.byteArray );
         }
         else
         {
-            isAdded = rSequence_addIPV4( seq, RP_TAGS_IP_ADDRESS, ip.v4 );
+            isAdded = rSequence_addIPV4( seq, RP_TAGS_IP_ADDRESS, ip.value.v4 );
         }
     }
 

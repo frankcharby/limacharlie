@@ -209,23 +209,23 @@ RBOOL
             if( !isIpV6 )
             {
                 sc->netEvent.srcIp.isV6 = FALSE;
-                sc->netEvent.srcIp.v4 = remote4.sin_addr.s_addr;
+                sc->netEvent.srcIp.value.v4 = remote4.sin_addr.s_addr;
                 sc->netEvent.srcPort = ntohs( remote4.sin_port );
                 sc->netEvent.dstIp.isV6 = FALSE;
-                sc->netEvent.dstIp.v4 = local4.sin_addr.s_addr;
+                sc->netEvent.dstIp.value.v4 = local4.sin_addr.s_addr;
                 sc->netEvent.dstPort = ntohs( local4.sin_port );
             }
             else
             {
                 sc->netEvent.srcIp.isV6 = TRUE;
-                memcpy( &sc->netEvent.srcIp.v6.byteArray,
+                memcpy( &sc->netEvent.srcIp.value.v6.byteArray,
                         &remote6.sin6_addr,
-                        sizeof( sc->netEvent.srcIp.v6.byteArray ) );
+                        sizeof( sc->netEvent.srcIp.value.v6.byteArray ) );
                 sc->netEvent.srcPort = ntohs( remote6.sin6_port );
                 sc->netEvent.dstIp.isV6 = TRUE;
-                memcpy( &sc->netEvent.dstIp.v6.byteArray,
+                memcpy( &sc->netEvent.dstIp.value.v6.byteArray,
                         &local6.sin6_addr,
-                        sizeof( sc->netEvent.dstIp.v6.byteArray ) );
+                        sizeof( sc->netEvent.dstIp.value.v6.byteArray ) );
                 sc->netEvent.srcPort = ntohs( local6.sin6_port );
             }
         }
@@ -234,30 +234,30 @@ RBOOL
             if( !isIpV6 )
             {
                 sc->netEvent.srcIp.isV6 = FALSE;
-                sc->netEvent.srcIp.v4 = local4.sin_addr.s_addr;
+                sc->netEvent.srcIp.value.v4 = local4.sin_addr.s_addr;
                 sc->netEvent.srcPort = ntohs( local4.sin_port );
                 sc->netEvent.dstIp.isV6 = FALSE;
-                sc->netEvent.dstIp.v4 = remote4.sin_addr.s_addr;
+                sc->netEvent.dstIp.value.v4 = remote4.sin_addr.s_addr;
                 sc->netEvent.dstPort = ntohs( remote4.sin_port );
             }
             else
             {
                 sc->netEvent.srcIp.isV6 = TRUE;
-                memcpy( &sc->netEvent.srcIp.v6.byteArray,
+                memcpy( &sc->netEvent.srcIp.value.v6.byteArray,
                         &local6.sin6_addr,
-                        sizeof( sc->netEvent.srcIp.v6.byteArray ) );
+                        sizeof( sc->netEvent.srcIp.value.v6.byteArray ) );
                 sc->netEvent.srcPort = ntohs( local6.sin6_port );
                 sc->netEvent.dstIp.isV6 = TRUE;
-                memcpy( &sc->netEvent.dstIp.v6.byteArray,
+                memcpy( &sc->netEvent.dstIp.value.v6.byteArray,
                         &remote6.sin6_addr,
-                        sizeof( sc->netEvent.dstIp.v6.byteArray ) );
+                        sizeof( sc->netEvent.dstIp.value.v6.byteArray ) );
                 sc->netEvent.srcPort = ntohs( remote6.sin6_port );
             }
         }
         
         if( !isIpV6 )
         {
-            rpal_debug_info( "^^^^^^ CONNECTION V4 (%d): incoming=%d 0x%08X:%d ---> 0x%08X:%d", (RU32)sc->netEvent.proto, (RU32)sc->netEvent.isIncoming, sc->netEvent.srcIp.v4, (RU32)sc->netEvent.srcPort, sc->netEvent.dstIp.v4, (RU32)sc->netEvent.dstPort );
+            rpal_debug_info( "^^^^^^ CONNECTION V4 (%d): incoming=%d 0x%08X:%d ---> 0x%08X:%d", (RU32)sc->netEvent.proto, (RU32)sc->netEvent.isIncoming, sc->netEvent.srcIp.value.v4, (RU32)sc->netEvent.srcPort, sc->netEvent.dstIp.value.v4, (RU32)sc->netEvent.dstPort );
         }
         else
         {

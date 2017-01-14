@@ -235,11 +235,14 @@ typedef struct
     RU8 byteArray[ 16 ];
 } RIpV6;
 
-typedef union
+typedef struct
 {
     RU8 isV6;
-    RU32 v4;
-    RIpV6 v6;
+    union
+    {
+        RU32 v4;
+        RIpV6 v6;
+    } value;
 } RIpAddress;
 
 // Export Visibility Control
