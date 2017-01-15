@@ -161,9 +161,9 @@ static NTSTATUS
             netEntry->isIncoming = FALSE;
             netEntry->srcIp.isV6 = FALSE;
             netEntry->dstIp.isV6 = FALSE;
-            netEntry->srcIp.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_LOCAL_ADDRESS ].value.uint32;
+            netEntry->srcIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_LOCAL_ADDRESS ].value.uint32;
             netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_LOCAL_PORT ].value.uint16;
-            netEntry->dstIp.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_REMOTE_ADDRESS ].value.uint32;
+            netEntry->dstIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_REMOTE_ADDRESS ].value.uint32;
             netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_REMOTE_PORT ].value.uint16;
             netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_PROTOCOL ].value.uint8;
             break;
@@ -171,9 +171,9 @@ static NTSTATUS
             netEntry->isIncoming = FALSE;
             netEntry->srcIp.isV6 = TRUE;
             netEntry->dstIp.isV6 = TRUE;
-            netEntry->srcIp.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V6_IP_LOCAL_ADDRESS ].value.byteArray16;
+            netEntry->srcIp.value.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V6_IP_LOCAL_ADDRESS ].value.byteArray16;
             netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V6_IP_LOCAL_PORT ].value.uint16;
-            netEntry->dstIp.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V6_IP_REMOTE_ADDRESS ].value.byteArray16;
+            netEntry->dstIp.value.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V6_IP_REMOTE_ADDRESS ].value.byteArray16;
             netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V6_IP_REMOTE_PORT ].value.uint16;
             netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V6_IP_PROTOCOL ].value.uint8;
             break;
@@ -181,9 +181,9 @@ static NTSTATUS
             netEntry->isIncoming = TRUE;
             netEntry->srcIp.isV6 = FALSE;
             netEntry->dstIp.isV6 = FALSE;
-            netEntry->dstIp.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_LOCAL_ADDRESS ].value.uint32;
+            netEntry->dstIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_LOCAL_ADDRESS ].value.uint32;
             netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_LOCAL_PORT ].value.uint16;
-            netEntry->srcIp.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_REMOTE_ADDRESS ].value.uint32;
+            netEntry->srcIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_REMOTE_ADDRESS ].value.uint32;
             netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_REMOTE_PORT ].value.uint16;
             netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_PROTOCOL ].value.uint8;
             break;
@@ -191,9 +191,9 @@ static NTSTATUS
             netEntry->isIncoming = TRUE;
             netEntry->srcIp.isV6 = TRUE;
             netEntry->dstIp.isV6 = TRUE;
-            netEntry->dstIp.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V6_IP_LOCAL_ADDRESS ].value.byteArray16;
+            netEntry->dstIp.value.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V6_IP_LOCAL_ADDRESS ].value.byteArray16;
             netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V6_IP_LOCAL_PORT ].value.uint16;
-            netEntry->srcIp.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V6_IP_REMOTE_ADDRESS ].value.byteArray16;
+            netEntry->srcIp.value.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V6_IP_REMOTE_ADDRESS ].value.byteArray16;
             netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V6_IP_REMOTE_PORT ].value.uint16;
             netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V6_IP_PROTOCOL ].value.uint8;
             break;

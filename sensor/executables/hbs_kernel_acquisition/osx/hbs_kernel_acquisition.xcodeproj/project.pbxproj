@@ -13,6 +13,7 @@
 		9C91E8991C8AB0AF002C1875 /* collector_1_processes.c in Sources */ = {isa = PBXBuildFile; fileRef = 9C91E8981C8AB0AF002C1875 /* collector_1_processes.c */; };
 		9C91E89C1C8AB0C4002C1875 /* helpers.c in Sources */ = {isa = PBXBuildFile; fileRef = 9C91E89A1C8AB0C4002C1875 /* helpers.c */; };
 		9C91E89D1C8AB0C4002C1875 /* helpers.h in Headers */ = {isa = PBXBuildFile; fileRef = 9C91E89B1C8AB0C4002C1875 /* helpers.h */; };
+		9CA554E01E28342400C5F1F7 /* collector_4_network.c in Sources */ = {isa = PBXBuildFile; fileRef = 9CA554DF1E28342400C5F1F7 /* collector_4_network.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +26,7 @@
 		9C91E8981C8AB0AF002C1875 /* collector_1_processes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = collector_1_processes.c; sourceTree = "<group>"; };
 		9C91E89A1C8AB0C4002C1875 /* helpers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = helpers.c; sourceTree = "<group>"; };
 		9C91E89B1C8AB0C4002C1875 /* helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = helpers.h; sourceTree = "<group>"; };
+		9CA554DF1E28342400C5F1F7 /* collector_4_network.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = collector_4_network.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +67,7 @@
 				9C91E8981C8AB0AF002C1875 /* collector_1_processes.c */,
 				9C91E89A1C8AB0C4002C1875 /* helpers.c */,
 				9C91E89B1C8AB0C4002C1875 /* helpers.h */,
+				9CA554DF1E28342400C5F1F7 /* collector_4_network.c */,
 			);
 			path = hbs_kernel_acquisition;
 			sourceTree = "<group>";
@@ -151,6 +154,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9C91E88E1C8AAFBC002C1875 /* hbs_kernel_acquisition.c in Sources */,
+				9CA554E01E28342400C5F1F7 /* collector_4_network.c in Sources */,
 				9C91E89C1C8AB0C4002C1875 /* helpers.c in Sources */,
 				9C2385741C9DC20D009B00B6 /* collector_2_files.c in Sources */,
 				9C91E8991C8AB0AF002C1875 /* collector_1_processes.c in Sources */,
