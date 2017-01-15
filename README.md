@@ -9,6 +9,11 @@
 
 *For more direct enquiries, contact us at limacharlie@refractionpoint.com*
 
+### Free Hosted LC
+A free cloud hosted version of LimaCharlie is now available at [limacharlie.io](https://limacharlie.io/).
+
+This is a great way to test the basic "flight-recording" features of LC without doing a deployment on premise. With a short retention it's also a great way of having a cheap safety net EDR without costly deployment, maintenance and licensing.
+
 ## Documentation
 Most of the documentation is now found on the [LC wiki](https://github.com/refractionPOINT/limacharlie/wiki).
 
