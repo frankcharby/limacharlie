@@ -505,6 +505,8 @@ RBOOL
 
             if( rpal_memory_isValid( outBuff ) )
             {
+                outSize = bufferSize;
+
                 if( 0 == mbedtls_pk_decrypt( &key,
                                              bufferToDecrypt,
                                              bufferSize,

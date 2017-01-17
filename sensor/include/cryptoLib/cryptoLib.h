@@ -25,6 +25,7 @@ limitations under the License.
 #define CRYPTOLIB_SYM_KEY_SIZE              0x20
 #define CRYPTOLIB_SYM_IV_SIZE               0x10
 #define CRYPTOLIB_ASYM_2048_MIN_SIZE        0x100
+#define CRYPTOLIB_ASYM_MAX_SIZE             0xF5
 #define CRYPTOLIB_HASH_SIZE                 0x20 // Sha-256
 #define CRYPTOLIB_SYM_MOD_SIZE              0x10
 
