@@ -27,13 +27,13 @@ limitations under the License.
 #define MAX_CACHE_SIZE                  (1024 * 1024 * 50)
 #define DOCUMENT_MAX_SIZE               (1024 * 1024 * 15)
 
-static rQueue g_createQueue = NULL;
-static HObs g_matcher = NULL;
+RPRIVATE rQueue g_createQueue = NULL;
+RPRIVATE HObs g_matcher = NULL;
 
-static HbsRingBuffer g_documentCache = NULL;
-static RU32 g_cacheMaxSize = MAX_CACHE_SIZE;
-static RU32 g_cacheSize = 0;
-static rMutex g_cacheMutex = NULL;
+RPRIVATE HbsRingBuffer g_documentCache = NULL;
+RPRIVATE RU32 g_cacheMaxSize = MAX_CACHE_SIZE;
+RPRIVATE RU32 g_cacheSize = 0;
+RPRIVATE rMutex g_cacheMutex = NULL;
 
 typedef struct
 {
@@ -42,7 +42,7 @@ typedef struct
 
 } DocSearchContext;
 
-static
+RPRIVATE
 RVOID
     _freeEvt
     (
@@ -54,7 +54,7 @@ RVOID
     rSequence_free( evt );
 }
 
-static
+RPRIVATE
 RVOID
     processFile
     (
@@ -127,7 +127,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RPVOID
     parseDocuments
     (
@@ -151,7 +151,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RBOOL
     findDoc
     (
@@ -196,7 +196,7 @@ RBOOL
     return isMatch;
 }
 
-static
+RPRIVATE
 RVOID
     getDocument
     (
@@ -264,7 +264,7 @@ RVOID
     rpal_memory_free( ctx.expr );
 }
 
-static
+RPRIVATE
 RBOOL
     _addPattern
     (

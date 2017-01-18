@@ -131,7 +131,7 @@ RBOOL
     return isCpuIdle;
 }
 
-static
+RPRIVATE
 RVOID
     _freeEvt
     (
@@ -244,7 +244,7 @@ typedef struct
 
 } _ShimCompareContext;
 
-static
+RPRIVATE
 RBOOL
     _shimCompareFunction
     (
@@ -389,7 +389,7 @@ typedef struct
     rSequence event;
 } _EventStub;
 
-static
+RPRIVATE
 RS32
     _cmpEventTimes
     (
@@ -433,7 +433,7 @@ RS32
     return ret;
 }
 
-static
+RPRIVATE
 RVOID
     _freeStub
     (

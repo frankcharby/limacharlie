@@ -24,10 +24,10 @@ limitations under the License.
 
 #define RPAL_FILE_ID 109
 
-static rMutex g_mutex = NULL;
-static rVector g_users = NULL;
+RPRIVATE rMutex g_mutex = NULL;
+RPRIVATE rVector g_users = NULL;
 
-static
+RPRIVATE
 RS32
     _cmpUserName
     (
@@ -49,7 +49,7 @@ RS32
 }
 
 
-static
+RPRIVATE
 RVOID
     processNewProcesses
     (

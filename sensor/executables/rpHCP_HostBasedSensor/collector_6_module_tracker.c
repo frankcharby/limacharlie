@@ -40,9 +40,9 @@ typedef struct
     RU64 size;
 } _moduleHistEntry;
 
-static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
+RPRIVATE RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
 
-static
+RPRIVATE
 RS32
     _cmpModule
     (
@@ -61,7 +61,7 @@ RS32
     return ret;
 }
 
-static
+RPRIVATE
 RPVOID
     modUserModeDiff
     (
@@ -183,7 +183,8 @@ RPVOID
     return NULL;
 }
 
-static RBOOL
+RPRIVATE
+RBOOL
     notifyOfKernelModule
     (
         KernelAcqModule* module
@@ -247,7 +248,8 @@ static RBOOL
     return isSuccess;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     modKernelModeDiff
     (
         rEvent isTimeToStop
@@ -281,7 +283,8 @@ static RVOID
 }
 
 
-static RPVOID
+RPRIVATE
+RPVOID
     moduleDiffThread
     (
         rEvent isTimeToStop,

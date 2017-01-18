@@ -23,7 +23,7 @@ limitations under the License.
 #include <notificationsLib/notificationsLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
 
-static HbsState* g_hbsStateRef = NULL;
+RPRIVATE HbsState* g_hbsStateRef = NULL;
 
 //=============================================================================
 // COLLECTOR INTERFACE

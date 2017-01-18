@@ -27,7 +27,7 @@ limitations under the License.
 
 static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
 
-static
+RPRIVATE
 RBOOL
     isTcpEqual
     (
@@ -50,7 +50,7 @@ RBOOL
     return isEqual;
 }
 
-static
+RPRIVATE
 RBOOL
     isUdpEqual
     (
@@ -71,7 +71,7 @@ RBOOL
     return isEqual;
 }
 
-static 
+RPRIVATE
 RPVOID
     networkUmDiffThread
     (
@@ -315,7 +315,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RBOOL
     addIpToSequence
     (
@@ -340,7 +340,7 @@ RBOOL
     return isAdded;
 }
 
-static
+RPRIVATE
 RPVOID
     networkKmDiffThread
     (
@@ -446,7 +446,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RPVOID
     networkDiffThread
     (

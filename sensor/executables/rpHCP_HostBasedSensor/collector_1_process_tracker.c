@@ -42,10 +42,11 @@ typedef struct
     RU32 ppid;
 } processEntry;
 
-static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
+RPRIVATE RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
 
 
-static RBOOL
+RPRIVATE
+RBOOL
     getSnapshot
     (
         processEntry* toSnapshot,
@@ -159,7 +160,8 @@ static RBOOL
     return isSuccess;
 }
 
-static RBOOL
+RPRIVATE
+RBOOL
     notifyOfProcess
     (
         RU32 pid,
@@ -297,7 +299,8 @@ static RBOOL
     return isSuccess;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     procUserModeDiff
     (
         rEvent isTimeToStop
@@ -414,7 +417,8 @@ static RVOID
     }
 }
 
-static RVOID
+RPRIVATE
+RVOID
     procKernelModeDiff
     (
         rEvent isTimeToStop
@@ -497,7 +501,8 @@ static RVOID
     }
 }
 
-static RPVOID
+RPRIVATE
+RPVOID
     processDiffThread
     (
         rEvent isTimeToStop,

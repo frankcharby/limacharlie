@@ -93,7 +93,7 @@ RU8* hbs_cloud_pub_key = hbs_cloud_default_pub_key;
 //=============================================================================
 //  Utilities
 //=============================================================================
-static
+RPRIVATE
 rSequence
     getStaticConfig
     (
@@ -124,7 +124,7 @@ rSequence
     return config;
 }
 
-static
+RPRIVATE
 RBOOL
     isHcpIdMatch
     (
@@ -158,7 +158,8 @@ RBOOL
 }
 
 #ifdef RPAL_PLATFORM_WINDOWS
-static RBOOL
+RPRIVATE
+RBOOL
     WindowsSetPrivilege
     (
         HANDLE hToken,
@@ -192,7 +193,8 @@ static RBOOL
 }
 
 
-static RBOOL
+RPRIVATE
+RBOOL
     WindowsGetPrivilege
     (
         RPCHAR privName
@@ -222,7 +224,7 @@ static RBOOL
 }
 #endif
 
-static 
+RPRIVATE
 RBOOL
     getPrivileges
     (
@@ -283,7 +285,8 @@ RBOOL
     return isSuccess;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     freeExfilEvent
     (
         rSequence seq,
@@ -295,7 +298,8 @@ static RVOID
 }
 
 
-static RBOOL
+RPRIVATE
+RBOOL
     checkKernelAcquisition
     (
 
@@ -324,7 +328,8 @@ static RBOOL
     return isKernelInit;
 }
 
-static RBOOL
+RPRIVATE
+RBOOL
     updateCollectorConfigs
     (
         rList newConfigs
@@ -374,7 +379,8 @@ static RBOOL
     return isSuccess;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     shutdownCollectors
     (
 
@@ -407,7 +413,7 @@ static RVOID
     }
 }
 
-static
+RPRIVATE
 RBOOL
     sendSingleMessageHome
     (
@@ -432,7 +438,7 @@ RBOOL
 }
 
 
-static
+RPRIVATE
 RPVOID
 RPAL_THREAD_FUNC
     issueSync
@@ -533,7 +539,8 @@ RPAL_THREAD_FUNC
     return NULL;
 }
 
-static RBOOL
+RPRIVATE
+RBOOL
     startCollectors
     (
 
@@ -580,7 +587,8 @@ static RBOOL
     return isSuccess;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     sendStartupEvent
     (
 
@@ -614,7 +622,8 @@ static RVOID
     }
 }
 
-static RVOID
+RPRIVATE
+RVOID
     sendShutdownEvent
     (
 
@@ -654,7 +663,7 @@ typedef struct
     rSequence event;
 } _cloudNotifStub;
 
-static
+RPRIVATE
 RPVOID
     _handleCloudNotification
     (
@@ -678,7 +687,8 @@ RPVOID
     return NULL;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     publishCloudNotifications
     (
         rList notifications

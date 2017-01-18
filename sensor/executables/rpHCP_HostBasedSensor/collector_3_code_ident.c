@@ -49,7 +49,7 @@ typedef struct
     } mtd;
 } CodeInfo;
 
-static
+RPRIVATE
 RS32
     _compCodeInfo
     (
@@ -72,7 +72,7 @@ RS32
     return ret;
 }
 
-static
+RPRIVATE
 RBOOL
     cleanupTree
     (
@@ -121,7 +121,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RBOOL
     populateCodeInfo
     (
@@ -175,7 +175,7 @@ RBOOL
     return isCanBeReported;
 }
 
-static
+RPRIVATE
 RBOOL
     checkNewIdent
     (
@@ -256,7 +256,7 @@ RBOOL
     return isNeedsReporting;
 }
 
-static
+RPRIVATE
 RVOID
     processCodeIdent
     (
@@ -340,7 +340,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     processNewProcesses
     (
@@ -362,7 +362,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     processNewModule
     (
@@ -384,7 +384,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     processHashedEvent
     (
@@ -413,7 +413,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     processGenericSnapshot
     (
@@ -441,7 +441,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     processFileEvents
     (

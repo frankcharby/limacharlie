@@ -28,7 +28,7 @@ limitations under the License.
 
 #define _DIFF_TIMEOUT       (1000*1)
 
-static RU32 g_diff_timeout = _DIFF_TIMEOUT;
+RPRIVATE RU32 g_diff_timeout = _DIFF_TIMEOUT;
 
 typedef struct
 {
@@ -36,7 +36,8 @@ typedef struct
     rSequence volume;
 } _volEntry;
 
-static RS32
+RPRIVATE
+RS32
     _cmpHashes
     (
         CryptoLib_Hash* pHash1,
@@ -54,7 +55,8 @@ static RS32
     return ret;
 }
 
-static RPVOID
+RPRIVATE
+RPVOID
     volumeTrackerDiffThread
     (
         rEvent isTimeToStop,

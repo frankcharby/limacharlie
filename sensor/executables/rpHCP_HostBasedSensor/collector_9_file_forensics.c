@@ -23,7 +23,7 @@ limitations under the License.
 
 #define RPAL_FILE_ID                  64
 
-static
+RPRIVATE
 RBOOL
     enhanceFileInfo
     (
@@ -65,7 +65,7 @@ RBOOL
     return isEnhanced;
 }
 
-static
+RPRIVATE
 RVOID
     file_get
     (
@@ -126,7 +126,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     file_del
     (
@@ -161,7 +161,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     file_mov
     (
@@ -191,7 +191,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     file_hash
     (
@@ -232,7 +232,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     file_info
     (
@@ -251,7 +251,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     dir_list
     (

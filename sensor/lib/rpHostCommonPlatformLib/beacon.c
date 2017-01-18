@@ -44,7 +44,7 @@ limitations under the License.
 //=============================================================================
 //  Helpers
 //=============================================================================
-static
+RPRIVATE
 rBlob
     wrapFrame
     (
@@ -87,7 +87,7 @@ rBlob
     return blob;
 }
 
-static
+RPRIVATE
 RBOOL
     sendFrame
     (
@@ -127,7 +127,7 @@ RBOOL
     return isSent;
 }
 
-static
+RPRIVATE
 RBOOL
     recvFrame
     (
@@ -237,7 +237,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 rSequence
     generateHeaders
     (
@@ -335,7 +335,7 @@ rSequence
 //=============================================================================
 //  Base beacon
 //=============================================================================
-static
+RPRIVATE
 RU32
     RPAL_THREAD_FUNC thread_sync
     (
@@ -467,7 +467,7 @@ RU32
     return 0;
 }
 
-static
+RPRIVATE
 RU32
     RPAL_THREAD_FUNC thread_conn
     (

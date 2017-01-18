@@ -38,17 +38,17 @@ typedef struct
     RU32 iEvent;
 } _AtomEvent;
 
-static HbsState* g_state = NULL;
+RPRIVATE HbsState* g_state = NULL;
 
-static _EventList g_exfil_profile = { 0 };
-static _EventList g_exfil_adhoc = { 0 };
+RPRIVATE _EventList g_exfil_profile = { 0 };
+RPRIVATE _EventList g_exfil_adhoc = { 0 };
 
-static RU32 g_cur_size = 0;
-static rSequence g_history[ _HISTORY_MAX_LENGTH ] = { 0 };
-static RU32 g_history_head = 0;
-static rMutex g_history_mutex = NULL;
+RPRIVATE RU32 g_cur_size = 0;
+RPRIVATE rSequence g_history[ _HISTORY_MAX_LENGTH ] = { 0 };
+RPRIVATE RU32 g_history_head = 0;
+RPRIVATE rMutex g_history_mutex = NULL;
 
-static
+RPRIVATE
 RS32
     _cmpAtom
     (
@@ -59,7 +59,7 @@ RS32
     return rpal_memory_memcmp( e1->atomId, e2->atomId, sizeof( e1->atomId ) );
 }
 
-static
+RPRIVATE
 rpcm_tag
     _getEventName
     (
@@ -73,7 +73,7 @@ rpcm_tag
     return tag;
 }
 
-static
+RPRIVATE
 RBOOL
     _initEventList
     (
@@ -95,7 +95,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RBOOL
     _deinitEventList
     (
@@ -124,7 +124,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RBOOL
     _addEventId
     (
@@ -165,7 +165,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RBOOL
     _removeEventId
     (
@@ -216,7 +216,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RBOOL
     _isEventIn
     (
@@ -246,7 +246,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RVOID
     recordEvent
     (
@@ -323,7 +323,7 @@ RVOID
     }
 }
 
-static 
+RPRIVATE
 RVOID
     exfilFunc
     (
@@ -371,7 +371,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     dumpHistory
     (
@@ -533,7 +533,7 @@ RVOID
                              NULL );
 }
 
-static
+RPRIVATE
 RPVOID
     stopExfilCb
     (
@@ -558,7 +558,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RVOID
     add_exfil
     (
@@ -604,7 +604,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     del_exfil
     (
@@ -629,7 +629,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     get_exfil
     (

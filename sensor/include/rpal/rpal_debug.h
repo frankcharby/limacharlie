@@ -109,3 +109,9 @@ RVOID
 #define rpal_debug_not_implemented() ( rpal_debug_error( "API not implemented: %s", __FUNCTION__ ) )
 
 #endif
+
+#ifdef RPAL_DEBUG_FOR_UNIT_TESTS
+    #define RPRIVATE
+#else
+    #define RPRIVATE    static
+#endif

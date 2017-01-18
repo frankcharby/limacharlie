@@ -53,10 +53,10 @@ limitations under the License.
 #endif
 #define _SANITY_CEILING                         MSEC_FROM_SEC( 2 )
 
-static rQueue g_newProcessNotifications = NULL;
+RPRIVATE rQueue g_newProcessNotifications = NULL;
 
 
-static
+RPRIVATE
 RVOID
     _freeEvt
     (
@@ -68,7 +68,7 @@ RVOID
     rSequence_free( evt );
 }
 
-static
+RPRIVATE
 RBOOL
     _longestString
     (
@@ -155,7 +155,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 HObs
     _getModuleDiskStringSample
     (
@@ -254,7 +254,7 @@ HObs
     return sample;
 }
 
-static
+RPRIVATE
 RU32
     _checkMemoryForStringSample
     (
@@ -320,7 +320,7 @@ RU32
     return nSamplesFound;
 }
 
-static
+RPRIVATE
 rList
     _spotCheckProcess
     (
@@ -459,7 +459,7 @@ rList
     return hollowedModules;
 }
 
-static
+RPRIVATE
 RPVOID
     spotCheckAllProcesses
     (
@@ -531,7 +531,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RPVOID
     spotCheckProcessConstantly
     (
@@ -611,7 +611,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RPVOID
     spotCheckNewProcesses
     (
@@ -677,7 +677,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RVOID
     scan_for_hollowing
     (

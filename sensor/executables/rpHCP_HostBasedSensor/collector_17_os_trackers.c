@@ -28,9 +28,10 @@ limitations under the License.
 
 #define _DIFF_TIMEOUT       (1000*60*5)
 
-static RU32 g_diff_timeout = _DIFF_TIMEOUT;
+RPRIVATE RU32 g_diff_timeout = _DIFF_TIMEOUT;
 
-static RS32
+RPRIVATE
+RS32
     _cmpHashes
     (
         CryptoLib_Hash* pHash1,
@@ -49,7 +50,8 @@ static RS32
 }
 
 
-static RVOID
+RPRIVATE
+RVOID
     _elemToHash
     (
         rSequence elem,
@@ -71,7 +73,8 @@ static RVOID
     }
 }
 
-static RVOID
+RPRIVATE
+RVOID
     _processSnapshot
     (
         rList snapshot,
@@ -124,7 +127,8 @@ static RVOID
     }
 }
 
-static RPVOID
+RPRIVATE
+RPVOID
     osTrackerDiffThread
     (
         rEvent isTimeToStop,

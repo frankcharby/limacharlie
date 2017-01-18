@@ -28,9 +28,9 @@ limitations under the License.
 #pragma warning( disable: 4214 )
 #include <WinDNS.h>
 
-static HMODULE hDnsApi = NULL;
-static DnsGetCacheDataTable_f getCache = NULL;
-static DnsFree_f freeCacheEntry = NULL;
+RPRIVATE HMODULE hDnsApi = NULL;
+RPRIVATE DnsGetCacheDataTable_f getCache = NULL;
+RPRIVATE DnsFree_f freeCacheEntry = NULL;
 #endif
 
 typedef struct
@@ -43,7 +43,7 @@ typedef struct
 } _dnsRecord;
 
 
-static
+RPRIVATE
 RVOID
     _freeRecords
     (
@@ -66,7 +66,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RS32
     _cmpDns
     (
@@ -90,7 +90,7 @@ RS32
     return ret;
 }
 
-static 
+RPRIVATE
 RPVOID
     dnsDiffThread
     (

@@ -32,7 +32,7 @@ limitations under the License.
 
 #define RPAL_FILE_ID    51
 
-static
+RPRIVATE
 RVOID
     _cleanupModuleEntry
     (
@@ -59,7 +59,7 @@ RVOID
     rpal_memory_zero( mod, sizeof( *mod ) );
 }
 
-static
+RPRIVATE
 RU32
     RPAL_THREAD_FUNC thread_quitAndCleanup
     (
@@ -103,7 +103,7 @@ RU32
     return 0;
 }
 
-static
+RPRIVATE
 RBOOL 
     loadModule
     (
@@ -251,7 +251,7 @@ RBOOL
 }
 
 
-static
+RPRIVATE
 RBOOL 
     unloadModule
     (

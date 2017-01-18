@@ -29,7 +29,7 @@ limitations under the License.
 #define _MAX_CPU_WAIT                       (60)
 #define _CPU_WATERMARK                      (50)
 
-static rMutex g_oob_exec_mutex = NULL;
+RPRIVATE rMutex g_oob_exec_mutex = NULL;
 
 typedef struct
 {
@@ -37,7 +37,7 @@ typedef struct
     RU64 size;
 } _MemRange;
 
-static
+RPRIVATE
 RBOOL
     isMemInModule
     (
@@ -72,7 +72,7 @@ RBOOL
     return isInMod;
 }
 
-static
+RPRIVATE
 RBOOL
     assembleRanges
     (
@@ -123,7 +123,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RBOOL
     isJITPresentInProcess
     (
@@ -160,7 +160,7 @@ RBOOL
 }
 
 
-static
+RPRIVATE
 RPVOID
     lookForExecOobIn
     (
@@ -318,7 +318,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RPVOID
     lookForExecOob
     (
@@ -356,7 +356,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RVOID
     scan_for_exec_oob
     (
@@ -395,7 +395,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     scan_late_for_exec_oob
     (
@@ -439,7 +439,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RPVOID
     lookForExecOobConstantly
     (
