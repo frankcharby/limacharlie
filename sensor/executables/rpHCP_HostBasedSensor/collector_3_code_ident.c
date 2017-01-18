@@ -277,6 +277,8 @@ RVOID
     RU32 atomSize = 0;
     CodeInfo tmpInfo = { 0 };
     RU8 emptyHash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+
+    UNREFERENCED_PARAMETER( pParentAtom );
     
     if( NULL != name )
     {
@@ -301,16 +303,13 @@ RVOID
                 hbs_timestampEvent( notif, 0 ) )
             {
                 if( NULL == originalEvent &&
-                    NULL != pThisAtom &&
-                    NULL != pParentAtom )
+                    NULL != pThisAtom )
                 {
-                    HbsSetThisAtom( notif, pThisAtom );
-                    HbsSetParentAtom( notif, pParentAtom );
+                    HbsSetParentAtom( notif, pThisAtom );
                 }
                 else if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
                 {
                     HbsSetParentAtom( notif, pAtomId );
-                    rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
                 }
 
                 if( 0 != rpal_memory_memcmp( emptyHash, (RPU8)&tmpInfo.info.fileHash, sizeof( emptyHash ) ) )
