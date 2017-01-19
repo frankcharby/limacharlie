@@ -100,6 +100,21 @@ NetLibTcpConnection
         RU16 port
     );
 
+NetLibTcpConnection
+    NetLib_TcpListen
+    (
+        RPCHAR ifaceIp,
+        RU16 port
+    );
+
+NetLibTcpConnection
+    NetLib_TcpAccept
+    (
+        NetLibTcpConnection conn,
+        rEvent stopEvent,
+        RU32 timeoutSec
+    );
+
 RBOOL
     NetLib_TcpDisconnect
     (

@@ -354,7 +354,6 @@ int
     if( NULL != ( suite = CU_add_suite( "cryptoLib", NULL, NULL ) ) )
     {
         if( NULL == CU_add_test( suite, "initialize", test_init ) || 
-            NULL == CU_add_test( suite, "deinitialize", test_deinit ) ||
             NULL == CU_add_test( suite, "hashing", test_hashing ) ||
             NULL == CU_add_test( suite, "file_hashing", test_file_hashing ) ||
             NULL == CU_add_test( suite, "random", test_random_bytes ) ||
@@ -362,6 +361,7 @@ int
             NULL == CU_add_test( suite, "signature", test_sig ) ||
             NULL == CU_add_test( suite, "asym_crypt", test_asym ) ||
             NULL == CU_add_test( suite, "fast_asym", test_fast_asym ) ||
+            NULL == CU_add_test( suite, "deinitialize", test_deinit ) ||
             NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
         {
             ret = 0;

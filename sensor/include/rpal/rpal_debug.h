@@ -110,8 +110,9 @@ RVOID
 
 #endif
 
-#ifdef RPAL_DEBUG_FOR_UNIT_TESTS
-    #define RPRIVATE
+#define RPRIVATE    static
+#if defined(RPAL_PLATFORM_DEBUG)
+    #define RPRIVATE_TESTABLE
 #else
-    #define RPRIVATE    static
+    #define RPRIVATE_TESTABLE    static
 #endif
