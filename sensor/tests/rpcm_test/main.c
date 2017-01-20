@@ -1,5 +1,6 @@
 #include <rpal/rpal.h>
 #include <librpcm/librpcm.h>
+#include <cryptoLib/cryptoLib.h>
 #include <Basic.h>
 
 #define RPAL_FILE_ID     89
@@ -8,6 +9,8 @@
 void test_memoryLeaks(void)
 {
     RU32 memUsed = 0;
+
+    CryptoLib_deinit();
 
     rpal_Context_cleanup();
 
@@ -149,6 +152,11 @@ void test_SerialiseAndDeserialise(void)
     RPWCHAR tmpStringW = NULL;
     RU32 consumed = 0;
 
+    RPU8 garbage = NULL;
+    RU32 garbageMaxSize = 1024;
+    RU32 garbageSize = 0;
+    RU32 garbageLoops = 100;
+
     seq = rSequence_new();
     list = rList_new( 1, RPCM_RU64 );
     blob = rpal_blob_create( 0, 0 );
@@ -223,6 +231,22 @@ void test_SerialiseAndDeserialise(void)
     CU_ASSERT_NOT_EQUAL( tmpSeq, NULL );
 
     rSequence_free( seq );
+    seq = NULL;
+    consumed = 0;
+
+    // Fuzz the deserialization function.
+    for( garbageLoops = garbageLoops; 0 != garbageLoops; garbageLoops-- )
+    {
+        garbageSize = ( rpal_rand() % garbageMaxSize ) + 1;
+        garbage = rpal_memory_alloc( garbageSize );
+        CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
+        CU_ASSERT_TRUE( CryptoLib_genRandomBytes( garbage, garbageSize ) );
+
+        CU_ASSERT_FALSE( rSequence_deserialise( &seq, garbage, garbageSize, &consumed ) );
+        CU_ASSERT_EQUAL( seq, NULL );
+
+        rpal_memory_free( garbage );
+    }
 }
 
 
@@ -456,6 +480,7 @@ int
     UNREFERENCED_PARAMETER( argv );
 
     rpal_initialize( NULL, 1 );
+    CryptoLib_init();
 
     CU_initialize_registry();
 

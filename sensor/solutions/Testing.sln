@@ -6,6 +6,9 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cunit", "..\lib\CUnit-2.1-2\cunit.vcxproj", "{8ABC417D-E059-4BCF-A265-E1A7B679736B}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpcm_test", "..\tests\rpcm_test\rpcm_test.vcxproj", "{B311B0D5-5D62-4017-B190-57271088CF0E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{533B36B9-E781-4132-BAA7-33BF68DE7013} = {533B36B9-E781-4132-BAA7-33BF68DE7013}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "librpcm", "..\lib\librpcm\librpcm.vcxproj", "{211CF5F8-3282-4133-A974-2C6FABDE66B3}"
 EndProject

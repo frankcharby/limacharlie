@@ -110,6 +110,9 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\lib\cryptoLib\cryptoLib.vcxproj">
+      <Project>{533b36b9-e781-4132-baa7-33bf68de7013}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\lib\CUnit-2.1-2\cunit.vcxproj">
       <Project>{8abc417d-e059-4bcf-a265-e1a7b679736b}</Project>
       <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
