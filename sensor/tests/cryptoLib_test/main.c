@@ -198,6 +198,11 @@ void test_sym_encryption( void )
     CryptoLib_SymContext ctx1 = NULL;
     CryptoLib_SymContext ctx2 = NULL;
 
+    RPU8 garbage = NULL;
+    RU32 garbageMaxSize = 1024;
+    RU32 garbageSize = 0;
+    RU32 garbageLoops = 100;
+
     CU_ASSERT_TRUE_FATAL( CryptoLib_genRandomBytes( test_buff, sizeof( test_buff ) ) );
     CU_ASSERT_TRUE_FATAL( CryptoLib_genRandomBytes( test_key, sizeof( test_key ) ) );
     CU_ASSERT_TRUE_FATAL( CryptoLib_genRandomBytes( test_iv, sizeof( test_iv ) ) );
@@ -240,6 +245,21 @@ void test_sym_encryption( void )
 
     rpal_blob_free( test_blob );
 
+    // Fuzz
+    for( garbageLoops = garbageLoops; 0 != garbageLoops; garbageLoops-- )
+    {
+        garbageSize = ( rpal_rand() % garbageMaxSize ) + 1;
+        garbage = rpal_memory_alloc( garbageSize );
+        CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
+        CU_ASSERT_TRUE( CryptoLib_genRandomBytes( garbage, garbageSize ) );
+        test_blob = rpal_blob_createFromBuffer( garbage, garbageSize );
+        CU_ASSERT_NOT_EQUAL_FATAL( test_blob, NULL );
+
+        CU_ASSERT_FALSE( CryptoLib_symDecrypt( test_blob, NULL, NULL, ctx2 ) );
+
+        rpal_blob_free( test_blob );
+    }
+
     CryptoLib_symFreeContext( ctx1 );
     CryptoLib_symFreeContext( ctx2 );
 }
@@ -249,6 +269,11 @@ void test_sig( void )
     RU8 test_buff[ 800 ] = { 0 };
     RU8 test_sig[ CRYPTOLIB_SIGNATURE_SIZE ] = { 0 };
     RU8 test_ref[ CRYPTOLIB_SIGNATURE_SIZE ] = { 0 };
+
+    RPU8 garbage = NULL;
+    RU32 garbageMaxSize = 1024;
+    RU32 garbageSize = 0;
+    RU32 garbageLoops = 100;
     
     CryptoLib_genRandomBytes( test_buff, sizeof( test_buff ) );
 
@@ -267,6 +292,19 @@ void test_sig( void )
     CU_ASSERT_FALSE( CryptoLib_verify( test_buff, 0, g_test_pub, test_sig ) );
     CU_ASSERT_FALSE( CryptoLib_verify( test_buff, sizeof( test_buff ), NULL, test_sig ) );
     CU_ASSERT_FALSE( CryptoLib_verify( test_buff, sizeof( test_buff ), g_test_pub, NULL ) );
+
+    // Fuzz
+    for( garbageLoops = garbageLoops; 0 != garbageLoops; garbageLoops-- )
+    {
+        garbageSize = ( rpal_rand() % garbageMaxSize ) + 1;
+        garbage = rpal_memory_alloc( garbageSize );
+        CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
+        CU_ASSERT_TRUE( CryptoLib_genRandomBytes( garbage, garbageSize ) );
+
+        CU_ASSERT_FALSE( CryptoLib_verify( garbage, garbageSize, g_test_pub, test_sig ) );
+
+        rpal_memory_free( garbage );
+    }
 }
 
 void test_asym( void )
@@ -276,6 +314,11 @@ void test_asym( void )
     RU8* pDecrypted = NULL;
     RU32 encSize = 0;
     RU32 decSize = 0;
+
+    RPU8 garbage = NULL;
+    RU32 garbageMaxSize = 1024;
+    RU32 garbageSize = 0;
+    RU32 garbageLoops = 100;
 
     CryptoLib_genRandomBytes( test_buff, sizeof( test_buff ) );
 
@@ -303,12 +346,30 @@ void test_asym( void )
 
     rpal_memory_free( pEncrypted );
     rpal_memory_free( pDecrypted );
+
+    // Fuzz
+    for( garbageLoops = garbageLoops; 0 != garbageLoops; garbageLoops-- )
+    {
+        garbageSize = ( rpal_rand() % garbageMaxSize ) + 1;
+        garbage = rpal_memory_alloc( garbageSize );
+        CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
+        CU_ASSERT_TRUE( CryptoLib_genRandomBytes( garbage, garbageSize ) );
+
+        CU_ASSERT_FALSE( CryptoLib_asymDecrypt( garbage, garbageSize, g_test_pub, &pDecrypted, &decSize ) );
+
+        rpal_memory_free( garbage );
+    }
 }
 
 void test_fast_asym( void )
 {
     RU8 test_buff[ 8000 ] = { 0 };
     rBlob test_blob = NULL;
+
+    RPU8 garbage = NULL;
+    RU32 garbageMaxSize = 1024;
+    RU32 garbageSize = 0;
+    RU32 garbageLoops = 100;
 
     CryptoLib_genRandomBytes( test_buff, sizeof( test_buff ) );
 
@@ -331,6 +392,21 @@ void test_fast_asym( void )
     CU_ASSERT_FALSE( CryptoLib_fastAsymDecrypt( test_blob, NULL ) );
 
     rpal_blob_free( test_blob );
+
+    // Fuzz
+    for( garbageLoops = garbageLoops; 0 != garbageLoops; garbageLoops-- )
+    {
+        garbageSize = ( rpal_rand() % garbageMaxSize ) + 1;
+        garbage = rpal_memory_alloc( garbageSize );
+        CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
+        CU_ASSERT_TRUE( CryptoLib_genRandomBytes( garbage, garbageSize ) );
+        test_blob = rpal_blob_createFromBuffer( garbage, garbageSize );
+        CU_ASSERT_NOT_EQUAL_FATAL( test_blob, NULL );
+
+        CU_ASSERT_FALSE( CryptoLib_fastAsymDecrypt( test_blob, g_test_pub ) );
+
+        rpal_blob_free( test_blob );
+    }
 }
 
 int
