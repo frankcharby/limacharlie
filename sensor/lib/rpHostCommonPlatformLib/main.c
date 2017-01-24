@@ -136,11 +136,12 @@ rpHCPId
     return id;
 }
 
-RPRIVATE
+RPRIVATE_TESTABLE
 RBOOL
     getStoreConf
     (
-
+        RPNCHAR storePath,
+        rpHCPContext* hcpContext
     )
 {
     RBOOL isSuccess = FALSE;
@@ -150,11 +151,13 @@ RBOOL
 
     rpHCPIdentStore* store = NULL;
 
-    OBFUSCATIONLIB_DECLARE( storePath, RP_HCP_CONFIG_IDENT_STORE );
+    if( NULL == storePath ||
+        NULL == hcpContext )
+    {
+        return FALSE;
+    }
 
-    OBFUSCATIONLIB_TOGGLE( storePath );
-
-    if( rpal_file_read( (RPNCHAR)storePath, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
+    if( rpal_file_read( storePath, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
     {
         if( sizeof( rpHCPIdentStore ) <= storeFileSize )
         {
@@ -163,28 +166,26 @@ RBOOL
             {
                 isSuccess = TRUE;
                 rpal_debug_info( "ident store found" );
-                if( NULL != ( g_hcpContext.enrollmentToken = rpal_memory_alloc( store->enrollmentTokenSize ) ) )
+                if( NULL != ( hcpContext->enrollmentToken = rpal_memory_alloc( store->enrollmentTokenSize ) ) )
                 {
-                    rpal_memory_memcpy( g_hcpContext.enrollmentToken, store->enrollmentToken, store->enrollmentTokenSize );
-                    g_hcpContext.enrollmentTokenSize = store->enrollmentTokenSize;
+                    rpal_memory_memcpy( hcpContext->enrollmentToken, store->enrollmentToken, store->enrollmentTokenSize );
+                    hcpContext->enrollmentTokenSize = store->enrollmentTokenSize;
                 }
-                g_hcpContext.currentId = store->agentId;
+                hcpContext->currentId = store->agentId;
             }
-            else
-            {
-                rpal_debug_warning( "inconsistent ident store, reseting" );
-                rpal_file_delete( (RPNCHAR)store, FALSE );
-            }
+        }
+        else
+        {
+            rpal_debug_warning( "inconsistent ident store, reseting" );
+            rpal_file_delete( storePath, FALSE );
         }
 
         rpal_memory_free( storeFile );
     }
 
-    OBFUSCATIONLIB_TOGGLE( storePath );
-
     // Set some always-correct defaults
-    g_hcpContext.currentId.architecture = RP_HCP_PLATFORM_CURRENT_ARCH;
-    g_hcpContext.currentId.platform = RP_HCP_PLATFORM_CURRENT;
+    hcpContext->currentId.architecture = RP_HCP_PLATFORM_CURRENT_ARCH;
+    hcpContext->currentId.platform = RP_HCP_PLATFORM_CURRENT;
 
     return isSuccess;
 }
@@ -238,6 +239,8 @@ RBOOL
     RPU8 tmpBuffer = NULL;
     RU32 tmpSize = 0;
     RU16 tmpPort = 0;
+    
+    OBFUSCATIONLIB_DECLARE( storePath, RP_HCP_CONFIG_IDENT_STORE );
 
     rpal_debug_info( "launching hcp" );
 
@@ -342,7 +345,9 @@ RBOOL
             g_hcpContext.enrollmentToken = NULL;
             g_hcpContext.enrollmentTokenSize = 0;
 
-            getStoreConf();  /* Sets the agent ID platform. */
+            OBFUSCATIONLIB_TOGGLE( storePath );
+            getStoreConf( (RPNCHAR)storePath, &g_hcpContext );  /* Sets the agent ID platform. */
+            OBFUSCATIONLIB_TOGGLE( storePath );
 
             if( startBeacons() )
             {

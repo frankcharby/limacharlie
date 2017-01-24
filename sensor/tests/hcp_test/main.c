@@ -516,6 +516,57 @@ void test_module_load_unload( void )
     rpal_memory_free( buffer );
 }
 
+void test_store_conf( void )
+{
+    RPNCHAR tmpStore = _NC( "./__tmp_store" );
+
+    rpHCPIdentStore ident = { 0 };
+    RU8 token[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    rpHCPContext hcpContext = { 0 };
+    RPU8 garbage = NULL;
+    RU32 garbageSize = 0;
+    rFileInfo info = { 0 };
+
+    // Set a reference value
+    ident.agentId.architecture = (RU8)( -1 );
+    ident.agentId.platform = (RU32)( -1 );
+    CU_ASSERT_FATAL( CryptoLib_genRandomBytes( ident.agentId.ins_id, sizeof( ident.agentId.ins_id ) ) );
+    CU_ASSERT_FATAL( CryptoLib_genRandomBytes( ident.agentId.org_id, sizeof( ident.agentId.org_id ) ) );
+    CU_ASSERT_FATAL( CryptoLib_genRandomBytes( ident.agentId.sensor_id, sizeof( ident.agentId.sensor_id ) ) );
+    CU_ASSERT_FATAL( CryptoLib_genRandomBytes( token, sizeof( token ) ) );
+    ident.enrollmentTokenSize = sizeof( token );
+
+    // Do a good read write
+    CU_ASSERT_FATAL( saveHcpId( tmpStore, &ident, token, sizeof( token ) ) );
+    CU_ASSERT( getStoreConf( tmpStore, &hcpContext ) ); // Platform and Arch get overwritten, that's normal
+    CU_ASSERT_EQUAL( rpal_memory_memcmp( hcpContext.currentId.ins_id, ident.agentId.ins_id, sizeof( ident.agentId.ins_id ) ), 0 );
+    CU_ASSERT_EQUAL( rpal_memory_memcmp( hcpContext.currentId.org_id, ident.agentId.org_id, sizeof( ident.agentId.org_id ) ), 0 );
+    CU_ASSERT_EQUAL( rpal_memory_memcmp( hcpContext.currentId.sensor_id, ident.agentId.sensor_id, sizeof( ident.agentId.sensor_id ) ), 0 );
+    CU_ASSERT_NOT_EQUAL( hcpContext.currentId.architecture, ident.agentId.architecture );
+    CU_ASSERT_NOT_EQUAL( hcpContext.currentId.platform, ident.agentId.platform );
+    CU_ASSERT_EQUAL( hcpContext.enrollmentTokenSize, sizeof( token ) );
+    CU_ASSERT_EQUAL( rpal_memory_memcmp( hcpContext.enrollmentToken, token, sizeof( token ) ), 0 );
+    rpal_memory_free( hcpContext.enrollmentToken );
+    CU_ASSERT( rpal_file_delete( tmpStore, FALSE ) );
+
+    // Do a bad write bad read, make sure it gets wiped
+    garbageSize = 38;
+    garbage = rpal_memory_alloc( garbageSize );
+    CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
+    CU_ASSERT_FATAL( rpal_file_write( tmpStore, garbage, garbageSize, TRUE ) );
+    CU_ASSERT_FALSE( getStoreConf( tmpStore, &hcpContext ) );
+    CU_ASSERT_FALSE( rpal_file_getInfo( tmpStore, &info ) );
+    rpal_memory_free( garbage );
+
+    // Validate the basics
+    CU_ASSERT_FALSE( saveHcpId( NULL, &ident, token, sizeof( token ) ) );
+    CU_ASSERT_FALSE( saveHcpId( tmpStore, NULL, token, sizeof( token ) ) );
+    CU_ASSERT_FALSE( saveHcpId( tmpStore, &ident, NULL, sizeof( token ) ) );
+    CU_ASSERT_FALSE( saveHcpId( tmpStore, &ident, token, 0 ) );
+    CU_ASSERT_FALSE( getStoreConf( NULL, &hcpContext ) );
+    CU_ASSERT_FALSE( getStoreConf( tmpStore, NULL ) );
+}
+
 int
     main
     (
@@ -542,7 +593,8 @@ int
             NULL == CU_add_test( suite, "destroy_cloud", test_destroy_dummy_cloud ) ||
             NULL == CU_add_test( suite, "module_load_bad", test_module_load_bad ) ||
             NULL == CU_add_test( suite, "module_unload_bad", test_module_unload_bad ) ||
-            NULL == CU_add_test( suite, "module_unload_bad", test_module_load_unload ) ||
+            NULL == CU_add_test( suite, "module_load_unload", test_module_load_unload ) ||
+            NULL == CU_add_test( suite, "store_conf", test_store_conf ) ||
             NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
         {
             ret = 0;

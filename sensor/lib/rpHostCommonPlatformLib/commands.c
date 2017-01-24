@@ -308,7 +308,51 @@ RBOOL
 }
 
 
+RPRIVATE_TESTABLE
+RBOOL
+    saveHcpId
+    (
+        RPNCHAR storePath,
+        rpHCPIdentStore* ident,
+        RPU8 token,
+        RU32 tokenSize
+    )
+{
+    RBOOL isSet = FALSE;
+    rFile hStore = NULL;
 
+    if( NULL != storePath &&
+        NULL != ident &&
+        NULL != token &&
+        0 != tokenSize )
+    {
+        ident->enrollmentTokenSize = tokenSize;
+
+        if( rFile_open( storePath, &hStore, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) )
+        {
+            if( rFile_write( hStore, sizeof( *ident ), ident ) &&
+                rFile_write( hStore, tokenSize, token ) )
+            {
+#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+                chmod( (RPNCHAR)store, S_IRUSR | S_IWUSR );
+#endif
+                isSet = TRUE;
+            }
+
+            rFile_close( hStore );
+    }
+        else
+        {
+            rpal_debug_warning( "could not write enrollment token to disk" );
+        }
+    }
+    else
+    {
+        rpal_debug_error( "invalid ident info" );
+    }
+
+    return isSet;
+}
 
 
 RBOOL
@@ -328,7 +372,6 @@ RBOOL
     rpHCPIdentStore identStore = {0};
     RPU8 token = NULL;
     RU32 tokenSize = 0;
-    rFile hStore = NULL;
 
     OBFUSCATIONLIB_DECLARE( store, RP_HCP_CONFIG_IDENT_STORE );
 
@@ -358,25 +401,11 @@ RBOOL
                         
                         if( rSequence_getBUFFER( seq, RP_TAGS_HCP_ENROLLMENT_TOKEN, &token, &tokenSize ) )
                         {
-                            // Enrollment V2
                             identStore.agentId = tmpId;
-                            identStore.enrollmentTokenSize = tokenSize;
-                            if( rFile_open( (RPNCHAR)store, &hStore, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) )
-                            {
-                                if( rFile_write( hStore, sizeof( identStore ), &identStore ) &&
-                                    rFile_write( hStore, tokenSize, token ) )
-                                {
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                                    chmod( (RPNCHAR)store, S_IRUSR | S_IWUSR );
-#endif
-                                    isSuccess = TRUE;
-                                }
 
-                                rFile_close( hStore );
-                            }
-                            else
+                            if( saveHcpId( (RPNCHAR)store, &identStore, token, tokenSize ) )
                             {
-                                rpal_debug_warning( "could not write enrollment token to disk" );
+                                isSuccess = TRUE;
                             }
 
                             if( NULL != ( g_hcpContext.enrollmentToken = rpal_memory_alloc( tokenSize ) ) )
@@ -389,24 +418,7 @@ RBOOL
                         }
                         else
                         {
-                            // Enrollment V1
-                            if( rpal_file_write( (RPNCHAR)store, 
-                                                 &g_hcpContext.currentId, 
-                                                 sizeof( g_hcpContext.currentId ), 
-                                                 TRUE ) )
-                            {
-                                rpal_debug_info( "sensor id set to " RP_HCP_FORMAT_UUID,
-                                                 RP_HCP_UUID_TO_COMPONENTS( g_hcpContext.currentId.sensor_id ) );
-                                rpal_debug_info( "org id set to " RP_HCP_FORMAT_UUID,
-                                                 RP_HCP_UUID_TO_COMPONENTS( g_hcpContext.currentId.org_id ) );
-                                rpal_debug_info( "ins id set to " RP_HCP_FORMAT_UUID,
-                                                 RP_HCP_UUID_TO_COMPONENTS( g_hcpContext.currentId.ins_id ) );
-                                isSuccess = TRUE;
-                            }
-                            else
-                            {
-                                rpal_debug_warning( "new id could not be written to identity file: %S", (RPWCHAR)store );
-                            }
+                            rpal_debug_warning( "hcp id is missing token" );
                         }
 
                         OBFUSCATIONLIB_TOGGLE( store );

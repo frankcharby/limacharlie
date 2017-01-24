@@ -70,4 +70,20 @@ RBOOL
         rSequence seq
     );
 
+RBOOL
+    saveHcpId
+    (
+        RPNCHAR storePath,
+        rpHCPIdentStore* ident,
+        RPU8 token,
+        RU32 tokenSize
+    );
+
+RBOOL
+    getStoreConf
+    (
+        RPNCHAR storePath,
+        rpHCPContext* hcpContext
+    );
+
 #endif
