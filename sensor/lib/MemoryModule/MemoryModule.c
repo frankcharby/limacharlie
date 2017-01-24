@@ -342,7 +342,8 @@ HMEMORYMODULE MemoryLoadLibrary(const void *data, unsigned int size)
     UNREFERENCED_PARAMETER( size );
 
     dos_header = (PIMAGE_DOS_HEADER)data;
-    if (dos_header->e_magic != IMAGE_DOS_SIGNATURE)
+    if( !IS_WITHIN_BOUNDS( dos_header, sizeof(*dos_header), data, size ) ||
+        dos_header->e_magic != IMAGE_DOS_SIGNATURE )
     {
 #if DEBUG_OUTPUT
         OutputDebugString("Not a valid executable file.\n");
@@ -351,7 +352,8 @@ HMEMORYMODULE MemoryLoadLibrary(const void *data, unsigned int size)
     }
 
     old_header = (PIMAGE_NT_HEADERS)&((const unsigned char *)(data))[dos_header->e_lfanew];
-    if (old_header->Signature != IMAGE_NT_SIGNATURE)
+    if( !IS_WITHIN_BOUNDS( old_header, sizeof(*old_header), data, size ) ||
+        old_header->Signature != IMAGE_NT_SIGNATURE )
     {
 #if DEBUG_OUTPUT
         OutputDebugString("No PE header found.\n");

@@ -538,17 +538,30 @@ RBOOL
     CryptoLib_genRandomBytes
     (
         RPU8 pRandBytes,
-        RU32  bytesRequired
+        RU32 bytesRequired
     )
 {
     RBOOL isSuccess = FALSE;
+    RU32 bytesLeft = bytesRequired;
+    RU32 bytesRequesting = 0;
+    RU32 offset = 0;
 
     if( NULL != pRandBytes &&
         0 != bytesRequired )
     {
-        if( 0 == mbedtls_ctr_drbg_random( &g_rng, pRandBytes, bytesRequired ) )
+        isSuccess = TRUE;
+
+        while( 0 != bytesLeft )
         {
-            isSuccess = TRUE;
+            bytesRequesting = min( bytesLeft, MBEDTLS_CTR_DRBG_MAX_REQUEST );
+            if( 0 != mbedtls_ctr_drbg_random( &g_rng, pRandBytes + offset, bytesRequesting ) )
+            {
+                isSuccess = FALSE;
+                break;
+            }
+
+            bytesLeft -= bytesRequesting;
+            offset += bytesRequesting;
         }
     }
 

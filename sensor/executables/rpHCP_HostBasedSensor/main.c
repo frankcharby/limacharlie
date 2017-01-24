@@ -718,7 +718,8 @@ RVOID
         }
 
         if( rSequence_getBUFFER( notif, RP_TAGS_BINARY, &buff, &buffSize ) &&
-            rSequence_getBUFFER( notif, RP_TAGS_SIGNATURE, &sig, &sigSize ) )
+            rSequence_getBUFFER( notif, RP_TAGS_SIGNATURE, &sig, &sigSize ) &&
+            CRYPTOLIB_SIGNATURE_SIZE <= sigSize )
         {
             if( CryptoLib_verify( buff, buffSize, hbs_cloud_pub_key, sig ) )
             {

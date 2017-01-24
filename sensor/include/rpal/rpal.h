@@ -28,6 +28,7 @@ limitations under the License.
 #define ENABLE_FLAG(flags,toEnable)		( (flags) = (flags) | (toEnable) )
 #define DISABLE_FLAG(flags,toDisable)	( (flags) = (flags) & ( (toDisable) ^ (-1) ) )
 #define IS_WITHIN_BOUNDS(elem,elemSize,container,containerSize) (((RU64)(elem) >= (RU64)(container)) &&\
+                                                                 ((RU64)(elem) < ((RU64)(container) + (RU64)(containerSize))) &&\
                                                                  ((((RU64)(container) + (RU64)(containerSize)) - (RU64)(elem)) >= (RU64)(elemSize)))
 #define ARRAY_N_ELEM(arr)               (sizeof(arr) / sizeof((arr)[0]))
 #define NUMARGS(type,...)                    (sizeof((type[]){__VA_ARGS__})/sizeof(type))

@@ -56,4 +56,18 @@ RBOOL
         RU32 timeoutSec
     );
 
+RBOOL
+    loadModule
+    (
+        rpHCPContext* hcpContext,
+        rSequence seq
+    );
+
+RBOOL
+    unloadModule
+    (
+        rpHCPContext* hcpContext,
+        rSequence seq
+    );
+
 #endif

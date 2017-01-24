@@ -103,10 +103,11 @@ RU32
     return 0;
 }
 
-RPRIVATE
+RPRIVATE_TESTABLE
 RBOOL 
     loadModule
     (
+        rpHCPContext* hcpContext,
         rSequence seq
     )
 {
@@ -127,11 +128,12 @@ RBOOL
     OBFUSCATIONLIB_DECLARE( entryName, RP_HCP_CONFIG_MODULE_ENTRY );
     OBFUSCATIONLIB_DECLARE( recvMessage, RP_HCP_CONFIG_MODULE_RECV_MESSAGE );
 
-    if( NULL != seq )
+    if( NULL != seq &&
+        NULL != hcpContext )
     {
         for( moduleIndex = 0; moduleIndex < RP_HCP_CONTEXT_MAX_MODULES; moduleIndex++ )
         {
-            if( 0 == g_hcpContext.modules[ moduleIndex ].hThread )
+            if( 0 == hcpContext->modules[ moduleIndex ].hThread )
             {
                 // Found an empty spot
                 break;
@@ -145,7 +147,7 @@ RBOOL
         // We got an empty spot for our module
         if( rSequence_getRU8( seq, 
                               RP_TAGS_HCP_MODULE_ID, 
-                              &(g_hcpContext.modules[ moduleIndex ].id) ) &&
+                              &(hcpContext->modules[ moduleIndex ].id ) ) &&
             rSequence_getBUFFER( seq,
                                  RP_TAGS_BINARY, 
                                  &tmpBuff, 
@@ -153,50 +155,51 @@ RBOOL
             rSequence_getBUFFER( seq,
                                  RP_TAGS_SIGNATURE,
                                  &tmpSig,
-                                 &tmpSigSize ) )
+                                 &tmpSigSize ) &&
+            CRYPTOLIB_SIGNATURE_SIZE <= tmpSigSize )
         {
             // We got the data, now verify the buffer signature
             if( CryptoLib_verify( tmpBuff, tmpSize, getRootPublicKey(), tmpSig ) )
             {
                 // Ready to load the module
                 rpal_debug_info( "loading module in memory" );
-                g_hcpContext.modules[ moduleIndex ].hModule = MemoryLoadLibrary( tmpBuff, tmpSize );
+                hcpContext->modules[ moduleIndex ].hModule = MemoryLoadLibrary( tmpBuff, tmpSize );
 
-                if( NULL != g_hcpContext.modules[ moduleIndex ].hModule )
+                if( NULL != hcpContext->modules[ moduleIndex ].hModule )
                 {
                     OBFUSCATIONLIB_TOGGLE( entryName );
 
-                    pEntry = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule, 
+                    pEntry = (rpal_thread_func)MemoryGetProcAddress( hcpContext->modules[ moduleIndex ].hModule,
                                                             (RPCHAR)entryName );
 
                     OBFUSCATIONLIB_TOGGLE( entryName );
 
                     if( NULL != pEntry )
                     {
-                        modContext = &(g_hcpContext.modules[ moduleIndex ].context);
+                        modContext = &(hcpContext->modules[ moduleIndex ].context);
 
-                        modContext->pCurrentId = &(g_hcpContext.currentId);
+                        modContext->pCurrentId = &( hcpContext->currentId );
                         modContext->func_sendHome = doSend;
                         modContext->isTimeToStop = rEvent_create( TRUE );
                         modContext->rpalContext = rpal_Context_get();
-                        modContext->isOnlineEvent = g_hcpContext.isCloudOnline;
+                        modContext->isOnlineEvent = hcpContext->isCloudOnline;
 
                         if( NULL != modContext->isTimeToStop )
                         {
-                            g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
+                            hcpContext->modules[ moduleIndex ].isTimeToStop = modContext->isTimeToStop;
 
                             OBFUSCATIONLIB_TOGGLE( recvMessage );
-                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = 
-                                    (rpHCPModuleMsgEntry)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
+                            hcpContext->modules[ moduleIndex ].func_recvMessage =
+                                    (rpHCPModuleMsgEntry)MemoryGetProcAddress( hcpContext->modules[ moduleIndex ].hModule,
                                                                                (RPCHAR)recvMessage );
                             OBFUSCATIONLIB_TOGGLE( recvMessage );
 
-                            g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
+                            hcpContext->modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
 
-                            if( 0 != g_hcpContext.modules[ moduleIndex ].hThread )
+                            if( 0 != hcpContext->modules[ moduleIndex ].hThread )
                             {
-                                CryptoLib_hash( tmpBuff, tmpSize, &(g_hcpContext.modules[ moduleIndex ].hash) );
-                                g_hcpContext.modules[ moduleIndex ].isOsLoaded = FALSE;
+                                CryptoLib_hash( tmpBuff, tmpSize, &(hcpContext->modules[ moduleIndex ].hash ) );
+                                hcpContext->modules[ moduleIndex ].isOsLoaded = FALSE;
                                 isSuccess = TRUE;
                             }
                             else
@@ -233,13 +236,13 @@ RBOOL
                 IF_VALID_DO( modContext->isTimeToStop, rEvent_free );
             }
 
-            if( NULL != g_hcpContext.modules[ moduleIndex ].hModule )
+            if( NULL != hcpContext->modules[ moduleIndex ].hModule )
             {
-                MemoryFreeLibrary( g_hcpContext.modules[ moduleIndex ].hModule );
+                MemoryFreeLibrary( hcpContext->modules[ moduleIndex ].hModule );
             }
 
-            rpal_memory_zero( &(g_hcpContext.modules[ moduleIndex ]), 
-                              sizeof( g_hcpContext.modules[ moduleIndex ] ) );
+            rpal_memory_zero( &(hcpContext->modules[ moduleIndex ] ),
+                              sizeof( hcpContext->modules[ moduleIndex ] ) );
         }
     }
     else
@@ -251,19 +254,21 @@ RBOOL
 }
 
 
-RPRIVATE
+RPRIVATE_TESTABLE
 RBOOL 
     unloadModule
     (
+        rpHCPContext* hcpContext,
         rSequence seq
     )
 {
     RBOOL isSuccess = FALSE;
 
     RpHcp_ModuleId moduleId = (RU8)(-1);
-    RU32 moduleIndex = 0;
+    RU32 moduleIndex = (RU32)(-1);
 
-    if( NULL != seq )
+    if( NULL != seq &&
+        NULL != hcpContext )
     {
         if( rSequence_getRU8( seq, 
                               RP_TAGS_HCP_MODULE_ID, 
@@ -271,7 +276,7 @@ RBOOL
         {
             for( moduleIndex = 0; moduleIndex < RP_HCP_CONTEXT_MAX_MODULES; moduleIndex++ )
             {
-                if( moduleId == g_hcpContext.modules[ moduleIndex ].id )
+                if( moduleId == hcpContext->modules[ moduleIndex ].id )
                 {
                     break;
                 }
@@ -283,19 +288,19 @@ RBOOL
         RP_HCP_CONTEXT_MAX_MODULES != moduleIndex )
     {
 #ifdef RP_HCP_LOCAL_LOAD
-        if( g_hcpContext.modules[ moduleIndex ].isOsLoaded )
+        if( hcpContext->modules[ moduleIndex ].isOsLoaded )
         {
             // We do not unload modules loaded by the OS in debug since
             // they are used to debug modules during development.
             return FALSE;
         }
 #endif
-        if( rEvent_set( g_hcpContext.modules[ moduleIndex ].isTimeToStop ) &&
-            rpal_thread_wait( g_hcpContext.modules[ moduleIndex ].hThread, (30*1000) ) )
+        if( rEvent_set( hcpContext->modules[ moduleIndex ].isTimeToStop ) &&
+            rpal_thread_wait( hcpContext->modules[ moduleIndex ].hThread, ( 30 * 1000 ) ) )
         {
             isSuccess = TRUE;
 
-            _cleanupModuleEntry( &( g_hcpContext.modules[ moduleIndex ] ) );
+            _cleanupModuleEntry( &( hcpContext->modules[ moduleIndex ] ) );
         }
     }
 
@@ -335,10 +340,10 @@ RBOOL
             switch( command )
             {
             case RP_HCP_COMMAND_LOAD_MODULE:
-                isSuccess = loadModule( seq );
+                isSuccess = loadModule( &g_hcpContext, seq );
                 break;
             case RP_HCP_COMMAND_UNLOAD_MODULE:
-                isSuccess = unloadModule( seq );
+                isSuccess = unloadModule( &g_hcpContext, seq );
                 break;
             case RP_HCP_COMMAND_SET_HCP_ID:
                 if( rSequence_getSEQUENCE( seq, RP_TAGS_HCP_IDENT, &idSeq ) )
