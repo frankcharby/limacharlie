@@ -347,7 +347,7 @@ void test_exchange_frames( void )
     }
 }
 
-void test_module_load( void )
+void test_module_load_bad( void )
 {
     rpHCPContext ctx = { 0 };
     rSequence cmd = NULL;
@@ -358,11 +358,8 @@ void test_module_load( void )
     RU32 sigSize = 0;
     RU32 garbageLoops = 1000;
 
-
     CU_ASSERT_FALSE( loadModule( &ctx, NULL ) );
     CU_ASSERT_FALSE( loadModule( NULL, cmd ) );
-    CU_ASSERT_FALSE( unloadModule( &ctx, NULL ) );
-    CU_ASSERT_FALSE( unloadModule( NULL, cmd ) );
 
     // Fuzz signature verification
     for( garbageLoops = garbageLoops; 0 != garbageLoops; garbageLoops-- )
@@ -453,6 +450,72 @@ void test_module_load( void )
     }
 }
 
+void test_module_unload_bad( void )
+{
+    rpHCPContext ctx = { 0 };
+    rSequence cmd = NULL;
+    RpHcp_ModuleId modId = 0;
+
+    CU_ASSERT_FALSE( unloadModule( &ctx, NULL ) );
+    CU_ASSERT_FALSE( unloadModule( NULL, cmd ) );
+
+    modId = 0;
+    cmd = rSequence_new();
+    CU_ASSERT_NOT_EQUAL_FATAL( cmd, NULL );
+    CU_ASSERT_FATAL( rSequence_addRU8( cmd, RP_TAGS_HCP_MODULE_ID, modId ) );
+    CU_ASSERT_FALSE( unloadModule( &ctx, cmd ) );
+    rSequence_free( cmd );
+
+    modId = 1;
+    cmd = rSequence_new();
+    CU_ASSERT_NOT_EQUAL_FATAL( cmd, NULL );
+    CU_ASSERT_FATAL( rSequence_addRU8( cmd, RP_TAGS_HCP_MODULE_ID, modId ) );
+    CU_ASSERT_FALSE( unloadModule( &ctx, cmd ) );
+    rSequence_free( cmd );
+
+    modId = 0xFF;
+    cmd = rSequence_new();
+    CU_ASSERT_NOT_EQUAL_FATAL( cmd, NULL );
+    CU_ASSERT_FATAL( rSequence_addRU8( cmd, RP_TAGS_HCP_MODULE_ID, modId ) );
+    CU_ASSERT_FALSE( unloadModule( &ctx, cmd ) );
+    rSequence_free( cmd );
+
+}
+
+void test_module_load_unload( void )
+{
+    rpHCPContext ctx = { 0 };
+    rSequence cmd = NULL;
+    RpHcp_ModuleId modId = 1;
+    RPU8 buffer = NULL;
+    RU32 bufferSize = 0;
+    RU8 signature[ CRYPTOLIB_SIGNATURE_SIZE ] = { 0 };
+    RU32 sigSize = CRYPTOLIB_SIGNATURE_SIZE;
+#ifdef RPAL_PLATFORM_WINDOWS
+    #ifdef RPAL_PLATFORM_64_BIT
+        RPNCHAR testModulePath = _NC( "../../bin/windows/x64/Debug/rpHCP_TestModule.dll" );
+    #else
+        RPNCHAR testModulePath = _NC( "../../bin/windows/Win32/Debug/rpHCP_TestModule.dll" );
+    #endif
+#elif definde( RPAL_PLATFORM_MACOSX )
+    #TODO(Add the OSX paths)
+#endif
+
+    CU_ASSERT_FATAL( rpal_file_read( testModulePath, &buffer, &bufferSize, FALSE ) );
+    CU_ASSERT_FATAL( CryptoLib_sign( buffer, bufferSize, g_test_priv, signature ) );
+
+    cmd = rSequence_new();
+    CU_ASSERT_NOT_EQUAL_FATAL( cmd, NULL );
+    CU_ASSERT_FATAL( rSequence_addRU8( cmd, RP_TAGS_HCP_MODULE_ID, modId ) );
+    CU_ASSERT_FATAL( rSequence_addBUFFER( cmd, RP_TAGS_BINARY, buffer, bufferSize ) );
+    CU_ASSERT_FATAL( rSequence_addBUFFER( cmd, RP_TAGS_SIGNATURE, signature, sigSize ) );
+    CU_ASSERT_TRUE( loadModule( &ctx, cmd ) );
+    CU_ASSERT_TRUE( unloadModule( &ctx, cmd ) );
+    rSequence_free( cmd );
+
+    rpal_memory_free( buffer );
+}
+
 int
     main
     (
@@ -477,7 +540,9 @@ int
             NULL == CU_add_test( suite, "frames", test_frames ) ||
             NULL == CU_add_test( suite, "exchange_frames", test_exchange_frames ) ||
             NULL == CU_add_test( suite, "destroy_cloud", test_destroy_dummy_cloud ) ||
-            NULL == CU_add_test( suite, "module_load", test_module_load ) ||
+            NULL == CU_add_test( suite, "module_load_bad", test_module_load_bad ) ||
+            NULL == CU_add_test( suite, "module_unload_bad", test_module_unload_bad ) ||
+            NULL == CU_add_test( suite, "module_unload_bad", test_module_load_unload ) ||
             NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
         {
             ret = 0;
