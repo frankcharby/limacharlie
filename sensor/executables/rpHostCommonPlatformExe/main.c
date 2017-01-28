@@ -63,6 +63,28 @@ BOOL
 
     return isHandled;
 }
+
+RBOOL
+    isLaunchedInteractively
+    (
+
+    )
+{
+    RBOOL isInteractive = FALSE;
+    HANDLE stdHandle = NULL;
+    CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
+
+    if( INVALID_HANDLE_VALUE != ( stdHandle = GetStdHandle( STD_OUTPUT_HANDLE ) ) &&
+        GetConsoleScreenBufferInfo( stdHandle, &csbi ) &&
+        0 == csbi.dwCursorPosition.X && 
+        0 == csbi.dwCursorPosition.Y )
+    {
+        isInteractive = TRUE;
+    }
+
+    return isInteractive;
+}
+
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 void
     ctrlHandler
@@ -538,6 +560,7 @@ RPAL_NATIVE_MAIN
     RU32 tmpModId = 0;
     RU32 memUsed = 0;
     RBOOL asService = FALSE;
+    RBOOL isArgumentsSpecified = FALSE;
 
     rpal_opt switches[] = { { _NC( 'h' ), _NC( "help" ), FALSE },
                             { _NC( 'p' ), _NC( "primary" ), TRUE },
@@ -565,14 +588,17 @@ RPAL_NATIVE_MAIN
                 case _NC( 'p' ):
                     primary = argVal;
                     rpal_debug_info( "Setting primary URL: %s.", primary );
+                    isArgumentsSpecified = TRUE;
                     break;
                 case _NC( 's' ):
                     secondary = argVal;
                     rpal_debug_info( "Setting secondary URL: %s.", secondary );
+                    isArgumentsSpecified = TRUE;
                     break;
                 case _NC( 'm' ):
                     tmpMod = rpal_string_strdup( argVal );
                     rpal_debug_info( "Manually loading module: %s.", argVal );
+                    isArgumentsSpecified = TRUE;
                     break;
                 case _NC( 'n' ):
                     if( rpal_string_stoi( argVal, &tmpModId ) )
@@ -583,6 +609,7 @@ RPAL_NATIVE_MAIN
                     {
                         rpal_debug_warning( "Module id provided is invalid." );
                     }
+                    isArgumentsSpecified = TRUE;
                     break;
 #ifdef RPAL_PLATFORM_WINDOWS
                 case _NC( 'i' ):
@@ -593,6 +620,7 @@ RPAL_NATIVE_MAIN
                     break;
                 case _NC( 'w' ):
                     asService = TRUE;
+                    isArgumentsSpecified = TRUE;
                     break;
 #elif defined( RPAL_PLATFORM_MACOSX )
                 case _NC( 'i' ):
@@ -649,6 +677,14 @@ RPAL_NATIVE_MAIN
             {
                 return 0;
             }
+        }
+
+        if( !isArgumentsSpecified &&
+            isLaunchedInteractively() )
+        {
+            // If launched via a double-click, we assume it's an installation.
+            rpal_debug_info( "Launched interactively, installing." );
+            return installService();
         }
 #endif
 
