@@ -64,27 +64,6 @@ BOOL
     return isHandled;
 }
 
-RBOOL
-    isLaunchedInteractively
-    (
-
-    )
-{
-    RBOOL isInteractive = FALSE;
-    HANDLE stdHandle = NULL;
-    CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
-
-    if( INVALID_HANDLE_VALUE != ( stdHandle = GetStdHandle( STD_OUTPUT_HANDLE ) ) &&
-        GetConsoleScreenBufferInfo( stdHandle, &csbi ) &&
-        0 == csbi.dwCursorPosition.X && 
-        0 == csbi.dwCursorPosition.Y )
-    {
-        isInteractive = TRUE;
-    }
-
-    return isInteractive;
-}
-
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 void
     ctrlHandler
@@ -100,6 +79,46 @@ void
         rpHostCommonPlatformLib_stop();
         rEvent_set( g_timeToQuit );
     }
+}
+#endif
+
+#ifdef RPAL_PLATFORM_WINDOWS
+RBOOL
+    isLaunchedInteractively
+    (
+
+    )
+{
+    RBOOL isInteractive = FALSE;
+    HANDLE stdHandle = NULL;
+    CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
+
+    if( INVALID_HANDLE_VALUE != ( stdHandle = GetStdHandle( STD_OUTPUT_HANDLE ) ) &&
+        GetConsoleScreenBufferInfo( stdHandle, &csbi ) &&
+        0 == csbi.dwCursorPosition.X &&
+        0 == csbi.dwCursorPosition.Y )
+    {
+        isInteractive = TRUE;
+    }
+
+    return isInteractive;
+}
+#elif defined( RPAL_PLATFORM_MACOSX )
+RBOOL
+    isLaunchedInteractively
+    (
+        RPNCHAR arg0
+    )
+{
+    RBOOL isInteractive = FALSE;
+
+    if( NULL != arg0 &&
+        NULL != rpal_string_stristr( arg0, _NC( ".app/" ) ) )
+    {
+        isInteractive = TRUE;
+    }
+
+    return isInteractive;
 }
 #endif
 
@@ -678,9 +697,20 @@ RPAL_NATIVE_MAIN
                 return 0;
             }
         }
+#endif
 
+#if defined( RPAL_PLATFORM_WINDOWS )
         if( !isArgumentsSpecified &&
             isLaunchedInteractively() )
+        {
+            // If launched via a double-click, we assume it's an installation.
+            rpal_debug_info( "Launched interactively, installing." );
+            return installService();
+        }
+#elif defined( RPAL_PLATFORM_MACOSX )
+        if( !isArgumentsSpecified &&
+            0 != argc &&
+            isLaunchedInteractively( argv[ 0 ] ) )
         {
             // If launched via a double-click, we assume it's an installation.
             rpal_debug_info( "Launched interactively, installing." );

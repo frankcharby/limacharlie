@@ -44,7 +44,7 @@ RBOOL
 
     if( NULL != str )
     {
-        sizeToCopy = min( str->Length, buffSize - sizeof( WCHAR ) );
+        sizeToCopy = RMIN( str->Length, buffSize - sizeof( WCHAR ) );
         memcpy( buff, str->Buffer, sizeToCopy );
         buff[ sizeToCopy / sizeof( WCHAR ) ] = 0;
     }

@@ -334,7 +334,7 @@ RBOOL
                 rFile_write( hStore, tokenSize, token ) )
             {
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                chmod( (RPNCHAR)store, S_IRUSR | S_IWUSR );
+                chmod( storePath, S_IRUSR | S_IWUSR );
 #endif
                 isSet = TRUE;
             }
