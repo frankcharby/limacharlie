@@ -553,7 +553,7 @@ RBOOL
 
         while( 0 != bytesLeft )
         {
-            bytesRequesting = min( bytesLeft, MBEDTLS_CTR_DRBG_MAX_REQUEST );
+            bytesRequesting = RMIN( bytesLeft, MBEDTLS_CTR_DRBG_MAX_REQUEST );
             if( 0 != mbedtls_ctr_drbg_random( &g_rng, pRandBytes + offset, bytesRequesting ) )
             {
                 isSuccess = FALSE;
