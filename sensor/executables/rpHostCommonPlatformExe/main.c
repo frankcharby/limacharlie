@@ -712,9 +712,28 @@ RPAL_NATIVE_MAIN
             0 != argc &&
             isLaunchedInteractively( argv[ 0 ] ) )
         {
-            // If launched via a double-click, we assume it's an installation.
-            rpal_debug_info( "Launched interactively, installing." );
-            return installService();
+            RU32 launchStatus = 0;
+            RNCHAR cmdPart1[] = { "osascript -e 'do shell script \"" };
+            RNCHAR cmdPart2[] = { " -i\" with administrator privileges'" };
+            RNCHAR cmdSuccess[] = { "osascript -e 'display notification \"Successfully installed LimaCharlie.\"'" };
+            RPNCHAR launchCmd = NULL;
+
+            if( NULL != ( launchCmd = rpal_string_strcatEx( launchCmd, cmdPart1 ) ) &&
+                NULL != ( launchCmd = rpal_string_strcatEx( launchCmd, argv[ 0 ] ) ) &&
+                NULL != ( launchCmd = rpal_string_strcatEx( launchCmd, cmdPart2 ) ) &&
+                0 == ( launchStatus = system( launchCmd ) ) )
+            {
+                rpal_debug_info( "Successfully launched installer as root." );
+                system( cmdSuccess );
+            }
+            else
+            {
+                rpal_debug_error( "Failed to launch installer as root: %d.", launchStatus );
+            }
+
+            rpal_memory_free( launchCmd );
+
+            return launchStatus;
         }
 #endif
 
