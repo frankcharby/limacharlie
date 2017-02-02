@@ -494,3 +494,24 @@ RBOOL
 
     return isSuccess;
 }
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_5_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}

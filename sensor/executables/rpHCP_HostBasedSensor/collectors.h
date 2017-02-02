@@ -34,10 +34,20 @@ typedef struct _HbsState
         RBOOL isEnabled;
         RBOOL( *init )( struct _HbsState* hbsState, rSequence config );
         RBOOL( *cleanup )( struct _HbsState* hbsState, rSequence config );
+        RBOOL( *test )( struct _HbsState* hbsState, rSequence config );
         rSequence conf;
         rpcm_tag* externalEvents;
     } collectors[ 23 ];
 } HbsState;
+
+typedef struct
+{
+    RU32 nTests;
+    RU32 nFailures;
+    rSequence config;
+    rSequence originalTestRequest;
+
+} SelfTestContext;
 
 #define GLOBAL_CPU_USAGE_TARGET             1
 #define GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED 10
@@ -49,10 +59,12 @@ typedef struct _HbsState
                                RBOOL collector_ ##num## _init( HbsState* hbsState, \
                                                                rSequence config ); \
                                RBOOL collector_ ##num## _cleanup( HbsState* hbsState, \
-                                                                  rSequence config );
+                                                                  rSequence config ); \
+                               RBOOL collector_ ##num## _test( HbsState* hbsState, \
+                                                               SelfTestContext* testContext );
 
-#define ENABLED_COLLECTOR(num) { TRUE, collector_ ##num## _init, collector_ ##num## _cleanup, NULL, collector_ ##num## _events }
-#define DISABLED_COLLECTOR(num) { FALSE, collector_ ##num## _init, collector_ ##num## _cleanup, NULL, collector_ ##num## _events }
+#define ENABLED_COLLECTOR(num) { TRUE, collector_ ##num## _init, collector_ ##num## _cleanup, collector_ ##num## _test, NULL, collector_ ##num## _events }
+#define DISABLED_COLLECTOR(num) { FALSE, collector_ ##num## _init, collector_ ##num## _cleanup, collector_ ##num## _test, NULL, collector_ ##num## _events }
 
 #ifdef RPAL_PLATFORM_WINDOWS
     #define ENABLED_WINDOWS_COLLECTOR(num) ENABLED_COLLECTOR(num)
@@ -239,3 +251,20 @@ RBOOL
         rSequence msg,
         RPU8* pAtomId
     );
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    HbsAssert
+    (
+        SelfTestContext* ctx,
+        RU32 fileId,
+        RU32 lineId,
+        RBOOL value,
+        rSequence mtd
+    );
+
+#define HBS_ASSERT(value,mtd) (HbsAssert(testContext, RPAL_FILE_ID, __LINE__, (value), (mtd)))
+#define HBS_ASSERT_TRUE(value)      HBS_ASSERT((value),NULL)
+#define HBS_ASSERT_FALSE(value)     HBS_ASSERT(!(value),NULL)

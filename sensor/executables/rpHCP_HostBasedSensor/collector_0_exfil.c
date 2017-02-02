@@ -56,7 +56,13 @@ RS32
         _AtomEvent* e2
     )
 {
-    return rpal_memory_memcmp( e1->atomId, e2->atomId, sizeof( e1->atomId ) );
+    if( NULL != e1 &&
+        NULL != e2 )
+    {
+        return rpal_memory_memcmp( e1->atomId, e2->atomId, sizeof( e1->atomId ) );
+    }
+
+    return 0;
 }
 
 RPRIVATE
@@ -119,6 +125,7 @@ RBOOL
         }
 
         pList->nElem = 0;
+        isSuccess = TRUE;
     }
 
     return isSuccess;
@@ -845,6 +852,223 @@ RBOOL
             _deinitEventList( &g_exfil_profile );
             _deinitEventList( &g_exfil_adhoc );
         }
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RPRIVATE
+RVOID
+    test_adhocExfil
+    (
+        SelfTestContext* testContext
+    )
+{
+    RU32 eventId = 0;
+    rQueue q = NULL;
+    RU32 tmpSize = 0;
+    rSequence event = NULL;
+    rList events = NULL;
+
+    if( HBS_ASSERT_TRUE( rQueue_create( &q, rSequence_freeWithSize, 0 ) ) &&
+        HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REP, NULL, 0, q, NULL ) ) &&
+        HBS_ASSERT_TRUE( NULL != ( g_state = rpal_memory_alloc(sizeof( *g_state ) ) ) ) &&
+        HBS_ASSERT_TRUE( NULL != ( g_state->hThreadPool = rThreadPool_create( 1, 5, 10 ) ) ) &&
+        HBS_ASSERT_TRUE( rQueue_create( &g_state->outQueue, rSequence_freeWithSize, 0 ) ) )
+    {
+        HBS_ASSERT_TRUE( _initEventList( &g_exfil_adhoc ) );
+
+        // Add 3 valid exfil events
+        event = rSequence_new();
+        rSequence_addRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, 42 );
+        add_exfil( RP_TAGS_NOTIFICATION_ADD_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        event = rSequence_new();
+        rSequence_addRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, 100 );
+        add_exfil( RP_TAGS_NOTIFICATION_ADD_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        event = rSequence_new();
+        rSequence_addRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, 200 );
+        add_exfil( RP_TAGS_NOTIFICATION_ADD_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        // Check we get the 3 back
+        event = rSequence_new();
+        get_exfil( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        HBS_ASSERT_TRUE( rQueue_getSize( q, &tmpSize ) );
+        HBS_ASSERT_TRUE( 1 == tmpSize );
+        if( HBS_ASSERT_TRUE( rQueue_remove( q, &event, &tmpSize, 0 ) ) )
+        {
+            HBS_ASSERT_TRUE( rSequence_getLIST( event, RP_TAGS_HBS_LIST_NOTIFICATIONS, &events ) );
+            HBS_ASSERT_TRUE( 3 == rList_getNumElements( events ) );
+            HBS_ASSERT_TRUE( rList_getRU32( events, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) );
+            HBS_ASSERT_TRUE( 42 == eventId );
+            HBS_ASSERT_TRUE( rList_getRU32( events, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) );
+            HBS_ASSERT_TRUE( 100 == eventId );
+            HBS_ASSERT_TRUE( rList_getRU32( events, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) );
+            HBS_ASSERT_TRUE( 200 == eventId );
+            rSequence_free( event );
+        }
+
+        // Remove 1 of the exfil events
+        event = rSequence_new();
+        rSequence_addRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, 100 );
+        del_exfil( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        // Make sure only that one was removed
+        event = rSequence_new();
+        get_exfil( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        HBS_ASSERT_TRUE( rQueue_getSize( q, &tmpSize ) );
+        HBS_ASSERT_TRUE( 1 == tmpSize );
+        if( HBS_ASSERT_TRUE( rQueue_remove( q, &event, &tmpSize, 0 ) ) )
+        {
+            HBS_ASSERT_TRUE( rSequence_getLIST( event, RP_TAGS_HBS_LIST_NOTIFICATIONS, &events ) );
+            HBS_ASSERT_TRUE( 2 == rList_getNumElements( events ) );
+            HBS_ASSERT_TRUE( rList_getRU32( events, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) );
+            HBS_ASSERT_TRUE( 42 == eventId );
+            HBS_ASSERT_TRUE( rList_getRU32( events, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) );
+            HBS_ASSERT_TRUE( 200 == eventId );
+            rSequence_free( event );
+        }
+
+        // Remove all exfil events
+        event = rSequence_new();
+        rSequence_addRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, 200 );
+        del_exfil( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        event = rSequence_new();
+        rSequence_addRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, 42 );
+        del_exfil( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        // Should now be empty
+        event = rSequence_new();
+        get_exfil( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        HBS_ASSERT_TRUE( rQueue_getSize( q, &tmpSize ) );
+        HBS_ASSERT_TRUE( 1 == tmpSize );
+        if( HBS_ASSERT_TRUE( rQueue_remove( q, &event, &tmpSize, 0 ) ) )
+        {
+            HBS_ASSERT_TRUE( rSequence_getLIST( event, RP_TAGS_HBS_LIST_NOTIFICATIONS, &events ) );
+            HBS_ASSERT_TRUE( 0 == rList_getNumElements( events ) );
+            rSequence_free( event );
+        }
+
+        // Add an exfil event with an expiry
+        event = rSequence_new();
+        rSequence_addRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, 66 );
+        rSequence_addTIMESTAMP( event, RP_TAGS_EXPIRY, rpal_time_getGlobal() + 2 );
+        add_exfil( RP_TAGS_NOTIFICATION_ADD_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        // Make sure that event is there
+        event = rSequence_new();
+        get_exfil( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        HBS_ASSERT_TRUE( rQueue_getSize( q, &tmpSize ) );
+        HBS_ASSERT_TRUE( 1 == tmpSize );
+        if( HBS_ASSERT_TRUE( rQueue_remove( q, &event, &tmpSize, 0 ) ) )
+        {
+            HBS_ASSERT_TRUE( rSequence_getLIST( event, RP_TAGS_HBS_LIST_NOTIFICATIONS, &events ) );
+            HBS_ASSERT_TRUE( 1 == rList_getNumElements( events ) );
+            HBS_ASSERT_TRUE( rList_getRU32( events, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) );
+            HBS_ASSERT_TRUE( 66 == eventId );
+            rSequence_free( event );
+        }
+
+        // Wait for a bit for it to expire
+        rpal_thread_sleep( MSEC_FROM_SEC( 3 ) );
+
+        event = rSequence_new();
+        get_exfil( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        // Make sure it has been removed
+        HBS_ASSERT_TRUE( rQueue_getSize( q, &tmpSize ) );
+        HBS_ASSERT_TRUE( 1 == tmpSize );
+        if( HBS_ASSERT_TRUE( rQueue_remove( q, &event, &tmpSize, 0 ) ) )
+        {
+            HBS_ASSERT_TRUE( rSequence_getLIST( event, RP_TAGS_HBS_LIST_NOTIFICATIONS, &events ) );
+            HBS_ASSERT_TRUE( 0 == rList_getNumElements( events ) );
+            rSequence_free( event );
+        }
+
+        // Simulate an event occuring
+        event = rSequence_new();
+        exfilFunc( 42, event );
+        rSequence_free( event );
+
+        // Make sure it is not exfiled
+        HBS_ASSERT_TRUE( rQueue_getSize( g_state->outQueue, &tmpSize ) );
+        HBS_ASSERT_TRUE( 0 == tmpSize );
+
+        // Add an event to exfil
+        event = rSequence_new();
+        rSequence_addRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, 42 );
+        add_exfil( RP_TAGS_NOTIFICATION_ADD_EXFIL_EVENT_REQ, event );
+        rSequence_free( event );
+
+        // Simulate the event occuring again
+        event = rSequence_new();
+        exfilFunc( 42, event );
+        rSequence_free( event );
+
+        // Make sure it is recorded this time
+        HBS_ASSERT_TRUE( rQueue_getSize( g_state->outQueue, &tmpSize ) );
+        HBS_ASSERT_TRUE( 1 == tmpSize );
+
+        HBS_ASSERT_TRUE( _deinitEventList( &g_exfil_adhoc ) );
+    }
+
+    if( NULL != g_state )
+    {
+        rThreadPool_destroy( g_state->hThreadPool, TRUE );
+        rQueue_free( g_state->outQueue );
+        rpal_memory_free( g_state );
+        g_state = NULL;
+    }
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REP, q, NULL );
+    rQueue_free( q );
+}
+
+RPRIVATE
+RVOID
+    test_history
+    (
+        SelfTestContext* testContext
+    )
+{
+    UNREFERENCED_PARAMETER( testContext );
+}
+
+RBOOL
+    collector_0_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
+        test_adhocExfil( testContext );
+        test_history( testContext );
+        isSuccess = TRUE;
     }
 
     return isSuccess;

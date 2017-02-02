@@ -328,6 +328,7 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     rSequence event = NULL;
+    RU8 atomId[ HBS_ATOM_ID_SIZE ] = { 0 };
 
     if( NULL != ( event = rSequence_new() ) )
     {
@@ -335,6 +336,8 @@ RBOOL
             ( NULL == errorMessage || rSequence_addSTRINGA( event, RP_TAGS_ERROR_MESSAGE, errorMessage ) ) )
         {
             hbs_markAsRelated( originalRequest, event );
+            HbsGetThisAtom( originalRequest, (RPU8*)&atomId );
+            HbsSetParentAtom( event, atomId );
             hbs_timestampEvent( event, 0 );
             isSuccess = notifications_publish( eventType, event );
         }
@@ -719,4 +722,57 @@ RBOOL
     }
 
     return isSuccess;
+}
+
+RBOOL
+    HbsAssert
+    (
+        SelfTestContext* ctx,
+        RU32 fileId,
+        RU32 lineId,
+        RBOOL value,
+        rSequence mtd
+    )
+{
+    RBOOL isOk = FALSE;
+    rSequence notif = NULL;
+    RU8 atomId[ HBS_ATOM_ID_SIZE ] = { 0 };
+
+    if( NULL != ctx )
+    {
+        isOk = value;
+        ctx->nTests++;
+
+        if( !value )
+        {
+            ctx->nFailures++;
+
+            rpal_debug_warning( "TEST FAILURE in file %d at line %d.", fileId, lineId );
+
+            if( NULL != ( notif = rSequence_new() ) )
+            {
+                if( rpal_memory_isValid( mtd ) &&
+                    !rSequence_addSEQUENCEdup( notif, RP_TAGS_HCP_CRASH_CONTEXT, mtd ) )
+                {
+                    rpal_debug_error( "failed to attach crash context to test failure." );
+                }
+
+                if( !rSequence_addRU32( notif, RP_TAGS_HCP_FILE_ID, fileId ) ||
+                    !rSequence_addRU32( notif, RP_TAGS_HCP_LINE_NUMBER, lineId ) )
+                {
+                    rpal_debug_error( "failed to add basic test data for failure." );
+                }
+
+                hbs_markAsRelated( ctx->originalTestRequest, notif );
+                HbsGetThisAtom( ctx->originalTestRequest, (RPU8*)&atomId );
+                HbsSetParentAtom( notif, atomId );
+
+                hbs_publish( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, notif );
+
+                rSequence_free( notif );
+            }
+        }
+    }
+
+    return isOk;
 }

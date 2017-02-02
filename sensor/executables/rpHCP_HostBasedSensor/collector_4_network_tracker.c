@@ -429,6 +429,11 @@ RPVOID
                     }
                 }
 
+                if( !prev_from_kernel[ i ].isIncoming )
+                {
+                    rSequence_addRU8( notif, RP_TAGS_IS_OUTGOING, 1 );
+                }
+
                 if( rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, prev_from_kernel[ i ].pid ) &&
                     hbs_timestampEvent( notif, prev_from_kernel[ i ].ts ) )
                 {
@@ -521,6 +526,27 @@ RBOOL
     UNREFERENCED_PARAMETER( config );
 
     if( NULL != hbsState )
+    {
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_4_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
     {
         isSuccess = TRUE;
     }
