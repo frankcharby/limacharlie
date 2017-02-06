@@ -1057,6 +1057,8 @@ RVOID
     RU32 evtType = 1;
     RU32 i = 0;
     RPU8 buffer = NULL;
+    RU32 tmpSize = 0;
+
     g_history_mutex = rMutex_create();
     if( HBS_ASSERT_TRUE( NULL != g_history_mutex ) )
     {
@@ -1090,7 +1092,6 @@ RVOID
             recordEvent( evtType, evt );
             rSequence_free( evt );
         }
-        HBS_ASSERT_TRUE( tmpEvt1 != g_history[ 0 ] );
         HBS_ASSERT_TRUE( 1 == g_history_head );
         HBS_ASSERT_TRUE( tmpEvt2 == g_history[ 1 ] );
 
@@ -1110,6 +1111,44 @@ RVOID
         {
             rSequence_free( g_history[ i ] );
             g_history[ i ] = NULL;
+        }
+        g_history_head = 0;
+        g_cur_size = 0;
+
+        // Dump the history
+        if( HBS_ASSERT_TRUE( NULL != ( g_state = rpal_memory_alloc( sizeof( *g_state ) ) ) ) &&
+            HBS_ASSERT_TRUE( rQueue_create( &g_state->outQueue, rSequence_freeWithSize, 0 ) ) )
+        {
+            // Add three elements
+            evt = rSequence_new();
+            recordEvent( evtType, evt );
+            recordEvent( evtType, evt );
+            recordEvent( evtType, evt );
+
+            HBS_ASSERT_TRUE( 3 == g_history_head );
+
+            // Straight dump (no filter)
+            dumpHistory( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, evt );
+            rSequence_free( evt );
+
+            HBS_ASSERT_TRUE( rQueue_getSize( g_state->outQueue, &tmpSize ) );
+            HBS_ASSERT_TRUE( 3 == tmpSize );
+        }
+
+        // Cleanup
+        for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
+        {
+            rSequence_free( g_history[ i ] );
+            g_history[ i ] = NULL;
+        }
+        g_history_head = 0;
+        g_cur_size = 0;
+
+        if( NULL != g_state )
+        {
+            rQueue_free( g_state->outQueue );
+            rpal_memory_free( g_state );
+            g_state = NULL;
         }
 
         rMutex_free( g_history_mutex );
