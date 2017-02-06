@@ -25,7 +25,7 @@ limitations under the License.
 #define RPAL_FILE_ID 72
 
 #define _MAX_FILE_HASH_SIZE                 (1024 * 1024 * 20)
-#define _CLEANUP_INEERVAL                   MSEC_FROM_SEC(60)
+#define _CLEANUP_INTERVAL                   MSEC_FROM_SEC(60)
 #define _CODE_INFO_TTL                      MSEC_FROM_SEC(60 * 60 * 24)
 
 static rMutex g_mutex = NULL;
@@ -83,7 +83,7 @@ RBOOL
     CodeInfo info = { 0 };
     RU64 curTime = rpal_time_getGlobalPreciseTime();
 
-    if( g_lastCleanup > curTime - _CLEANUP_INEERVAL )
+    if( g_lastCleanup > curTime - _CLEANUP_INTERVAL )
     {
         // Not time to cleanup yet
         return TRUE;
