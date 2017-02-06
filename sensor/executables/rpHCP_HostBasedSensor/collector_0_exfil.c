@@ -1051,7 +1051,70 @@ RVOID
         SelfTestContext* testContext
     )
 {
-    UNREFERENCED_PARAMETER( testContext );
+    rSequence evt = NULL;
+    rSequence tmpEvt1 = NULL;
+    rSequence tmpEvt2 = NULL;
+    RU32 evtType = 1;
+    RU32 i = 0;
+    RPU8 buffer = NULL;
+    g_history_mutex = rMutex_create();
+    if( HBS_ASSERT_TRUE( NULL != g_history_mutex ) )
+    {
+        // Test recordEvent
+        recordEvent( evtType, NULL );
+        HBS_ASSERT_TRUE( 0 == g_history_head );
+        HBS_ASSERT_TRUE( NULL == g_history[ 0 ] );
+
+        // Record a simple event
+        evt = rSequence_new();
+        recordEvent( evtType, evt );
+        rSequence_free( evt );
+
+        HBS_ASSERT_TRUE( 1 == g_history_head );
+        HBS_ASSERT_TRUE( rSequence_getSEQUENCE( g_history[ 0 ], evtType, &tmpEvt1 ) );
+
+        // Record a second one
+        evt = rSequence_new();
+        recordEvent( evtType, evt );
+        rSequence_free( evt );
+
+        HBS_ASSERT_TRUE( 2 == g_history_head );
+        HBS_ASSERT_TRUE( rSequence_getSEQUENCE( g_history[ 1 ], evtType, &tmpEvt1 ) );
+
+        // Wrap around the max number of events in history
+        tmpEvt1 = g_history[ 0 ];
+        tmpEvt2 = g_history[ 1 ];
+        for( i = 0; i < ARRAY_N_ELEM( g_history ) - 1; i++ )
+        {
+            evt = rSequence_new();
+            recordEvent( evtType, evt );
+            rSequence_free( evt );
+        }
+        HBS_ASSERT_TRUE( tmpEvt1 != g_history[ 0 ] );
+        HBS_ASSERT_TRUE( 1 == g_history_head );
+        HBS_ASSERT_TRUE( tmpEvt2 == g_history[ 1 ] );
+
+        // Overflow the max size of history
+        evt = rSequence_new();
+        buffer = rpal_memory_alloc( 1024 * 1024 );
+        rSequence_addBUFFER( evt, evtType, buffer, 1024 * 1024 );
+        for( i = 0; i < ( _HISTORY_MAX_SIZE / ( 1024 * 1024 ) ) + 2; i++ )
+        {
+            recordEvent( evtType, evt );
+        }
+        rSequence_free( evt );
+        HBS_ASSERT_TRUE( _HISTORY_MAX_SIZE > g_cur_size );
+
+        // Cleanup
+        for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
+        {
+            rSequence_free( g_history[ i ] );
+            g_history[ i ] = NULL;
+        }
+
+        rMutex_free( g_history_mutex );
+        g_history_mutex = NULL;
+    }
 }
 
 RBOOL
