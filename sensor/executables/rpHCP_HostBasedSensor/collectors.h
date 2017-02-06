@@ -19,6 +19,16 @@ limitations under the License.
 #include <cryptoLib/cryptoLib.h>
 #include "atoms.h"
 
+
+typedef struct
+{
+    RU32 nTests;
+    RU32 nFailures;
+    rSequence config;
+    rSequence originalTestRequest;
+
+} SelfTestContext;
+
 typedef struct _HbsState
 {
     rEvent isTimeToStop;
@@ -34,20 +44,11 @@ typedef struct _HbsState
         RBOOL isEnabled;
         RBOOL( *init )( struct _HbsState* hbsState, rSequence config );
         RBOOL( *cleanup )( struct _HbsState* hbsState, rSequence config );
-        RBOOL( *test )( struct _HbsState* hbsState, rSequence config );
+        RBOOL( *test )( struct _HbsState* hbsState, SelfTestContext* testContext );
         rSequence conf;
         rpcm_tag* externalEvents;
     } collectors[ 23 ];
 } HbsState;
-
-typedef struct
-{
-    RU32 nTests;
-    RU32 nFailures;
-    rSequence config;
-    rSequence originalTestRequest;
-
-} SelfTestContext;
 
 #define GLOBAL_CPU_USAGE_TARGET             1
 #define GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED 10

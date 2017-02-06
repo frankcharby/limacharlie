@@ -36,9 +36,6 @@ limitations under the License.
 #define DO_IFF(op,bStatus)              if(bStatus){ bStatus = op; }
 #define FREE_N_NULL(ptr,freeFunc)       freeFunc((ptr));(ptr)=NULL
 
-#define MIN_OF(a,b)     ( (a) > (b) ? (b) : (a) )
-#define MAX_OF(a,b)     ( (a) > (b) ? (a) : (b) )
-
 #define DELTA_OF(a,b)   ( MAX_OF((a),(b)) - MIN_OF((a),(b)) )
 
 #define FORCE_LINK_THIS(x) int force_link_##x = 0;
