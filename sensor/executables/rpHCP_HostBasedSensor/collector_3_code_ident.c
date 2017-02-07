@@ -608,6 +608,102 @@ RBOOL
 //=============================================================================
 //  Collector Testing
 //=============================================================================
+RPRIVATE
+RVOID
+    test_cleanup
+    (
+        SelfTestContext* testContext
+    )
+{
+    CodeInfo codeInfo = { 0 };
+    RNCHAR tmpName1[] = { _NC( "hello" ) };
+    RNCHAR tmpName2[] = { _NC( "world" ) };
+    RNCHAR tmpName3[] = { _NC( "something" ) };
+    RNCHAR tmpName4[] = { _NC( "darkside" ) };
+
+    // Force a scheduled cleanup
+    g_lastCleanup = 1;
+
+    if( HBS_ASSERT_TRUE( NULL != ( g_reportedCode = rpal_btree_create( sizeof( CodeInfo ), 
+                                                                       (rpal_btree_comp_f)_compCodeInfo, 
+                                                                       NULL ) ) ) )
+    {
+        // Add 2 items to be removed
+        codeInfo.mtd.timeGenerated = 2;
+        rpal_string_strcpy( codeInfo.info.fileName, tmpName1 );
+        rpal_btree_add( g_reportedCode, &codeInfo, FALSE );
+        codeInfo.mtd.timeGenerated = 3;
+        rpal_string_strcpy( codeInfo.info.fileName, tmpName2 );
+        rpal_btree_add( g_reportedCode, &codeInfo, FALSE );
+
+        // Add 2 item to stay
+        codeInfo.mtd.timeGenerated = rpal_time_getGlobalPreciseTime();
+        rpal_string_strcpy( codeInfo.info.fileName, tmpName3 );
+        rpal_btree_add( g_reportedCode, &codeInfo, FALSE );
+        rpal_string_strcpy( codeInfo.info.fileName, tmpName4 );
+        rpal_btree_add( g_reportedCode, &codeInfo, FALSE );
+
+        HBS_ASSERT_TRUE( 4 == rpal_btree_getSize( g_reportedCode, FALSE ) );
+
+        cleanupTree();
+
+        HBS_ASSERT_TRUE( 2 == rpal_btree_getSize( g_reportedCode, FALSE ) );
+
+        rpal_btree_destroy( g_reportedCode, FALSE );
+        g_reportedCode = NULL;
+    }
+}
+
+RPRIVATE
+RVOID
+    test_codePopulation
+    (
+        SelfTestContext* testContext
+    )
+{
+    CodeInfo codeInfo = { 0 };
+    CodeInfo tmpCodeInfo = { 0 };
+    RNCHAR tmpName1[] = { _NC( "hello" ) };
+    RNCHAR tmpName2[] = { _NC( "world" ) };
+
+    // Force a scheduled cleanup
+    g_lastCleanup = rpal_time_getGlobalPreciseTime() + MSEC_FROM_SEC( 3600 );
+
+    if( HBS_ASSERT_TRUE( NULL != ( g_reportedCode = rpal_btree_create( sizeof( CodeInfo ),
+                                                                       (rpal_btree_comp_f)_compCodeInfo,
+                                                                       NULL ) ) ) )
+    {
+        // Add a new item with a preexisting hash
+        CryptoLib_genRandomBytes( (RPU8)&codeInfo.info.fileHash, sizeof( codeInfo.info.fileHash ) );
+        rpal_string_strcpy( codeInfo.info.fileName, tmpName1 );
+        HBS_ASSERT_TRUE( populateCodeInfo( &codeInfo, &codeInfo.info.fileHash, NULL ) );
+        HBS_ASSERT_TRUE( 0 == codeInfo.mtd.lastError );
+        HBS_ASSERT_TRUE( 1 == rpal_btree_getSize( g_reportedCode, FALSE ) );
+
+        // Add a second object
+        CryptoLib_genRandomBytes( (RPU8)&codeInfo.info.fileHash, sizeof( codeInfo.info.fileHash ) );
+        rpal_string_strcpy( codeInfo.info.fileName, tmpName2 );
+        HBS_ASSERT_TRUE( populateCodeInfo( &codeInfo, &codeInfo.info.fileHash, NULL ) );
+        HBS_ASSERT_TRUE( 0 == codeInfo.mtd.lastError );
+        HBS_ASSERT_TRUE( 2 == rpal_btree_getSize( g_reportedCode, FALSE ) );
+
+        // Try to add object 1 again with a different hash and make sure it's updated
+        CryptoLib_genRandomBytes( (RPU8)&codeInfo.info.fileHash, sizeof( codeInfo.info.fileHash ) );
+        rpal_string_strcpy( codeInfo.info.fileName, tmpName1 );
+        HBS_ASSERT_TRUE( populateCodeInfo( &codeInfo, &codeInfo.info.fileHash, NULL ) );
+        HBS_ASSERT_TRUE( 0 == codeInfo.mtd.lastError );
+        HBS_ASSERT_TRUE( 2 == rpal_btree_getSize( g_reportedCode, FALSE ) );
+        HBS_ASSERT_TRUE( rpal_btree_search( g_reportedCode, &codeInfo, &tmpCodeInfo, FALSE ) );
+        HBS_ASSERT_TRUE( 0 == rpal_memory_memcmp( &codeInfo.info.fileHash, 
+                                                  &tmpCodeInfo.info.fileHash, 
+                                                  sizeof( tmpCodeInfo.info.fileHash ) ) );
+        HBS_ASSERT_TRUE( 2 == rpal_btree_getSize( g_reportedCode, FALSE ) );
+
+        rpal_btree_destroy( g_reportedCode, FALSE );
+        g_reportedCode = NULL;
+    }
+}
+
 RBOOL
     collector_3_test
     (
@@ -620,6 +716,8 @@ RBOOL
     if( NULL != hbsState &&
         NULL != testContext )
     {
+        test_cleanup( testContext );
+        test_codePopulation( testContext );
         isSuccess = TRUE;
     }
 
