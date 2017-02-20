@@ -269,3 +269,5 @@ RBOOL
 #define HBS_ASSERT(value,mtd) (HbsAssert(testContext, RPAL_FILE_ID, __LINE__, (value), (mtd)))
 #define HBS_ASSERT_TRUE(value)      HBS_ASSERT((value),NULL)
 #define HBS_ASSERT_FALSE(value)     HBS_ASSERT(!(value),NULL)
+
+#define HBS_TEST(testName)

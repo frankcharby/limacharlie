@@ -105,14 +105,20 @@ static int
         #endif
     }
     
-    rpal_debug_info( "!!!!!! process start: %d/%d/%d %s", ppid, pid, uid, file_path );
+    if( NULL != file_path )
+    {
+        rpal_debug_info( "!!!!!! process start: %d/%d/%d %s", ppid, pid, uid, file_path );
+    }
     
     rpal_mutex_lock( g_collector_1_mutex );
     
 #ifdef _USE_KAUTH
-    strncpy( g_processes[ g_nextProcess ].path,
-             file_path,
-             sizeof( g_processes[ g_nextProcess ].path ) - 1 );
+    if( NULL != file_path )
+    {
+        strncpy( g_processes[ g_nextProcess ].path,
+                 file_path,
+                 sizeof( g_processes[ g_nextProcess ].path ) - 1 );
+    }
 #else
     vn_getpath( vp, g_processes[ g_nextProcess ].path, &pathLen );
 #endif

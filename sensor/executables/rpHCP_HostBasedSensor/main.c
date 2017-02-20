@@ -135,15 +135,15 @@ RBOOL
     RBOOL isMatch = FALSE;
     rpHCPId wildcardId = { 0 };
 
-    if( ( id1.sensor_id == id2.sensor_id ||
-          id1.sensor_id == wildcardId.sensor_id ||
-          id2.sensor_id == wildcardId.sensor_id ) &&
-        ( id1.org_id == id2.org_id ||
-          id1.org_id == wildcardId.org_id ||
-          id2.org_id == wildcardId.org_id ) &&
-        ( id1.ins_id == id2.ins_id ||
-          id1.ins_id == wildcardId.ins_id ||
-          id2.ins_id == wildcardId.ins_id ) &&
+    if( ( FIXED_BUFFERS_EQUAL( id1.sensor_id, id2.sensor_id ) ||
+          FIXED_BUFFERS_EQUAL( id1.sensor_id, wildcardId.sensor_id ) ||
+          FIXED_BUFFERS_EQUAL( id2.sensor_id, wildcardId.sensor_id ) ) &&
+        ( FIXED_BUFFERS_EQUAL( id1.org_id, id2.org_id ) ||
+          FIXED_BUFFERS_EQUAL( id1.org_id, wildcardId.org_id ) ||
+          FIXED_BUFFERS_EQUAL( id2.org_id, wildcardId.org_id ) ) &&
+        ( FIXED_BUFFERS_EQUAL( id1.ins_id, id2.ins_id ) ||
+          FIXED_BUFFERS_EQUAL( id1.ins_id, wildcardId.ins_id ) ||
+          FIXED_BUFFERS_EQUAL( id2.ins_id, wildcardId.ins_id ) ) &&
         ( id1.architecture == id2.architecture ||
           id1.architecture == wildcardId.architecture ||
           id2.architecture == wildcardId.architecture ) &&
@@ -1052,6 +1052,21 @@ RPAL_THREAD_FUNC
                                  0,
                                  NULL,
                                  runSelfTests );
+
+        // REMOVE ME
+        {
+            rSequence ttt = NULL;
+            rSequence ccc = NULL;
+            rList confs = NULL;
+            ttt = rSequence_new();
+            ccc = rSequence_new();
+            confs = rList_new( RP_TAGS_HBS_CONFIGURATION, RPCM_SEQUENCE );
+            rSequence_addLIST( ttt, RP_TAGS_HBS_CONFIGURATIONS, confs );
+            rSequence_addRU32( ccc, RP_TAGS_HBS_CONFIGURATION_ID, 3 );
+            rList_addSEQUENCE( confs, ccc );
+            hbs_publish( RP_TAGS_NOTIFICATION_SELF_TEST, ttt );
+            rSequence_free( ttt );
+        }
     }
 
     // We'll wait for the very first online notification to start syncing.
