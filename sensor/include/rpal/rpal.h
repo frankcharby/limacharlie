@@ -46,7 +46,7 @@ limitations under the License.
 #define rpal_srand(seed)    srand(seed)
 #define rpal_rand()         rand()
 
-#define FIXED_BUFFERS_EQUAL(buff1,buff2) (sizeof(buff1) == sizeof(buff2) && 0 == rpal_memory_memcmp((buff1),(buff2),sizeof(buff1)))
+#define FIXED_BUFFERS_EQUAL(buff1,buff2) (0 == rpal_memory_memcmp((buff1),(buff2),sizeof(buff1)))
 
 // Core features
 #include <rpal_features.h>
