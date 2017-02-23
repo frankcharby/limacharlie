@@ -103,7 +103,7 @@ RBOOL
     )
 {
     RBOOL isUnwrapped = FALSE;
-    RU32 uncompressedSize = 0;
+    RSIZET uncompressedSize = 0;
     RPU8 uncompressedFrame = NULL;
     RU32 uncompErr = 0;
     RU32 bytesConsumed = 0;
@@ -624,9 +624,14 @@ RU32
                                                                  handshakeResponseSize ) )
                                     {
                                         isHandshakeComplete = FALSE;
+                                        rpal_debug_warning( "handshake respone content invalid" );
                                     }
 
                                     rList_free( messages );
+                                }
+                                else
+                                {
+                                    rpal_debug_warning( "failed to receive handshake response" );
                                 }
                             }
                         }

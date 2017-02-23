@@ -26,7 +26,7 @@ limitations under the License.
 #else
 #define RPAL_PLATFORM_DEBUG_LOG_CRIT
 #define RPAL_PLATFORM_DEBUG_LOG_ERR
-//#define RPAL_PLATFORM_DEBUG_LOG_WARN
+#define RPAL_PLATFORM_DEBUG_LOG_WARN
 //#define RPAL_PLATFORM_DEBUG_LOG_INFO
 #endif
 
