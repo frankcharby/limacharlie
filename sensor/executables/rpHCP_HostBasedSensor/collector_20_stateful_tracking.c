@@ -24,10 +24,10 @@ limitations under the License.
 
 #define RPAL_FILE_ID       106
 
-static rQueue g_events = NULL;
-static rVector g_liveMachines = NULL;
+RPRIVATE rQueue g_events = NULL;
+RPRIVATE rVector g_liveMachines = NULL;
 
-static StatefulMachineDescriptor* g_statefulMachines[] =
+RPRIVATE StatefulMachineDescriptor* g_statefulMachines[] =
 {
     // Need to set various platform recon categories
     //ENABLED_STATEFUL( 0 ),
@@ -41,11 +41,11 @@ static StatefulMachineDescriptor* g_statefulMachines[] =
 };
 
 // For now this is a hardcoded list of events, TODO: make it dynamic based on info from FSMs.
-static rpcm_tag g_eventsOfInterest[] = { RP_TAGS_NOTIFICATION_NEW_PROCESS,
-                                         RP_TAGS_NOTIFICATION_TERMINATE_PROCESS,
-                                         RP_TAGS_NOTIFICATION_MODULE_LOAD };
+RPRIVATE rpcm_tag g_eventsOfInterest[] = { RP_TAGS_NOTIFICATION_NEW_PROCESS,
+                                           RP_TAGS_NOTIFICATION_TERMINATE_PROCESS,
+                                           RP_TAGS_NOTIFICATION_MODULE_LOAD };
 
-static
+RPRIVATE
 RVOID
     _freeSmEvent
     (
@@ -57,7 +57,8 @@ RVOID
     rRefCount_release( evt->ref, NULL );
 }
 
-static RPVOID
+RPRIVATE
+RPVOID
     updateThread
     (
         rEvent isTimeToStop,
@@ -126,7 +127,8 @@ static RPVOID
     return NULL;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     addNewSmEvent
     (
         rpcm_tag notifType,
@@ -284,6 +286,27 @@ RBOOL
         }
         rpal_vector_free( g_liveMachines );
         g_liveMachines = NULL;
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_20_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
         isSuccess = TRUE;
     }
 

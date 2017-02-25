@@ -27,7 +27,7 @@ limitations under the License.
 
 static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
 
-static
+RPRIVATE
 RBOOL
     isTcpEqual
     (
@@ -50,7 +50,7 @@ RBOOL
     return isEqual;
 }
 
-static
+RPRIVATE
 RBOOL
     isUdpEqual
     (
@@ -71,7 +71,7 @@ RBOOL
     return isEqual;
 }
 
-static 
+RPRIVATE
 RPVOID
     networkUmDiffThread
     (
@@ -315,7 +315,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RBOOL
     addIpToSequence
     (
@@ -340,7 +340,7 @@ RBOOL
     return isAdded;
 }
 
-static
+RPRIVATE
 RPVOID
     networkKmDiffThread
     (
@@ -429,6 +429,11 @@ RPVOID
                     }
                 }
 
+                if( !prev_from_kernel[ i ].isIncoming )
+                {
+                    rSequence_addRU8( notif, RP_TAGS_IS_OUTGOING, 1 );
+                }
+
                 if( rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, prev_from_kernel[ i ].pid ) &&
                     hbs_timestampEvent( notif, prev_from_kernel[ i ].ts ) )
                 {
@@ -446,7 +451,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RPVOID
     networkDiffThread
     (
@@ -521,6 +526,27 @@ RBOOL
     UNREFERENCED_PARAMETER( config );
 
     if( NULL != hbsState )
+    {
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_4_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
     {
         isSuccess = TRUE;
     }

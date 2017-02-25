@@ -39,12 +39,12 @@ typedef struct
 
 } _Profile;
 
-static rBTree g_profiles_process_module = NULL;
+RPRIVATE rBTree g_profiles_process_module = NULL;
 
 //=============================================================================
 // Helpers
 //=============================================================================
-static
+RPRIVATE
 RBOOL
     _recordGeneration
     (
@@ -69,7 +69,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RBOOL
     _isProfileStable
     (
@@ -89,7 +89,7 @@ RBOOL
     return isStable;
 }
 
-static
+RPRIVATE
 RS32
     _cmp_stringw
     (
@@ -108,7 +108,7 @@ RS32
     return ret;
 }
 
-static
+RPRIVATE
 RVOID
     _clean_alloc
     (
@@ -121,7 +121,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     _clean_profile
     (
@@ -139,7 +139,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RBOOL
     _init_profile_strw_strw
     (
@@ -180,7 +180,7 @@ RBOOL
 //=============================================================================
 // PROFILERS
 //=============================================================================
-static
+RPRIVATE
 RBOOL
     profile_processes
     (
@@ -320,6 +320,27 @@ RBOOL
     }
 
     isSuccess = TRUE;
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_12_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
+        isSuccess = TRUE;
+    }
 
     return isSuccess;
 }

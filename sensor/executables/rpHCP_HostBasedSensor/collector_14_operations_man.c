@@ -23,7 +23,7 @@ limitations under the License.
 #include <notificationsLib/notificationsLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
 
-static HbsState* g_hbsStateRef = NULL;
+RPRIVATE HbsState* g_hbsStateRef = NULL;
 
 //=============================================================================
 // COLLECTOR INTERFACE
@@ -57,6 +57,27 @@ RBOOL
 
     UNREFERENCED_PARAMETER( hbsState );
     UNREFERENCED_PARAMETER( config );
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_14_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
+        isSuccess = TRUE;
+    }
 
     return isSuccess;
 }

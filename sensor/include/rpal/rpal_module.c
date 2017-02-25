@@ -42,7 +42,7 @@ extern RBOOL            g_rpal_is_root_context;
 extern rpal_private_module_context g_rpal_localContext;
 extern RU32             g_rpal_nrecursiveInit;
 
-static
+RPRIVATE
 RS32
     _findHandle
     (

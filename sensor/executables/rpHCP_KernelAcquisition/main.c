@@ -47,7 +47,7 @@ static RU8 g_patchedConfig[ _HCP_DEFAULT_STATIC_STORE_SIZE ] = _HCP_DEFAULT_STAT
 //=============================================================================
 //  Utilities
 //=============================================================================
-static
+RPRIVATE
 rSequence
     getStaticConfig
     (

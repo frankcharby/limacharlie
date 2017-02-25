@@ -63,10 +63,12 @@ static int
     uint64_t ts = 0;
     uint64_t sTs = 0;
     
-    if( KAUTH_FILEOP_OPEN != action &&
-        KAUTH_FILEOP_RENAME != action &&
-        KAUTH_FILEOP_EXEC != action &&
-        KAUTH_FILEOP_DELETE != action )
+    if( NULL == file_vnode ||
+        NULL == file_path ||
+        ( KAUTH_FILEOP_OPEN != action &&
+          KAUTH_FILEOP_RENAME != action &&
+          KAUTH_FILEOP_EXEC != action &&
+          KAUTH_FILEOP_DELETE != action ) )
     {
         return KAUTH_RESULT_DEFER;
     }

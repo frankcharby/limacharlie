@@ -72,6 +72,8 @@ errno_t
     int protocol = 0;
     SockCookie* sc = NULL;
     
+    if( NULL == cookie ) return ret;
+    
     rpal_mutex_lock( g_collector_4_mutex );
     if( g_shuttingDown )
     {

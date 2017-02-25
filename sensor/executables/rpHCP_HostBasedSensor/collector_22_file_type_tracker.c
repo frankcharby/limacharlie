@@ -32,11 +32,11 @@ typedef struct
 
 } ProcExtInfo;
 
-static rBTree g_procContexts = NULL;
-static rMutex g_mutex = NULL;
-static HObs g_extensions = NULL;
+RPRIVATE rBTree g_procContexts = NULL;
+RPRIVATE rMutex g_mutex = NULL;
+RPRIVATE HObs g_extensions = NULL;
 
-static
+RPRIVATE
 RS32
     _cmpContext
     (
@@ -55,7 +55,7 @@ RS32
     return ret;
 }
 
-static
+RPRIVATE
 RVOID
     _freeContext
     (
@@ -68,7 +68,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RBOOL
     _addPattern
     (
@@ -93,7 +93,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RBOOL
     checkFileType
     (
@@ -147,7 +147,7 @@ RBOOL
     return isShouldReport;
 }
 
-static
+RPRIVATE
 RVOID
     processNewProcesses
     (
@@ -172,7 +172,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     processTerminateProcesses
     (
@@ -199,7 +199,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     processFileIo
     (
@@ -390,6 +390,27 @@ RBOOL
         rMutex_free( g_mutex );
         g_mutex = NULL;
 
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_22_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
         isSuccess = TRUE;
     }
 

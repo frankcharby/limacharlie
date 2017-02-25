@@ -24,7 +24,7 @@ limitations under the License.
 static rBTree g_atoms = NULL;
 static RU32 g_nextCleanup = _CLEANUP_EVERY;
 
-static RS32
+RPRIVATE RS32
     _compareAtomKeys
     (
         Atom* atom1,
@@ -41,7 +41,7 @@ static RS32
     return ret;
 }
 
-static RVOID
+RPRIVATE RVOID
     _freeAtom
     (
         Atom* atom

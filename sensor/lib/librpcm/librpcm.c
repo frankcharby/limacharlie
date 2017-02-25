@@ -296,7 +296,9 @@ _PElemHeader
     RU32 buffSize = 0;
     _PElemHeader next = NULL;
 
-    if( NULL != ite )
+    if( NULL != ite &&
+        NULL != ite->set &&
+        NULL != ite->set->blob )
     {
         buff = rpal_blob_getBuffer( ite->set->blob );
         buffSize = rpal_blob_getSize( ite->set->blob );
@@ -401,6 +403,9 @@ RBOOL
         {
             rpal_blob_free( set->blob );
         }
+
+        set->blob = NULL;
+        set->nElements = 0;
     }
 
     return isClean;
@@ -594,44 +599,33 @@ RBOOL
                         {
                             if( !isGetRawPtr )
                             {
-                                // I just want to get the data copied to a local variable
-                                switch( simpleElem->commonHeader.type )
+                                if( NULL != pElem )
                                 {
-                                    case RPCM_RU8:
-                                        if( NULL != pElem )
-                                        {
-                                            *((RU8*)pElem) = *(RU8*)simpleElem->data;
-                                        }
-                                        break;
-                                    case RPCM_RU16:
-                                        if( NULL != pElem )
-                                        {
-                                            *((RU16*)pElem) = *(RU16*)simpleElem->data;
-                                        }
-                                        break;
-                                    case RPCM_RU32:
-                                    case RPCM_IPV4:
-                                    case RPCM_POINTER_32:
-                                        if( NULL != pElem )
-                                        {
-                                            *((RU32*)pElem) = *(RU32*)simpleElem->data ;
-                                        }
-                                        break;
-                                    case RPCM_RU64:
-                                    case RPCM_TIMESTAMP:
-                                    case RPCM_POINTER_64:
-                                    case RPCM_TIMEDELTA:
-                                        if( NULL != pElem )
-                                        {
-                                            *((RU64*)pElem) = *(RU64*)simpleElem->data;
-                                        }
-                                        break;
-                                    case RPCM_IPV6:
-                                        if( NULL != pElem )
-                                        {
+                                    // I just want to get the data copied to a local variable
+                                    switch( simpleElem->commonHeader.type )
+                                    {
+                                        case RPCM_RU8:
+                                            *( (RU8*)pElem ) = *(RU8*)simpleElem->data;
+                                            break;
+                                        case RPCM_RU16:
+                                            if( NULL != pElem )
+                                            *( (RU16*)pElem ) = *(RU16*)simpleElem->data;
+                                            break;
+                                        case RPCM_RU32:
+                                        case RPCM_IPV4:
+                                        case RPCM_POINTER_32:
+                                            *( (RU32*)pElem ) = *(RU32*)simpleElem->data;
+                                            break;
+                                        case RPCM_RU64:
+                                        case RPCM_TIMESTAMP:
+                                        case RPCM_POINTER_64:
+                                        case RPCM_TIMEDELTA:
+                                            *( (RU64*)pElem ) = *(RU64*)simpleElem->data;
+                                            break;
+                                        case RPCM_IPV6:
                                             rpal_memory_memcpy( pElem, simpleElem->data, RPCM_IPV6_SIZE );
-                                        }
-                                        break;
+                                            break;
+                                    }
                                 }
                             }
                             else if( NULL != pElem )
@@ -678,7 +672,6 @@ RBOOL
                         }
                         else if( *pAfterThis == varElem->data )
                         {
-                            //*pAfterThis = varElem->data;
                             *pAfterThis = NULL;
                             isSuccess = FALSE;
                         }
@@ -858,7 +851,7 @@ RBOOL
     _PElemSimpleHeader simpleHeader = NULL;
     _PElemVarHeader varHeader = NULL;
     _PElemComplexHeader complexHeader = NULL;
-
+    
     _rSequence* tmpSeq = NULL;
     _rList* tmpList = NULL;
 
@@ -893,76 +886,103 @@ RBOOL
             curElem++;
             bytesConsumed = 0;
 
-            if( isElemSimple( header ) )
+            if( isElemSimple( header ) &&
+                IS_WITHIN_BOUNDS( header, sizeof( _ElemSimpleHeader ), buffer, bufferSize ) )
             {
                 simpleHeader = (_PElemSimpleHeader)header;
 
                 switch( header->type )
                 {
                     case RPCM_RU8:
-                        isSuccess = set_addElement( set,
-                                                    rpal_ntoh32( simpleHeader->commonHeader.tag ),
-                                                    simpleHeader->commonHeader.type,
-                                                    (RU8*)simpleHeader->data,
-                                                    sizeof( RU8 ) );
+                        if( IS_WITHIN_BOUNDS( simpleHeader->data, sizeof( RU8 ), buffer, bufferSize ) )
+                        {
+                            isSuccess = set_addElement( set,
+                                                        rpal_ntoh32( simpleHeader->commonHeader.tag ),
+                                                        simpleHeader->commonHeader.type,
+                                                        (RU8*)simpleHeader->data,
+                                                        sizeof( RU8 ) );
+                        }
                         break;
                     case RPCM_RU16:
-                        tmp16 = rpal_ntoh16( *(RU16*)simpleHeader->data );
-                        isSuccess = set_addElement( set,
-                                                    rpal_ntoh32( simpleHeader->commonHeader.tag ),
-                                                    simpleHeader->commonHeader.type,
-                                                    &tmp16,
-                                                    sizeof( RU16 ) );
+                        if( IS_WITHIN_BOUNDS( simpleHeader->data, sizeof( RU16 ), buffer, bufferSize ) )
+                        {
+                            tmp16 = rpal_ntoh16( *(RU16*)simpleHeader->data );
+                            isSuccess = set_addElement( set,
+                                                        rpal_ntoh32( simpleHeader->commonHeader.tag ),
+                                                        simpleHeader->commonHeader.type,
+                                                        &tmp16,
+                                                        sizeof( RU16 ) );
+                        }
                         break;
                     case RPCM_RU32:
                     case RPCM_IPV4:
                     case RPCM_POINTER_32:
-                        tmp32 = rpal_ntoh32( *(RU32*)simpleHeader->data );
-                        isSuccess = set_addElement( set,
-                                                    rpal_ntoh32( simpleHeader->commonHeader.tag ),
-                                                    simpleHeader->commonHeader.type,
-                                                    &tmp32,
-                                                    sizeof( RU32 ) );
+                        if( IS_WITHIN_BOUNDS( simpleHeader->data, sizeof( RU32 ), buffer, bufferSize ) )
+                        {
+                            tmp32 = rpal_ntoh32( *(RU32*)simpleHeader->data );
+                            isSuccess = set_addElement( set,
+                                                        rpal_ntoh32( simpleHeader->commonHeader.tag ),
+                                                        simpleHeader->commonHeader.type,
+                                                        &tmp32,
+                                                        sizeof( RU32 ) );
+                        }
                         break;
                     case RPCM_RU64:
                     case RPCM_TIMESTAMP:
                     case RPCM_POINTER_64:
                     case RPCM_TIMEDELTA:
-                        tmp64 = rpal_ntoh64( *(RU64*)simpleHeader->data );
-                        isSuccess = set_addElement( set,
-                                                    rpal_ntoh32( simpleHeader->commonHeader.tag ),
-                                                    simpleHeader->commonHeader.type,
-                                                    &tmp64,
-                                                    sizeof( RU64 ) );
+                        if( IS_WITHIN_BOUNDS( simpleHeader->data, sizeof( RU64 ), buffer, bufferSize ) )
+                        {
+                            tmp64 = rpal_ntoh64( *(RU64*)simpleHeader->data );
+                            isSuccess = set_addElement( set,
+                                                        rpal_ntoh32( simpleHeader->commonHeader.tag ),
+                                                        simpleHeader->commonHeader.type,
+                                                        &tmp64,
+                                                        sizeof( RU64 ) );
+                        }
                         break;
                     case RPCM_IPV6:
-                        isSuccess = set_addElement( set,
-                                                    rpal_ntoh32( simpleHeader->commonHeader.tag ),
-                                                    simpleHeader->commonHeader.type,
-                                                    (RU8*)simpleHeader->data,
-                                                    RPCM_IPV6_SIZE );
+                        if( IS_WITHIN_BOUNDS( simpleHeader->data, RPCM_IPV6_SIZE, buffer, bufferSize ) )
+                        {
+                            isSuccess = set_addElement( set,
+                                                        rpal_ntoh32( simpleHeader->commonHeader.tag ),
+                                                        simpleHeader->commonHeader.type,
+                                                        (RU8*)simpleHeader->data,
+                                                        RPCM_IPV6_SIZE );
+                        }
                         break;
                 }
             }
-            else if( isElemVariable( header ) )
+            else if( isElemVariable( header ) &&
+                     IS_WITHIN_BOUNDS( header, sizeof( _ElemVarHeader ), buffer, bufferSize ) &&
+                     IS_WITHIN_BOUNDS( ( (_PElemVarHeader)header )->data, rpal_ntoh32( ( (_PElemVarHeader)header )->size ), buffer, bufferSize ) )
             {
                 varHeader = (_PElemVarHeader)header;
 
                 if( RPCM_STRINGW == varHeader->commonHeader.type )
                 {
-                    // Wide strings are a special case, they are serialised as a utf-8 string
-                    // so we need to convert them back to wide before adding to the set.
-                    tmpWStr = rpal_string_atow( (RPCHAR)varHeader->data );
-
-                    if( NULL != tmpWStr )
+                    // Strings should always be NULL terminated.
+                    if( 0 != varHeader->size &&
+                        0 == varHeader->data[ rpal_ntoh32( varHeader->size ) - 1 ] )
                     {
-                        isSuccess = set_addElement( set, 
-                                                    rpal_ntoh32( varHeader->commonHeader.tag ),
-                                                    varHeader->commonHeader.type,
-                                                    tmpWStr,
-                                                    ( rpal_string_strlenW( tmpWStr ) + 1 ) * sizeof( RWCHAR ) );
+                        // Wide strings are a special case, they are serialised as a utf-8 string
+                        // so we need to convert them back to wide before adding to the set.
+                        tmpWStr = rpal_string_atow( (RPCHAR)varHeader->data );
 
-                        rpal_memory_free( tmpWStr );
+                        if( NULL != tmpWStr )
+                        {
+                            isSuccess = set_addElement( set,
+                                                        rpal_ntoh32( varHeader->commonHeader.tag ),
+                                                        varHeader->commonHeader.type,
+                                                        tmpWStr,
+                                ( rpal_string_strlenW( tmpWStr ) + 1 ) * sizeof( RWCHAR ) );
+
+                            rpal_memory_free( tmpWStr );
+                        }
+                        else
+                        {
+                            isSuccess = FALSE;
+                        }
                     }
                     else
                     {
@@ -971,14 +991,25 @@ RBOOL
                 }
                 else
                 {
-                    isSuccess = set_addElement( set, 
-                                                rpal_ntoh32( varHeader->commonHeader.tag ),
-                                                varHeader->commonHeader.type,
-                                                varHeader->data,
-                                                rpal_ntoh32( varHeader->size ) );
+                    // Strings should always be NULL terminated.
+                    if( RPCM_STRINGA != varHeader->commonHeader.type ||
+                        ( 0 != varHeader->size &&
+                          0 == varHeader->data[ rpal_ntoh32( varHeader->size ) - 1 ] ) )
+                    {
+                        isSuccess = set_addElement( set,
+                                                    rpal_ntoh32( varHeader->commonHeader.tag ),
+                                                    varHeader->commonHeader.type,
+                                                    varHeader->data,
+                                                    rpal_ntoh32( varHeader->size ) );
+                    }
+                    else
+                    {
+                        isSuccess = FALSE;
+                    }
                 }
             }
-            else if( isElemComplex( header ) )
+            else if( isElemComplex( header ) &&
+                     IS_WITHIN_BOUNDS( header, sizeof( _ElemComplexHeader ), buffer, bufferSize ) )
             {
                 complexHeader = (_PElemComplexHeader)header;
 
@@ -1018,6 +1049,10 @@ RBOOL
             else
             {
                 isSuccess = FALSE;
+            }
+
+            if( !isSuccess )
+            {
                 break;
             }
 
@@ -1606,7 +1641,13 @@ RBOOL
         rSequence seq2
     )
 {
-    return set_isEqual( &((_rSequence*)seq1)->set, &((_rSequence*)seq2)->set );
+    if( NULL != seq1 &&
+        NULL != seq2 )
+    {
+        return set_isEqual( &( (_rSequence*)seq1 )->set, &( (_rSequence*)seq2 )->set );
+    }
+    
+    return FALSE;
 }
 
 RBOOL
@@ -1616,7 +1657,13 @@ RBOOL
         rList list2
     )
 {
-    return set_isEqual( &((_rList*)list1)->set, &((_rList*)list2)->set );
+    if( NULL != list1 &&
+        NULL != list2 )
+    {
+        return set_isEqual( &( (_rList*)list1 )->set, &( (_rList*)list2 )->set );
+    }
+
+    return FALSE;
 }
 
 RVOID
@@ -1625,7 +1672,10 @@ RVOID
         rSequence seq
     )
 {
-    ((_rSequence*)seq)->set.isReadTainted = FALSE;
+    if( NULL != seq )
+    {
+        ( (_rSequence*)seq )->set.isReadTainted = FALSE;
+    }
     return;
 }
 
@@ -1635,7 +1685,10 @@ RVOID
         rList list
     )
 {
-    ((_rList*)list)->set.isReadTainted = FALSE;
+    if( NULL != list )
+    {
+        ( (_rList*)list )->set.isReadTainted = FALSE;
+    }
     return;
 }
 
@@ -1645,7 +1698,12 @@ RU32
         rSequence seq
     )
 {
-    return set_getEstimateSize( &( (_rSequence*)seq )->set );
+    if( NULL != seq )
+    {
+        return set_getEstimateSize( &( (_rSequence*)seq )->set );
+    }
+    
+    return 0;
 }
 
 RU32
@@ -1654,7 +1712,12 @@ RU32
         rList list
     )
 {
-    return set_getEstimateSize( &( (_rList*)list )->set );
+    if( NULL != list )
+    {
+        return set_getEstimateSize( &( (_rList*)list )->set );
+    }
+    
+    return 0;
 }
 
 RBOOL

@@ -216,6 +216,9 @@ limitations under the License.
 #define NUMBER_TO_PTR(num)  ((RPVOID)(RSIZET)(num))
 #define PTR_TO_NUMBER(ptr)  ((RSIZET)(ptr))
 
+#define MIN_OF(a,b)     ( (a) > (b) ? (b) : (a) )
+#define MAX_OF(a,b)     ( (a) > (b) ? (a) : (b) )
+
 #define LITERAL_64_BIT(i)   (i ## LL)
 
 #ifndef UNREFERENCED_PARAMETER

@@ -25,7 +25,7 @@ limitations under the License.
 //=============================================================================
 //  BOILERPLATE
 //=============================================================================
-static
+RPRIVATE
 RVOID
     _freeEvent
     (
@@ -42,7 +42,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RBOOL
     _reportEvents
     (
@@ -86,7 +86,8 @@ RBOOL
     return isSuccess;
 }
 
-static StatefulMachine*
+RPRIVATE
+StatefulMachine*
     _newMachineFrom
     (
         StatefulMachineDescriptor* desc
@@ -309,7 +310,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RBOOL
     _isTimeMatch
     (
@@ -344,7 +345,7 @@ RBOOL
     return isMatch;
 }
 
-static
+RPRIVATE
 RBOOL
     _isPatternMatch
     (

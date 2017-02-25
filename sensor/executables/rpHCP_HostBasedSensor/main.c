@@ -93,7 +93,7 @@ RU8* hbs_cloud_pub_key = hbs_cloud_default_pub_key;
 //=============================================================================
 //  Utilities
 //=============================================================================
-static
+RPRIVATE
 rSequence
     getStaticConfig
     (
@@ -124,7 +124,7 @@ rSequence
     return config;
 }
 
-static
+RPRIVATE
 RBOOL
     isHcpIdMatch
     (
@@ -135,15 +135,15 @@ RBOOL
     RBOOL isMatch = FALSE;
     rpHCPId wildcardId = { 0 };
 
-    if( ( id1.sensor_id == id2.sensor_id ||
-          id1.sensor_id == wildcardId.sensor_id ||
-          id2.sensor_id == wildcardId.sensor_id ) &&
-        ( id1.org_id == id2.org_id ||
-          id1.org_id == wildcardId.org_id ||
-          id2.org_id == wildcardId.org_id ) &&
-        ( id1.ins_id == id2.ins_id ||
-          id1.ins_id == wildcardId.ins_id ||
-          id2.ins_id == wildcardId.ins_id ) &&
+    if( ( FIXED_BUFFERS_EQUAL( id1.sensor_id, id2.sensor_id ) ||
+          FIXED_BUFFERS_EQUAL( id1.sensor_id, wildcardId.sensor_id ) ||
+          FIXED_BUFFERS_EQUAL( id2.sensor_id, wildcardId.sensor_id ) ) &&
+        ( FIXED_BUFFERS_EQUAL( id1.org_id, id2.org_id ) ||
+          FIXED_BUFFERS_EQUAL( id1.org_id, wildcardId.org_id ) ||
+          FIXED_BUFFERS_EQUAL( id2.org_id, wildcardId.org_id ) ) &&
+        ( FIXED_BUFFERS_EQUAL( id1.ins_id, id2.ins_id ) ||
+          FIXED_BUFFERS_EQUAL( id1.ins_id, wildcardId.ins_id ) ||
+          FIXED_BUFFERS_EQUAL( id2.ins_id, wildcardId.ins_id ) ) &&
         ( id1.architecture == id2.architecture ||
           id1.architecture == wildcardId.architecture ||
           id2.architecture == wildcardId.architecture ) &&
@@ -158,7 +158,8 @@ RBOOL
 }
 
 #ifdef RPAL_PLATFORM_WINDOWS
-static RBOOL
+RPRIVATE
+RBOOL
     WindowsSetPrivilege
     (
         HANDLE hToken,
@@ -192,7 +193,8 @@ static RBOOL
 }
 
 
-static RBOOL
+RPRIVATE
+RBOOL
     WindowsGetPrivilege
     (
         RPCHAR privName
@@ -222,7 +224,7 @@ static RBOOL
 }
 #endif
 
-static 
+RPRIVATE
 RBOOL
     getPrivileges
     (
@@ -283,7 +285,8 @@ RBOOL
     return isSuccess;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     freeExfilEvent
     (
         rSequence seq,
@@ -295,7 +298,8 @@ static RVOID
 }
 
 
-static RBOOL
+RPRIVATE
+RBOOL
     checkKernelAcquisition
     (
 
@@ -324,7 +328,8 @@ static RBOOL
     return isKernelInit;
 }
 
-static RBOOL
+RPRIVATE
+RBOOL
     updateCollectorConfigs
     (
         rList newConfigs
@@ -374,7 +379,8 @@ static RBOOL
     return isSuccess;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     shutdownCollectors
     (
 
@@ -407,7 +413,7 @@ static RVOID
     }
 }
 
-static
+RPRIVATE
 RBOOL
     sendSingleMessageHome
     (
@@ -432,7 +438,7 @@ RBOOL
 }
 
 
-static
+RPRIVATE
 RPVOID
 RPAL_THREAD_FUNC
     issueSync
@@ -533,7 +539,8 @@ RPAL_THREAD_FUNC
     return NULL;
 }
 
-static RBOOL
+RPRIVATE
+RBOOL
     startCollectors
     (
 
@@ -580,7 +587,8 @@ static RBOOL
     return isSuccess;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     sendStartupEvent
     (
 
@@ -614,7 +622,8 @@ static RVOID
     }
 }
 
-static RVOID
+RPRIVATE
+RVOID
     sendShutdownEvent
     (
 
@@ -654,7 +663,7 @@ typedef struct
     rSequence event;
 } _cloudNotifStub;
 
-static
+RPRIVATE
 RPVOID
     _handleCloudNotification
     (
@@ -678,7 +687,8 @@ RPVOID
     return NULL;
 }
 
-static RVOID
+RPRIVATE
+RVOID
     publishCloudNotifications
     (
         rList notifications
@@ -708,7 +718,8 @@ static RVOID
         }
 
         if( rSequence_getBUFFER( notif, RP_TAGS_BINARY, &buff, &buffSize ) &&
-            rSequence_getBUFFER( notif, RP_TAGS_SIGNATURE, &sig, &sigSize ) )
+            rSequence_getBUFFER( notif, RP_TAGS_SIGNATURE, &sig, &sigSize ) &&
+            CRYPTOLIB_SIGNATURE_SIZE <= sigSize )
         {
             if( CryptoLib_verify( buff, buffSize, hbs_cloud_pub_key, sig ) )
             {
@@ -808,6 +819,57 @@ static RVOID
     {
         rpal_memory_free( cloudEventStub );
         cloudEventStub = NULL;
+    }
+}
+
+RPRIVATE
+RVOID
+    runSelfTests
+    (
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    rList tests = NULL;
+    rSequence collector = NULL;
+    RU32 collectorId = 0;
+
+    UNREFERENCED_PARAMETER( eventType );
+
+    if( rpal_memory_isValid( event ) )
+    {
+        if( rSequence_getLIST( event, RP_TAGS_HBS_CONFIGURATIONS, &tests ) )
+        {
+            shutdownCollectors();
+
+            while( rList_getSEQUENCE( tests, RP_TAGS_HBS_CONFIGURATION, &collector ) )
+            {
+                if( rSequence_getRU32( collector, RP_TAGS_HBS_CONFIGURATION_ID, &collectorId ) &&
+                    ARRAY_N_ELEM( g_hbs_state.collectors ) > collectorId )
+                {
+                    if( NULL != g_hbs_state.collectors[ collectorId ].test )
+                    {
+                        SelfTestContext testCtx = { 0 };
+                        testCtx.config = collector;
+                        testCtx.originalTestRequest = event;
+
+                        if( !g_hbs_state.collectors[ collectorId ].test( &g_hbs_state, &testCtx ) )
+                        {
+                            rpal_debug_error( "error executing static self test on collector %d", collectorId );
+                        }
+
+                        rpal_debug_info( "Test finishes: %d tests, %d failures.", testCtx.nTests, testCtx.nFailures );
+                        hbs_sendCompletionEvent( event, RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, 0, NULL );
+                    }
+                }
+                else
+                {
+                    rpal_debug_error( "invalid collector id to test" );
+                }
+            }
+
+            startCollectors();
+        }
     }
 }
 
@@ -985,6 +1047,26 @@ RPAL_THREAD_FUNC
     if( !rEvent_wait( isTimeToStop, 0 ) )
     {
         startCollectors();
+        notifications_subscribe( RP_TAGS_NOTIFICATION_SELF_TEST,
+                                 NULL,
+                                 0,
+                                 NULL,
+                                 runSelfTests );
+
+        // REMOVE ME
+        {
+            rSequence ttt = NULL;
+            rSequence ccc = NULL;
+            rList confs = NULL;
+            ttt = rSequence_new();
+            ccc = rSequence_new();
+            confs = rList_new( RP_TAGS_HBS_CONFIGURATION, RPCM_SEQUENCE );
+            rSequence_addLIST( ttt, RP_TAGS_HBS_CONFIGURATIONS, confs );
+            rSequence_addRU32( ccc, RP_TAGS_HBS_CONFIGURATION_ID, 3 );
+            rList_addSEQUENCE( confs, ccc );
+            hbs_publish( RP_TAGS_NOTIFICATION_SELF_TEST, ttt );
+            rSequence_free( ttt );
+        }
     }
 
     // We'll wait for the very first online notification to start syncing.
@@ -1066,6 +1148,7 @@ RPAL_THREAD_FUNC
     sendShutdownEvent();
 
     // Shutdown everything
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, NULL, runSelfTests );
     shutdownCollectors();
 
     // Cleanup the last few resources

@@ -35,7 +35,7 @@ limitations under the License.
 //=============================================================================
 // YARA Required Shims
 //=============================================================================
-static
+RPRIVATE
 RVOID
     reportError
     (
@@ -57,7 +57,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 size_t
     _yara_stream_read
     (
@@ -85,7 +85,7 @@ size_t
     return read;
 }
 
-static
+RPRIVATE
 size_t
     _yara_stream_write
     (
@@ -113,7 +113,7 @@ size_t
     return written;
 }
 
-static
+RPRIVATE
 YR_RULES*
     loadYaraRules
     (
@@ -142,9 +142,9 @@ YR_RULES*
 //=============================================================================
 // Core Functions
 //=============================================================================
-static YR_RULES* g_global_rules = NULL;
-static rMutex g_global_rules_mutex = NULL;
-static rQueue g_async_files_to_scan = NULL;
+RPRIVATE YR_RULES* g_global_rules = NULL;
+RPRIVATE rMutex g_global_rules_mutex = NULL;
+RPRIVATE rQueue g_async_files_to_scan = NULL;
 
 typedef struct
 {
@@ -162,7 +162,7 @@ typedef struct
     RU64 size;
 } _MemRange;
 
-static
+RPRIVATE
 RVOID
     _freeSeq
     (
@@ -178,7 +178,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 int 
     _yaraMemMatchCallback
     (
@@ -245,7 +245,7 @@ int
     return CALLBACK_CONTINUE;
 }
 
-static
+RPRIVATE
 RU32
     _scanProcessWith
     (
@@ -421,7 +421,7 @@ RU32
     return scanError;
 }
 
-static
+RPRIVATE
 RPVOID
     continuousMemScan
     (
@@ -486,7 +486,7 @@ RPVOID
 }
 
 
-static
+RPRIVATE
 int
     _yaraFileMatchCallback
     (
@@ -520,7 +520,7 @@ int
     return CALLBACK_CONTINUE;
 }
 
-static
+RPRIVATE
 RPVOID
     continuousFileScan
     (
@@ -595,7 +595,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RVOID
     updateSignatures
     (
@@ -632,7 +632,7 @@ RVOID
     yr_finalize_thread();
 }
 
-static
+RPRIVATE
 RVOID
     doScan
     (
@@ -893,6 +893,27 @@ RBOOL
 
         yr_finalize();
 
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_16_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
         isSuccess = TRUE;
     }
 

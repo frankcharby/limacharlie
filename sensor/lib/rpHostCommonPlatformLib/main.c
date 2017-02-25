@@ -42,7 +42,7 @@ rpHCPId g_idTemplate = { { 0 },                                                 
 // Large blank buffer to be used to patch configurations post-build
 #define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
 #define _HCP_DEFAULT_STATIC_STORE_MAGIC                         { 0xFA, 0x57, 0xF0, 0x0D }
-static RU8 g_patchedConfig[ _HCP_DEFAULT_STATIC_STORE_SIZE ] =  _HCP_DEFAULT_STATIC_STORE_MAGIC;
+RPRIVATE RU8 g_patchedConfig[ _HCP_DEFAULT_STATIC_STORE_SIZE ] = _HCP_DEFAULT_STATIC_STORE_MAGIC;
 #define _HCP_DEFAULT_STATIC_STORE_KEY                           { 0xFA, 0x75, 0x01 }
 
 //=============================================================================
@@ -50,7 +50,7 @@ static RU8 g_patchedConfig[ _HCP_DEFAULT_STATIC_STORE_SIZE ] =  _HCP_DEFAULT_STA
 //=============================================================================
 
 #ifdef RPAL_PLATFORM_WINDOWS
-static
+RPRIVATE
 BOOL
     ctrlHandler
     (
@@ -136,11 +136,12 @@ rpHCPId
     return id;
 }
 
-static
+RPRIVATE_TESTABLE
 RBOOL
     getStoreConf
     (
-
+        RPNCHAR storePath,
+        rpHCPContext* hcpContext
     )
 {
     RBOOL isSuccess = FALSE;
@@ -150,11 +151,13 @@ RBOOL
 
     rpHCPIdentStore* store = NULL;
 
-    OBFUSCATIONLIB_DECLARE( storePath, RP_HCP_CONFIG_IDENT_STORE );
+    if( NULL == storePath ||
+        NULL == hcpContext )
+    {
+        return FALSE;
+    }
 
-    OBFUSCATIONLIB_TOGGLE( storePath );
-
-    if( rpal_file_read( (RPNCHAR)storePath, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
+    if( rpal_file_read( storePath, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
     {
         if( sizeof( rpHCPIdentStore ) <= storeFileSize )
         {
@@ -163,33 +166,31 @@ RBOOL
             {
                 isSuccess = TRUE;
                 rpal_debug_info( "ident store found" );
-                if( NULL != ( g_hcpContext.enrollmentToken = rpal_memory_alloc( store->enrollmentTokenSize ) ) )
+                if( NULL != ( hcpContext->enrollmentToken = rpal_memory_alloc( store->enrollmentTokenSize ) ) )
                 {
-                    rpal_memory_memcpy( g_hcpContext.enrollmentToken, store->enrollmentToken, store->enrollmentTokenSize );
-                    g_hcpContext.enrollmentTokenSize = store->enrollmentTokenSize;
+                    rpal_memory_memcpy( hcpContext->enrollmentToken, store->enrollmentToken, store->enrollmentTokenSize );
+                    hcpContext->enrollmentTokenSize = store->enrollmentTokenSize;
                 }
-                g_hcpContext.currentId = store->agentId;
+                hcpContext->currentId = store->agentId;
             }
-            else
-            {
-                rpal_debug_warning( "inconsistent ident store, reseting" );
-                rpal_file_delete( (RPNCHAR)store, FALSE );
-            }
+        }
+        else
+        {
+            rpal_debug_warning( "inconsistent ident store, reseting" );
+            rpal_file_delete( storePath, FALSE );
         }
 
         rpal_memory_free( storeFile );
     }
 
-    OBFUSCATIONLIB_TOGGLE( storePath );
-
     // Set some always-correct defaults
-    g_hcpContext.currentId.architecture = RP_HCP_PLATFORM_CURRENT_ARCH;
-    g_hcpContext.currentId.platform = RP_HCP_PLATFORM_CURRENT;
+    hcpContext->currentId.architecture = RP_HCP_PLATFORM_CURRENT_ARCH;
+    hcpContext->currentId.platform = RP_HCP_PLATFORM_CURRENT;
 
     return isSuccess;
 }
 
-static
+RPRIVATE
 rSequence
     getStaticConfig
     (
@@ -238,6 +239,8 @@ RBOOL
     RPU8 tmpBuffer = NULL;
     RU32 tmpSize = 0;
     RU16 tmpPort = 0;
+    
+    OBFUSCATIONLIB_DECLARE( storePath, RP_HCP_CONFIG_IDENT_STORE );
 
     rpal_debug_info( "launching hcp" );
 
@@ -342,7 +345,9 @@ RBOOL
             g_hcpContext.enrollmentToken = NULL;
             g_hcpContext.enrollmentTokenSize = 0;
 
-            getStoreConf();  /* Sets the agent ID platform. */
+            OBFUSCATIONLIB_TOGGLE( storePath );
+            getStoreConf( (RPNCHAR)storePath, &g_hcpContext );  /* Sets the agent ID platform. */
+            OBFUSCATIONLIB_TOGGLE( storePath );
 
             if( startBeacons() )
             {

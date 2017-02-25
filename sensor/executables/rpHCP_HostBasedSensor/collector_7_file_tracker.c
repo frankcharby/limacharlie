@@ -24,14 +24,14 @@ limitations under the License.
 
 #define RPAL_FILE_ID          67
 
-static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
+RPRIVATE RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
 
-static RBOOL g_is_create_enabled = TRUE;
-static RBOOL g_is_delete_enabled = TRUE;
-static RBOOL g_is_modified_enabled = TRUE;
-static RBOOL g_is_read_enabled = TRUE;
+RPRIVATE RBOOL g_is_create_enabled = TRUE;
+RPRIVATE RBOOL g_is_delete_enabled = TRUE;
+RPRIVATE RBOOL g_is_modified_enabled = TRUE;
+RPRIVATE RBOOL g_is_read_enabled = TRUE;
 
-static
+RPRIVATE
 RBOOL
     _assemble_full_name
     (
@@ -61,7 +61,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RPVOID
     processUmFileChanges
     (
@@ -143,7 +143,7 @@ RPVOID
 }
 
 
-static
+RPRIVATE
 RPVOID
     processKmFileChanges
     (
@@ -238,7 +238,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RPVOID
     processFileChanges
     (
@@ -342,6 +342,27 @@ RBOOL
     UNREFERENCED_PARAMETER( config );
 
     if( NULL != hbsState )
+    {
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_7_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
     {
         isSuccess = TRUE;
     }

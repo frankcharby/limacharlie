@@ -230,6 +230,7 @@ RBOOL
 
             if( INVALID_HANDLE_VALUE == FindFirstFileW( expFilePath, &findData ) )
             {
+                rpal_memory_free( expFilePath );
                 return FALSE;
             }
             else

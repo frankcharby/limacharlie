@@ -140,6 +140,7 @@
     <ClInclude Include="git_info.h" />
     <ClInclude Include="globalContext.h" />
     <ClInclude Include="obfuscated.h" />
+    <ClInclude Include="_private.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\cryptoLib\cryptoLib.vcxproj">

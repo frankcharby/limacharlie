@@ -26,7 +26,7 @@ limitations under the License.
 #else
 #define RPAL_PLATFORM_DEBUG_LOG_CRIT
 #define RPAL_PLATFORM_DEBUG_LOG_ERR
-//#define RPAL_PLATFORM_DEBUG_LOG_WARN
+#define RPAL_PLATFORM_DEBUG_LOG_WARN
 //#define RPAL_PLATFORM_DEBUG_LOG_INFO
 #endif
 
@@ -108,4 +108,11 @@ RVOID
 
 #define rpal_debug_not_implemented() ( rpal_debug_error( "API not implemented: %s", __FUNCTION__ ) )
 
+#endif
+
+#define RPRIVATE    static
+#if defined(RPAL_PLATFORM_DEBUG)
+    #define RPRIVATE_TESTABLE
+#else
+    #define RPRIVATE_TESTABLE    static
 #endif

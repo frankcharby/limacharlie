@@ -26,7 +26,7 @@ limitations under the License.
 
 #define _FULL_SNAPSHOT_DEFAULT_DELTA        (60*60*24)
 
-static
+RPRIVATE
 RVOID
     os_services
     (
@@ -58,7 +58,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     os_drivers
     (
@@ -90,7 +90,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     os_processes
     (
@@ -149,7 +149,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     os_autoruns
     (
@@ -183,7 +183,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RPVOID
     allOsSnapshots
     (
@@ -217,7 +217,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RVOID
     os_kill_process
     (
@@ -258,7 +258,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     os_suspend
     (
@@ -320,7 +320,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     os_resume
     (
@@ -466,6 +466,27 @@ RBOOL
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_SUSPEND_REQ, NULL, os_suspend );
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_RESUME_REQ, NULL, os_resume );
 
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_11_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
         isSuccess = TRUE;
     }
 

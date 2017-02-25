@@ -57,6 +57,18 @@ RVOID
 }
 
 RVOID
+    rSequence_freeWithSize
+    (
+        rSequence seq,
+        RU32 unused
+    )
+{
+    UNREFERENCED_PARAMETER( unused );
+
+    rSequence_free( seq );
+}
+
+RVOID
     rSequence_shallowFree
     (
         rSequence seq

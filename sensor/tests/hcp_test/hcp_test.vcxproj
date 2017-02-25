@@ -19,26 +19,26 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{33247FDE-774B-48E9-947D-F8DFB505B356}</ProjectGuid>
-    <RootNamespace>rpHostCommonPlatformExe</RootNamespace>
+    <ProjectGuid>{DEB42351-10B3-4DEA-8EF1-57A11AD2FD03}</ProjectGuid>
+    <RootNamespace>hcp_test</RootNamespace>
     <Keyword>Win32Proj</Keyword>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -49,7 +49,8 @@
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_release.props" />
     <Import Project="..\..\property_sheets\windows_x86.props" />
-    <Import Project="..\..\property_sheets\obfuscation.props" />
+    <Import Project="..\..\property_sheets\CUnitTesting.props" />
+    <Import Project="..\..\property_sheets\CryptoLib.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -57,7 +58,8 @@
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_debug.props" />
     <Import Project="..\..\property_sheets\windows_x86.props" />
-    <Import Project="..\..\property_sheets\obfuscation.props" />
+    <Import Project="..\..\property_sheets\CUnitTesting.props" />
+    <Import Project="..\..\property_sheets\CryptoLib.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -65,7 +67,8 @@
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_release.props" />
     <Import Project="..\..\property_sheets\windows_x64.props" />
-    <Import Project="..\..\property_sheets\obfuscation.props" />
+    <Import Project="..\..\property_sheets\CUnitTesting.props" />
+    <Import Project="..\..\property_sheets\CryptoLib.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -73,7 +76,8 @@
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_debug.props" />
     <Import Project="..\..\property_sheets\windows_x64.props" />
-    <Import Project="..\..\property_sheets\obfuscation.props" />
+    <Import Project="..\..\property_sheets\CUnitTesting.props" />
+    <Import Project="..\..\property_sheets\CryptoLib.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
@@ -82,11 +86,12 @@
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</IntDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Configuration)\</IntDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\</IntDir>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">rphcp</TargetName>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">rphcp</TargetName>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">rphcp</TargetName>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">rphcp</TargetName>
   </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>RPAL_MODE_MASTER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
       <TargetEnvironment>X64</TargetEnvironment>
@@ -94,9 +99,11 @@
     <ClCompile>
       <PreprocessorDefinitions>RPAL_MODE_MASTER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <Link>
-      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
-    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>RPAL_MODE_MASTER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -105,67 +112,34 @@
     <ClCompile>
       <PreprocessorDefinitions>RPAL_MODE_MASTER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <Link>
-      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
-    </Link>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <PreprocessorDefinitions>RPAL_MODE_MASTER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-    <Link>
-      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
-      <PreprocessorDefinitions>RPAL_MODE_MASTER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-    <Link>
-      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\include\rpal\rpal_module.c" />
-    <ClCompile Include="main.c" />
-  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\lib\cryptoLib\cryptoLib.vcxproj">
       <Project>{533b36b9-e781-4132-baa7-33bf68de7013}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\lib\libOs\libOs.vcxproj">
-      <Project>{b344474d-101c-4eeb-ac48-40f1d5489bfd}</Project>
+    <ProjectReference Include="..\..\lib\CUnit-2.1-2\cunit.vcxproj">
+      <Project>{8abc417d-e059-4bcf-a265-e1a7b679736b}</Project>
+      <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
     </ProjectReference>
     <ProjectReference Include="..\..\lib\librpcm\librpcm.vcxproj">
       <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\lib\MemoryModule\MemoryModule.vcxproj">
-      <Project>{f94005c9-8884-4bdb-af60-f6b07f6253cb}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\lib\obfuscationLib\obfuscationLib.vcxproj">
-      <Project>{53e5cf95-eaba-412b-82c4-39632419171f}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\lib\processLib\processLib.vcxproj">
-      <Project>{55ed069a-2899-3dfa-cccd-9036543e919f}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\..\lib\rpal\rpal.vcxproj">
       <Project>{c8461925-62d7-49ff-a7c7-6cb5f73fa441}</Project>
+      <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
     </ProjectReference>
     <ProjectReference Include="..\..\lib\rpHostCommonPlatformLib\rpHostCommonPlatformLib.vcxproj">
       <Project>{cf4adb77-6da5-4985-b3c0-fbfc9cee7625}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\lib\zlib\zlib.vcxproj">
-      <Project>{448b43ec-557c-412c-89c5-88f2a6edb0cd}</Project>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="resource.h" />
+    <ClCompile Include="main.c" />
+    <ClCompile Include="..\..\include\rpal\rpal_module.c" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="rpHostCommonPlatformExe.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="icon1.ico" />
+    <ClInclude Include="..\..\include\rpal\rpal_module.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

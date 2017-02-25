@@ -89,6 +89,13 @@ RVOID
     );
 
 RVOID
+    rSequence_freeWithSize
+    (
+        rSequence seq,
+        RU32 unused
+    );
+
+RVOID
     rSequence_shallowFree
     (
         rSequence seq

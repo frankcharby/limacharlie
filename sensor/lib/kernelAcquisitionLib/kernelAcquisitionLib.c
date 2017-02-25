@@ -57,7 +57,7 @@ static RBOOL g_platform_availability[ KERNEL_ACQ_OP_COUNT ] = {
 #endif
                                                               };
 
-
+RPRIVATE
 RBOOL
     _kAcq_init
     (
@@ -158,6 +158,7 @@ RBOOL
     return _kAcq_init( TRUE );
 }
 
+RPRIVATE
 RBOOL
     _kAcq_deinit
     (
@@ -205,7 +206,7 @@ RBOOL
     return _kAcq_deinit( TRUE );
 }
 
-static
+RPRIVATE
 RU32
     _krnlSendReceive
     (

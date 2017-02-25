@@ -44,17 +44,19 @@ limitations under the License.
 //=============================================================================
 //  Helpers
 //=============================================================================
-static
+RPRIVATE_TESTABLE
 rBlob
     wrapFrame
     (
         RpHcp_ModuleId moduleId,
-        rList messages
+        rList messages,
+        RBOOL isIncludeUncompressedSize // For testing purposes
     )
 {
     rBlob blob = NULL;
     RPU8 buffer = NULL;
     RSIZET size = 0;
+    RU32 uncompressedSize = 0;
 
     if( NULL != messages &&
         NULL != ( blob = rpal_blob_create( 0, 0 ) ) )
@@ -67,14 +69,18 @@ rBlob
         }
         else
         {
-            size = compressBound( rpal_blob_getSize( blob ) );
+            uncompressedSize = rpal_blob_getSize( blob );
+            size = compressBound( uncompressedSize );
+            uncompressedSize = rpal_hton32( uncompressedSize );
             if( NULL == ( buffer = rpal_memory_alloc( size ) ) ||
                 Z_OK != compress( buffer, 
                                   (uLongf*)&size, 
                                   rpal_blob_getBuffer( blob ), 
                                   rpal_blob_getSize( blob ) ) ||
               !rpal_blob_freeBufferOnly( blob ) ||
-              !rpal_blob_setBuffer( blob, buffer, (RU32)size ) )
+              !rpal_blob_setBuffer( blob, buffer, (RU32)size ) ||
+              ( isIncludeUncompressedSize && 
+                !rpal_blob_insert( blob, &uncompressedSize, sizeof( uncompressedSize ), 0 ) ) )
             {
                 rpal_memory_free( buffer );
                 rpal_blob_free( blob );
@@ -87,34 +93,105 @@ rBlob
     return blob;
 }
 
-static
+RPRIVATE_TESTABLE
+RBOOL
+    unwrapFrame
+    (
+        rBlob frame,
+        RpHcp_ModuleId* pModuleId,
+        rList* pMessages
+    )
+{
+    RBOOL isUnwrapped = FALSE;
+    RSIZET uncompressedSize = 0;
+    RPU8 uncompressedFrame = NULL;
+    RU32 uncompErr = 0;
+    RU32 bytesConsumed = 0;
+
+    if( NULL != frame &&
+        NULL != pModuleId &&
+        NULL != pMessages )
+    {
+        uncompressedSize = rpal_ntoh32( *(RU32*)rpal_blob_getBuffer( frame ) );
+        if( FRAME_MAX_SIZE >= uncompressedSize &&
+            NULL != ( uncompressedFrame = rpal_memory_alloc( uncompressedSize ) ) )
+        {
+            if( Z_OK == ( uncompErr = uncompress( uncompressedFrame,
+                                                  (uLongf*)&uncompressedSize,
+                                                  (RPU8)( rpal_blob_getBuffer( frame ) ) + sizeof( RU32 ),
+                                                  rpal_blob_getSize( frame ) ) ) )
+            {
+                *pModuleId = *(RpHcp_ModuleId*)uncompressedFrame;
+
+                if( rList_deserialise( pMessages,
+                                       uncompressedFrame + sizeof( RpHcp_ModuleId ),
+                                       (RU32)uncompressedSize,
+                                       &bytesConsumed ) )
+                {
+                    if( bytesConsumed + sizeof( RpHcp_ModuleId ) == uncompressedSize )
+                    {
+                        isUnwrapped = TRUE;
+                    }
+                    else
+                    {
+                        rpal_debug_warning( "deserialization buffer size mismatch" );
+                        rList_free( *pMessages );
+                        *pMessages = NULL;
+                        *pModuleId = 0;
+                    }
+                }
+                else
+                {
+                    rpal_debug_warning( "failed to deserialize frame" );
+                }
+            }
+            else
+            {
+                rpal_debug_warning( "failed to decompress frame: %d", uncompErr );
+            }
+
+            rpal_memory_free( uncompressedFrame );
+        }
+        else
+        {
+            rpal_debug_warning( "invalid decompressed size %d", uncompressedSize );
+        }
+    }
+
+    return isUnwrapped;
+}
+
+RPRIVATE_TESTABLE
 RBOOL
     sendFrame
     (
+        rpHCPContext* pContext,
         RpHcp_ModuleId moduleId,
-        rList messages
+        rList messages,
+        RBOOL isForAnotherSensor
     )
 {
     RBOOL isSent = FALSE;
     rBlob buffer = NULL;
     RU32 frameSize = 0;
 
-    if( NULL != messages )
+    if( NULL != pContext &&
+        NULL != messages )
     {
-        if( NULL != ( buffer = wrapFrame( moduleId, messages ) ) )
+        if( NULL != ( buffer = wrapFrame( moduleId, messages, isForAnotherSensor ) ) )
         {
             if( CryptoLib_symEncrypt( buffer,
                                       NULL, 
                                       NULL,
-                                      g_hcpContext.session.symSendCtx ) &&
+                                      pContext->session.symSendCtx ) &&
                 0 != ( frameSize = rpal_blob_getSize( buffer ) ) &&
                 0 != ( frameSize = rpal_hton32( frameSize ) ) &&
                 rpal_blob_insert( buffer, &frameSize, sizeof( frameSize ), 0 ) )
             {
-                if( NetLib_TcpSend( g_hcpContext.cloudConnection, 
+                if( NetLib_TcpSend( pContext->cloudConnection,
                                     rpal_blob_getBuffer( buffer ), 
                                     rpal_blob_getSize( buffer ), 
-                                    g_hcpContext.isBeaconTimeToStop ) )
+                                    pContext->isBeaconTimeToStop ) )
                 {
                     isSent = TRUE;
                 }
@@ -127,10 +204,11 @@ RBOOL
     return isSent;
 }
 
-static
+RPRIVATE_TESTABLE
 RBOOL
     recvFrame
     (
+        rpHCPContext* pContext,
         RpHcp_ModuleId* targetModuleId,
         rList* pMessages,
         RU32 timeoutSec
@@ -139,18 +217,15 @@ RBOOL
     RBOOL isSuccess = FALSE;
     RU32 frameSize = 0;
     rBlob frame = NULL;
-    RPU8 uncompressedFrame = NULL;
-    RSIZET uncompressedSize = 0;
-    RU32 uncompErr = 0;
-    RU32 bytesConsumed = 0;
 
-    if( NULL != targetModuleId &&
+    if( NULL != pContext &&
+        NULL != targetModuleId &&
         NULL != pMessages )
     {
-        if( NetLib_TcpReceive( g_hcpContext.cloudConnection, 
+        if( NetLib_TcpReceive( pContext->cloudConnection,
                                &frameSize, 
                                sizeof( frameSize ), 
-                               g_hcpContext.isBeaconTimeToStop,
+                               pContext->isBeaconTimeToStop,
                                timeoutSec ) )
         {
             frameSize = rpal_ntoh32( frameSize );
@@ -158,57 +233,22 @@ RBOOL
                 NULL != ( frame = rpal_blob_create( frameSize, 0 ) ) &&
                 rpal_blob_add( frame, NULL, frameSize ) )
             {
-                if( NetLib_TcpReceive( g_hcpContext.cloudConnection,
+                if( NetLib_TcpReceive( pContext->cloudConnection,
                                        rpal_blob_getBuffer( frame ),
                                        rpal_blob_getSize( frame ),
-                                       g_hcpContext.isBeaconTimeToStop,
+                                       pContext->isBeaconTimeToStop,
                                        timeoutSec ) )
                 {
-                    if( CryptoLib_symDecrypt( frame, NULL, NULL, g_hcpContext.session.symRecvCtx ) &&
+                    if( CryptoLib_symDecrypt( frame, NULL, NULL, pContext->session.symRecvCtx ) &&
                         NULL != rpal_blob_getBuffer( frame ) )
                     {
-                        uncompressedSize = rpal_ntoh32( *(RU32*)rpal_blob_getBuffer( frame ) );
-                        if( FRAME_MAX_SIZE >= uncompressedSize &&
-                            NULL != ( uncompressedFrame = rpal_memory_alloc( uncompressedSize ) ) )
+                        if( unwrapFrame( frame, targetModuleId, pMessages ) )
                         {
-                            if( Z_OK == ( uncompErr = uncompress( uncompressedFrame,
-                                                                  (uLongf*)&uncompressedSize,
-                                                                  (RPU8)(rpal_blob_getBuffer( frame )) + sizeof(RU32),
-                                                                  rpal_blob_getSize( frame ) ) ) )
-                            {
-                                *targetModuleId = *(RpHcp_ModuleId*)uncompressedFrame;
-
-                                if( rList_deserialise( pMessages, 
-                                                       uncompressedFrame + sizeof( RpHcp_ModuleId ), 
-                                                       (RU32)uncompressedSize, 
-                                                       &bytesConsumed ) )
-                                {
-                                    if( bytesConsumed + sizeof( RpHcp_ModuleId ) == uncompressedSize )
-                                    {
-                                        isSuccess = TRUE;
-                                    }
-                                    else
-                                    {
-                                        rpal_debug_warning( "deserialization buffer size mismatch" );
-                                        rList_free( *pMessages );
-                                        *pMessages = NULL;
-                                    }
-                                }
-                                else
-                                {
-                                    rpal_debug_warning( "failed to deserialize frame" );
-                                }
-                            }
-                            else
-                            {
-                                rpal_debug_warning( "failed to decompress frame: %d", uncompErr );
-                            }
-
-                            rpal_memory_free( uncompressedFrame );
+                            isSuccess = TRUE;
                         }
                         else
                         {
-                            rpal_debug_warning( "invalid decompressed size %d", uncompressedSize );
+                            rpal_debug_warning( "failed to unwrap frame" );
                         }
                     }
                     else
@@ -237,7 +277,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 rSequence
     generateHeaders
     (
@@ -335,7 +375,7 @@ rSequence
 //=============================================================================
 //  Base beacon
 //=============================================================================
-static
+RPRIVATE
 RU32
     RPAL_THREAD_FUNC thread_sync
     (
@@ -467,7 +507,7 @@ RU32
     return 0;
 }
 
-static
+RPRIVATE
 RU32
     RPAL_THREAD_FUNC thread_conn
     (
@@ -569,7 +609,7 @@ RU32
 
                                 // The handshake response is supposed to be a single message
                                 // that contains a buffer with whatever was sent initially.
-                                isHandshakeComplete = recvFrame( &tmpModuleId, &messages, 5 );
+                                isHandshakeComplete = recvFrame( &g_hcpContext, &tmpModuleId, &messages, 5 );
 
                                 if( isHandshakeComplete )
                                 {
@@ -584,9 +624,14 @@ RU32
                                                                  handshakeResponseSize ) )
                                     {
                                         isHandshakeComplete = FALSE;
+                                        rpal_debug_warning( "handshake respone content invalid" );
                                     }
 
                                     rList_free( messages );
+                                }
+                                else
+                                {
+                                    rpal_debug_warning( "failed to receive handshake response" );
                                 }
                             }
                         }
@@ -603,7 +648,7 @@ RU32
                 rpal_debug_info( "handshake received" );
                 if( NULL != headers )
                 {
-                    if( sendFrame( RP_HCP_MODULE_ID_HCP, headers ) )
+                    if( sendFrame( &g_hcpContext, RP_HCP_MODULE_ID_HCP, headers, FALSE ) )
                     {
                         rpal_debug_info( "headers sent" );
                         isHeadersSent = TRUE;
@@ -649,7 +694,7 @@ RU32
                     rSequence message = NULL;
                     RpHcp_ModuleId targetModuleId = 0;
 
-                    if( !recvFrame( &targetModuleId, &messages, 0 ) )
+                    if( !recvFrame( &g_hcpContext, &targetModuleId, &messages, 0 ) )
                     {
                         rpal_debug_warning( "error receiving frame" );
                         break;
@@ -803,7 +848,7 @@ RBOOL
 
     if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
     {
-        isSuccess = sendFrame( sourceModuleId, toSend );
+        isSuccess = sendFrame( &g_hcpContext, sourceModuleId, toSend, FALSE );
 
         rMutex_unlock( g_hcpContext.cloudConnectionMutex );
     }

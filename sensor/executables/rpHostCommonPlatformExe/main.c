@@ -63,6 +63,7 @@ BOOL
 
     return isHandled;
 }
+
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 void
     ctrlHandler
@@ -78,6 +79,46 @@ void
         rpHostCommonPlatformLib_stop();
         rEvent_set( g_timeToQuit );
     }
+}
+#endif
+
+#ifdef RPAL_PLATFORM_WINDOWS
+RBOOL
+    isLaunchedInteractively
+    (
+
+    )
+{
+    RBOOL isInteractive = FALSE;
+    HANDLE stdHandle = NULL;
+    CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
+
+    if( INVALID_HANDLE_VALUE != ( stdHandle = GetStdHandle( STD_OUTPUT_HANDLE ) ) &&
+        GetConsoleScreenBufferInfo( stdHandle, &csbi ) &&
+        0 == csbi.dwCursorPosition.X &&
+        0 == csbi.dwCursorPosition.Y )
+    {
+        isInteractive = TRUE;
+    }
+
+    return isInteractive;
+}
+#elif defined( RPAL_PLATFORM_MACOSX )
+RBOOL
+    isLaunchedInteractively
+    (
+        RPNCHAR arg0
+    )
+{
+    RBOOL isInteractive = FALSE;
+
+    if( NULL != arg0 &&
+        NULL != rpal_string_stristr( arg0, _NC( ".app/" ) ) )
+    {
+        isInteractive = TRUE;
+    }
+
+    return isInteractive;
 }
 #endif
 
@@ -538,6 +579,7 @@ RPAL_NATIVE_MAIN
     RU32 tmpModId = 0;
     RU32 memUsed = 0;
     RBOOL asService = FALSE;
+    RBOOL isArgumentsSpecified = FALSE;
 
     rpal_opt switches[] = { { _NC( 'h' ), _NC( "help" ), FALSE },
                             { _NC( 'p' ), _NC( "primary" ), TRUE },
@@ -565,14 +607,17 @@ RPAL_NATIVE_MAIN
                 case _NC( 'p' ):
                     primary = argVal;
                     rpal_debug_info( "Setting primary URL: %s.", primary );
+                    isArgumentsSpecified = TRUE;
                     break;
                 case _NC( 's' ):
                     secondary = argVal;
                     rpal_debug_info( "Setting secondary URL: %s.", secondary );
+                    isArgumentsSpecified = TRUE;
                     break;
                 case _NC( 'm' ):
                     tmpMod = rpal_string_strdup( argVal );
                     rpal_debug_info( "Manually loading module: %s.", argVal );
+                    isArgumentsSpecified = TRUE;
                     break;
                 case _NC( 'n' ):
                     if( rpal_string_stoi( argVal, &tmpModId ) )
@@ -583,6 +628,7 @@ RPAL_NATIVE_MAIN
                     {
                         rpal_debug_warning( "Module id provided is invalid." );
                     }
+                    isArgumentsSpecified = TRUE;
                     break;
 #ifdef RPAL_PLATFORM_WINDOWS
                 case _NC( 'i' ):
@@ -593,6 +639,7 @@ RPAL_NATIVE_MAIN
                     break;
                 case _NC( 'w' ):
                     asService = TRUE;
+                    isArgumentsSpecified = TRUE;
                     break;
 #elif defined( RPAL_PLATFORM_MACOSX )
                 case _NC( 'i' ):
@@ -649,6 +696,44 @@ RPAL_NATIVE_MAIN
             {
                 return 0;
             }
+        }
+#endif
+
+#if defined( RPAL_PLATFORM_WINDOWS )
+        if( !isArgumentsSpecified &&
+            isLaunchedInteractively() )
+        {
+            // If launched via a double-click, we assume it's an installation.
+            rpal_debug_info( "Launched interactively, installing." );
+            return installService();
+        }
+#elif defined( RPAL_PLATFORM_MACOSX )
+        if( !isArgumentsSpecified &&
+            0 != argc &&
+            isLaunchedInteractively( argv[ 0 ] ) )
+        {
+            RU32 launchStatus = 0;
+            RNCHAR cmdPart1[] = { "osascript -e 'do shell script \"" };
+            RNCHAR cmdPart2[] = { " -i\" with administrator privileges'" };
+            RNCHAR cmdSuccess[] = { "osascript -e 'display notification \"Successfully installed LimaCharlie.\"'" };
+            RPNCHAR launchCmd = NULL;
+
+            if( NULL != ( launchCmd = rpal_string_strcatEx( launchCmd, cmdPart1 ) ) &&
+                NULL != ( launchCmd = rpal_string_strcatEx( launchCmd, argv[ 0 ] ) ) &&
+                NULL != ( launchCmd = rpal_string_strcatEx( launchCmd, cmdPart2 ) ) &&
+                0 == ( launchStatus = system( launchCmd ) ) )
+            {
+                rpal_debug_info( "Successfully launched installer as root." );
+                system( cmdSuccess );
+            }
+            else
+            {
+                rpal_debug_error( "Failed to launch installer as root: %d.", launchStatus );
+            }
+
+            rpal_memory_free( launchCmd );
+
+            return launchStatus;
         }
 #endif
 

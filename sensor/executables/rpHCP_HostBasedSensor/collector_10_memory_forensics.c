@@ -23,7 +23,7 @@ limitations under the License.
 
 #define RPAL_FILE_ID                            65
 
-static
+RPRIVATE
 RVOID
     _getStringsList
     (
@@ -102,7 +102,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RBOOL
     _isStringInList
     (
@@ -129,7 +129,7 @@ RBOOL
     return found;
 }
 
-static
+RPRIVATE
 RVOID
     _searchForStrings
     (
@@ -239,7 +239,7 @@ RVOID
 }
 
 
-static
+        RPRIVATE
 rSequence
     _findStringsInProcess
     (
@@ -313,7 +313,7 @@ rSequence
 }
 
 
-static
+RPRIVATE
 RVOID
     mem_map
     (
@@ -419,7 +419,7 @@ RVOID
     hbs_publish( RP_TAGS_NOTIFICATION_MEM_MAP_REP, event );
 }
 
-static
+RPRIVATE
 RVOID
     mem_read
     (
@@ -467,7 +467,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     mem_handles
     (
@@ -508,7 +508,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     mem_find_handle
     (
@@ -546,7 +546,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RVOID
     mem_strings
     (
@@ -626,7 +626,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RVOID
     mem_find_string
     (
@@ -780,6 +780,27 @@ RBOOL
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_MEM_STRINGS_REQ, NULL, mem_strings );
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_MEM_FIND_STRING_REQ, NULL, mem_find_string );
 
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_10_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
         isSuccess = TRUE;
     }
 

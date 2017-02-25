@@ -37,7 +37,7 @@ typedef struct
     RU64 size;
 } _MemRange;
 
-static
+RPRIVATE
 RBOOL
     isMemInModule
     (
@@ -73,7 +73,7 @@ RBOOL
     return isInMod;
 }
 
-static
+RPRIVATE
 RBOOL
     assembleRanges
     (
@@ -124,7 +124,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RPVOID
     lookForHiddenModulesIn
     (
@@ -317,7 +317,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RPVOID
     lookForHiddenModules
     (
@@ -356,7 +356,7 @@ RPVOID
     return NULL;
 }
 
-static
+RPRIVATE
 RVOID
     scan_for_hidden_module
     (
@@ -394,7 +394,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RPVOID
     lookForHiddenModulesConstantly
     (
@@ -489,6 +489,27 @@ RBOOL
     {
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_HIDDEN_MODULE_REQ, NULL, scan_for_hidden_module );
 
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_5_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
         isSuccess = TRUE;
     }
 

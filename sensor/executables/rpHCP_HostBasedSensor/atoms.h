@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#ifndef _HBS_ATOMS_H
+#define _HBS_ATOMS_H
+
 #include <rpal.h>
 
 #define HBS_ATOM_ID_SIZE    16
@@ -83,3 +86,5 @@ RU32
     (
         RU8 pAtomId[ HBS_ATOM_ID_SIZE ]
     );
+
+#endif

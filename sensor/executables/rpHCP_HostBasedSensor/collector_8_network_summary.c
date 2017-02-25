@@ -34,13 +34,13 @@ typedef struct
 
 } _NetActivity;
 
-static rBTree netState = NULL;
+RPRIVATE rBTree netState = NULL;
 
-static rQueue netQueue = NULL;
-static rQueue execQueue = NULL;
-static rQueue termQueue = NULL;
+RPRIVATE rQueue netQueue = NULL;
+RPRIVATE rQueue execQueue = NULL;
+RPRIVATE rQueue termQueue = NULL;
 
-static
+RPRIVATE
 RVOID
     _freePid
     (
@@ -56,7 +56,7 @@ RVOID
     }
 }
 
-static
+RPRIVATE
 RS32
     _isPid
     (
@@ -75,7 +75,7 @@ RS32
     return ret;
 }
 
-static
+RPRIVATE
 RVOID
     _freeEvt
     (
@@ -88,7 +88,7 @@ RVOID
 }
 
 
-static
+RPRIVATE
 RBOOL
     _summarize
     (
@@ -149,7 +149,7 @@ RBOOL
 }
 
 
-static
+RPRIVATE
 RPVOID
     summarizeNetwork
     (
@@ -370,6 +370,27 @@ RBOOL
         rQueue_free( termQueue );
         rpal_btree_destroy( netState, TRUE );
 
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+//=============================================================================
+//  Collector Testing
+//=============================================================================
+RBOOL
+    collector_8_test
+    (
+        HbsState* hbsState,
+        SelfTestContext* testContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != hbsState &&
+        NULL != testContext )
+    {
         isSuccess = TRUE;
     }
 

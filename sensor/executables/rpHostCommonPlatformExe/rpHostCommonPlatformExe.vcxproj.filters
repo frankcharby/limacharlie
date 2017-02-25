@@ -22,4 +22,7 @@
   <ItemGroup>
     <ResourceCompile Include="rpHostCommonPlatformExe.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="icon1.ico" />
+  </ItemGroup>
 </Project>

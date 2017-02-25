@@ -261,6 +261,127 @@ NetLibTcpConnection
     return conn;
 }
 
+NetLibTcpConnection
+    NetLib_TcpListen
+    (
+        RPCHAR ifaceIp,
+        RU16 port
+    )
+{
+    NetLibTcpConnection conn = 0;
+
+    if( NULL != ifaceIp )
+    {
+        RBOOL isConnected = FALSE;
+        struct sockaddr_in server = { 0 };
+        struct hostent* remoteHost = NULL;
+        conn = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+
+#ifdef RPAL_PLATFORM_WINDOWS
+        if( INVALID_SOCKET == conn && WSANOTINITIALISED == WSAGetLastError() )
+        {
+            WSADATA wsadata = { 0 };
+            if( 0 != WSAStartup( MAKEWORD( 2, 2 ), &wsadata ) )
+            {
+                return 0;
+            }
+            conn = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+        }
+#endif
+
+        if( conn )
+        {
+            if( NULL != ( remoteHost = gethostbyname( ifaceIp ) ) )
+            {
+                rpal_memory_memcpy( &server.sin_addr, remoteHost->h_addr_list[ 0 ], remoteHost->h_length );
+                server.sin_family = AF_INET;
+                server.sin_port = htons( port );
+
+                if( 0 == bind( conn, ( struct sockaddr* )&server, sizeof( server ) ) &&
+                    0 == listen( conn, SOMAXCONN ) )
+                {
+                    isConnected = TRUE;
+                }
+            }
+        }
+
+        if( !isConnected && 0 != conn )
+        {
+#ifdef RPAL_PLATFORM_WINDOWS
+            closesocket( conn );
+#else
+            close( conn );
+#endif
+            conn = 0;
+        }
+    }
+
+    return conn;
+}
+
+NetLibTcpConnection
+    NetLib_TcpAccept
+    (
+        NetLibTcpConnection conn,
+        rEvent stopEvent,
+        RU32 timeoutSec
+    )
+{
+    NetLibTcpConnection client = 0;
+    fd_set sockets;
+    struct timeval timeout = { 1, 0 };
+    int waitVal = 0;
+    RTIME expire = 0;
+    int n = 0;
+
+    if( 0 != conn &&
+        NULL != stopEvent )
+    {
+        if( 0 != timeoutSec )
+        {
+            expire = rpal_time_getLocal() + timeoutSec;
+        }
+
+        while( !rEvent_wait( stopEvent, 0 ) &&
+              ( 0 == timeoutSec || rpal_time_getLocal() <= expire ) )
+        {
+            FD_ZERO( &sockets );
+            FD_SET( conn, &sockets );
+            n = (int)conn + 1;
+
+            waitVal = select( n, &sockets, NULL, NULL, &timeout );
+
+            timeout.tv_sec = 1;
+            timeout.tv_usec = 0;
+
+            if( 0 == waitVal )
+            {
+                FD_ZERO( &sockets );
+                FD_SET( conn, &sockets );
+                continue;
+            }
+
+            client = accept( conn, NULL, NULL );
+
+#ifdef RPAL_PLATFORM_WINDOWS
+            if( INVALID_SOCKET == client )
+            {
+                client = 0;
+            }
+#else
+            if( ( -1 ) == client )
+            {
+                client = 0;
+            }
+#endif
+            break;
+        }
+    }
+
+    return client;
+}
+
+
 RBOOL
     NetLib_TcpDisconnect
     (
