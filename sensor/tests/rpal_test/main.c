@@ -524,6 +524,7 @@ void test_threadpool(void)
     CU_ASSERT_PTR_NOT_EQUAL_FATAL( pool, NULL );
 
     CU_ASSERT_TRUE( rThreadPool_task( pool, (rpal_thread_pool_func)tp_testLong, &n1 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 
     CU_ASSERT_FALSE( rThreadPool_isIdle( pool ) );
 
