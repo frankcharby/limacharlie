@@ -338,7 +338,7 @@ void test_exchange_frames( void )
     {
         getConnectionToServer( &hcpCtx );
 
-        garbageSize = ( rpal_rand() % sizeof( garbage - 1 ) ) + 1;
+        garbageSize = ( rpal_rand() % sizeof( garbage ) ) + 1;
         CU_ASSERT_TRUE( CryptoLib_genRandomBytes( garbage, garbageSize ) );
         CU_ASSERT_TRUE( NetLib_TcpSend( hcpCtx.cloudConnection, garbage, garbageSize, NULL ) );
         CU_ASSERT_FALSE( NetLib_TcpReceive( hcpCtx.cloudConnection, &tmpFrameSize, sizeof( tmpFrameSize ), NULL, 1 ) );
@@ -493,19 +493,19 @@ void test_module_load_unload( void )
     RU32 sigSize = CRYPTOLIB_SIGNATURE_SIZE;
 #ifdef RPAL_PLATFORM_WINDOWS
     #ifdef RPAL_PLATFORM_64_BIT
-        RPNCHAR testModulePath = _NC( "../../bin/windows/x64/Debug/rpHCP_TestModule.dll" );
+        RPNCHAR testModulePath = _NC( "./rpHCP_TestModule.dll" );
     #else
-        RPNCHAR testModulePath = _NC( "../../bin/windows/Win32/Debug/rpHCP_TestModule.dll" );
+        RPNCHAR testModulePath = _NC( "./rpHCP_TestModule.dll" );
     #endif
 #elif defined( RPAL_PLATFORM_MACOSX )
     #ifdef RPAL_PLATFORM_64_BIT
-        RPNCHAR testModulePath = _NC( "../../bin/macosx/10.12.3/x86_64/debug/rpHCP_TestModule.dll" );
+        RPNCHAR testModulePath = _NC( "./librpHCP_TestModule.dylib" );
     #endif
 #elif defined( RPAL_PLATFORM_LINUX )
     #ifdef RPAL_PLATFORM_64_BIT
-        RPNCHAR testModulePath = _NC( "../../bin/macosx/10.12.3/x86_64/debug/rpHCP_TestModule.dll" );
+        RPNCHAR testModulePath = _NC( "./librpHCP_TestModule.so" );
     #else
-        RPNCHAR testModulePath = _NC( "../../bin/macosx/10.12.3/x86/debug/rpHCP_TestModule.dll" );
+        RPNCHAR testModulePath = _NC( "./librpHCP_TestModule.so" );
     #endif
 #endif
 

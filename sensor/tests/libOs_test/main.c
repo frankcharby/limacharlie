@@ -110,6 +110,7 @@ void
 	    void
 	)
 {
+#ifdef RPAL_PLATFORM_WINDOWS
     rList filePaths = NULL;
 	RPWCHAR filePath = NULL;
 	rSequence fileSignature = NULL;
@@ -121,7 +122,6 @@ void
 	filePaths = rList_new( RP_TAGS_FILE_PATH, RPCM_STRINGW );
 	CU_ASSERT_PTR_NOT_EQUAL_FATAL( filePaths, NULL );
 
-#ifdef RPAL_PLATFORM_WINDOWS
 	// Windows signed file
 	rList_addSTRINGW( filePaths, _WCH( "C:\\WINDOWS\\system32\\Taskmgr.exe" ) );
 	rList_addSTRINGW( filePaths, _WCH( "C:\\Program Files\\Internet Explorer\\iexplore.exe" ) );
@@ -130,7 +130,6 @@ void
 	rList_addSTRINGW( filePaths, _WCH( "C:\\WINDOWS\\explorer.exe" ) );
 	rList_addSTRINGW( filePaths, _WCH( "C:\\WINDOWS\\system32\\calc.exe" ) );
 	rList_addSTRINGW( filePaths, _WCH( "C:\\WINDOWS\\system32\\cmd.exe" ) );
-#endif
 
     while( rList_getSTRINGW( filePaths, RP_TAGS_FILE_PATH, &filePath ) )
 	{
@@ -148,6 +147,7 @@ void
 		}
 	}
     rList_free( filePaths );
+#endif
 }
 
 
