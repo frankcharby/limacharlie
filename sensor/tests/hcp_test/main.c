@@ -497,11 +497,19 @@ void test_module_load_unload( void )
     #else
         RPNCHAR testModulePath = _NC( "../../bin/windows/Win32/Debug/rpHCP_TestModule.dll" );
     #endif
-#elif definde( RPAL_PLATFORM_MACOSX )
-    #TODO(Add the OSX paths)
+#elif defined( RPAL_PLATFORM_MACOSX )
+    #ifdef RPAL_PLATFORM_64_BIT
+        RPNCHAR testModulePath = _NC( "../../bin/macosx/10.12.3/x86_64/debug/rpHCP_TestModule.dll" );
+    #endif
+#elif defined( RPAL_PLATFORM_LINUX )
+    #ifdef RPAL_PLATFORM_64_BIT
+        RPNCHAR testModulePath = _NC( "../../bin/macosx/10.12.3/x86_64/debug/rpHCP_TestModule.dll" );
+    #else
+        RPNCHAR testModulePath = _NC( "../../bin/macosx/10.12.3/x86/debug/rpHCP_TestModule.dll" );
+    #endif
 #endif
 
-    CU_ASSERT_FATAL( rpal_file_read( testModulePath, &buffer, &bufferSize, FALSE ) );
+    CU_ASSERT_FATAL( rpal_file_read( testModulePath, (RPVOID*)&buffer, &bufferSize, FALSE ) );
     CU_ASSERT_FATAL( CryptoLib_sign( buffer, bufferSize, g_test_priv, signature ) );
 
     cmd = rSequence_new();

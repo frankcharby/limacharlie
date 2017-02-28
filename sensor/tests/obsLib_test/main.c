@@ -56,7 +56,7 @@ void test_singlePattern(void)
     RU8 buffer3[] = { 0x02, 0x04, 0xFF, 0xEF, 0x01, 0x02, 0x01, 0x04, 0xEE, 0x6F };
     RU8 buffer4[] = { 0x02, 0x04, 0xFF, 0xEF, 0x01, 0x02, 0x03, 0x04, 0xEE, 0x6F, 0x01, 0x02, 0x03, 0x04 };
     RU32 context = 0;
-    PVOID hitCtx = NULL;
+    RPVOID hitCtx = NULL;
     RU8* hitLoc = NULL;
 
     hObs = obsLib_new( 0, 0 );
@@ -67,31 +67,31 @@ void test_singlePattern(void)
 
     // 1 pattern found end of buffer
     CU_ASSERT_TRUE_FATAL( obsLib_setTargetBuffer( hObs, buffer1, sizeof( buffer1 ) ) );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context );
     CU_ASSERT_EQUAL( hitLoc, buffer1 + sizeof( buffer1 ) - 4 );
-    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
 
     // 1 pattern found middle of buffer
     CU_ASSERT_TRUE_FATAL( obsLib_setTargetBuffer( hObs, buffer2, sizeof( buffer2 ) ) );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context );
     CU_ASSERT_EQUAL( hitLoc, buffer2 + sizeof( buffer2 ) - 6 );
-    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
 
     // 0 pattern found
     CU_ASSERT_TRUE_FATAL( obsLib_setTargetBuffer( hObs, buffer3, sizeof( buffer3 ) ) );
-    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
 
     // 2 pattern found end and middle of buffer
     CU_ASSERT_TRUE_FATAL( obsLib_setTargetBuffer( hObs, buffer4, sizeof( buffer4 ) ) );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context );
     CU_ASSERT_EQUAL( hitLoc, buffer4 + sizeof( buffer4 ) - 10 );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context );
     CU_ASSERT_EQUAL( hitLoc, buffer4 + sizeof( buffer4 ) - 4 );
-    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
 
     obsLib_free( hObs );
 }
@@ -123,7 +123,7 @@ void test_multiPattern(void)
     RU32 context2 = 0;
     RU32 context3 = 0;
     RU32 context4 = 0;
-    PVOID hitCtx = NULL;
+    RPVOID hitCtx = NULL;
     RU8* hitLoc = NULL;
 
     hObs = obsLib_new( 0, 0 );
@@ -137,54 +137,54 @@ void test_multiPattern(void)
 
     // 1 pattern found end of buffer
     CU_ASSERT_TRUE_FATAL( obsLib_setTargetBuffer( hObs, buffer1, sizeof( buffer1 ) ) );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context1 );
     CU_ASSERT_EQUAL( hitLoc, buffer1 + sizeof( buffer1 ) - 4 );
-    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
 
     // 1 pattern found middle of buffer
     CU_ASSERT_TRUE_FATAL( obsLib_setTargetBuffer( hObs, buffer2, sizeof( buffer2 ) ) );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context1 );
     CU_ASSERT_EQUAL( hitLoc, buffer2 + sizeof( buffer2 ) - 6 );
-    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
 
     // 0 pattern found
     CU_ASSERT_TRUE_FATAL( obsLib_setTargetBuffer( hObs, buffer3, sizeof( buffer3 ) ) );
-    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
 
     // 2 pattern found end and middle of buffer
     CU_ASSERT_TRUE_FATAL( obsLib_setTargetBuffer( hObs, buffer4, sizeof( buffer4 ) ) );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context1 );
     CU_ASSERT_EQUAL( hitLoc, buffer4 + sizeof( buffer4 ) - 10 );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context1 );
     CU_ASSERT_EQUAL( hitLoc, buffer4 + sizeof( buffer4 ) - 4 );
-    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
 
     // Multi 1
     CU_ASSERT_TRUE_FATAL( obsLib_setTargetBuffer( hObs, buffer5, sizeof( buffer5 ) ) );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context4 );
     CU_ASSERT_EQUAL( hitLoc, buffer5 + 3 );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context1 );
     CU_ASSERT_EQUAL( hitLoc, buffer5 + sizeof( buffer5 ) - 4 );
-    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
 
     // Multi 2
     CU_ASSERT_TRUE_FATAL( obsLib_setTargetBuffer( hObs, buffer6, sizeof( buffer6 ) ) );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context4 );
     CU_ASSERT_EQUAL( hitLoc, buffer6 + 3 );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context1 );
     CU_ASSERT_EQUAL( hitLoc, buffer6 + sizeof( buffer6 ) - 8 );
-    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_TRUE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
     CU_ASSERT_EQUAL( hitCtx, &context3 );
     CU_ASSERT_EQUAL( hitLoc, buffer6 + sizeof( buffer6 ) - 4 );
-    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, &hitLoc ) );
+    CU_ASSERT_FALSE( obsLib_nextHit( hObs, &hitCtx, (RPVOID*)&hitLoc ) );
 
     obsLib_free( hObs );
 }
