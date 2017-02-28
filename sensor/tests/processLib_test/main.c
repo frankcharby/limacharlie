@@ -140,18 +140,14 @@ void
         void
     )
 {
-    processLibProcEntry* entries = NULL;
-    RU32 entryIndex = 4;
+    RU32 tmpPid = 0;
     rSequence proc = NULL;
     RPNCHAR path = NULL;
 
-    entries = processLib_getProcessEntries( TRUE );
+    tmpPid = processLib_getCurrentPid();
+    CU_ASSERT_NOT_EQUAL_FATAL( tmpPid, 0 );
 
-    CU_ASSERT_PTR_NOT_EQUAL_FATAL( entries, NULL );
-
-    CU_ASSERT_NOT_EQUAL_FATAL( entries[ entryIndex ].pid, 0 );
-
-    proc = processLib_getProcessInfo( entries[ entryIndex ].pid, NULL );
+    proc = processLib_getProcessInfo( tmpPid, NULL );
 
     CU_ASSERT_PTR_NOT_EQUAL( proc, NULL );
 
@@ -161,8 +157,6 @@ void
     CU_ASSERT_NOT_EQUAL( rpal_string_strlen( path ), 0 );
 
     rSequence_free( proc );
-
-    rpal_memory_free( entries );
 }
 
 void 
@@ -171,19 +165,15 @@ void
         void
     )
 {
-    processLibProcEntry* entries = NULL;
-    RU32 entryIndex = 4;
+    RU32 tmpPid = 0;
     rList mods = NULL;
     rSequence mod = NULL;
     RPNCHAR path = NULL;
 
-    entries = processLib_getProcessEntries( TRUE );
+    tmpPid = processLib_getCurrentPid();
+    CU_ASSERT_NOT_EQUAL_FATAL( tmpPid, 0 );
 
-    CU_ASSERT_PTR_NOT_EQUAL_FATAL( entries, NULL );
-
-    CU_ASSERT_NOT_EQUAL_FATAL( entries[ entryIndex ].pid, 0 );
-
-    mods = processLib_getProcessModules( entries[ entryIndex ].pid );
+    mods = processLib_getProcessModules( tmpPid );
 
     CU_ASSERT_PTR_NOT_EQUAL( mods, NULL );
 
@@ -195,8 +185,6 @@ void
     CU_ASSERT_NOT_EQUAL( rpal_string_strlen( path ), 0 );
 
     rSequence_free( mods );
-
-    rpal_memory_free( entries );
 }
 
 void 
@@ -205,8 +193,7 @@ void
         void
     )
 {
-    processLibProcEntry* entries = NULL;
-    RU32 entryIndex = 4;
+    RU32 tmpPid = 0;
     rList regions = NULL;
     rSequence region = NULL;
     RU32 nRegions = 0;
@@ -216,13 +203,10 @@ void
     RU64 ptr = 0;
     RU64 size = 0;
 
-    entries = processLib_getProcessEntries( TRUE );
+    tmpPid = processLib_getCurrentPid();
+    CU_ASSERT_NOT_EQUAL_FATAL( tmpPid, 0 );
 
-    CU_ASSERT_PTR_NOT_EQUAL_FATAL( entries, NULL );
-
-    CU_ASSERT_NOT_EQUAL_FATAL( entries[ entryIndex ].pid, 0 );
-
-    regions = processLib_getProcessMemoryMap( entries[ entryIndex ].pid );
+    regions = processLib_getProcessMemoryMap( tmpPid );
 
     CU_ASSERT_PTR_NOT_EQUAL( regions, NULL );
 
@@ -238,8 +222,6 @@ void
     CU_ASSERT_TRUE( 2 < nRegions ); 
 
     rSequence_free( regions );
-
-    rpal_memory_free( entries );
 }
 
 void 
@@ -248,6 +230,7 @@ void
         void
     )
 {
+#ifdef RPAL_PLATFORM_WINDOWS
     rList handles = NULL;
     rSequence handle = NULL;
     RU32 nHandles = 0;
@@ -282,6 +265,9 @@ void
     CU_ASSERT_TRUE( nNamedHandles < nHandles );
 
     rList_free( handles );
+#else
+    CU_ASSERT_EQUAL( processLib_getHandles( 0, FALSE, NULL ), NULL );
+#endif
 }
 
 int
@@ -291,9 +277,11 @@ int
         char* argv[]
     )
 {
-    int ret = 1;
+    int ret = -1;
 
     CU_pSuite suite = NULL;
+    CU_ErrorCode error = 0;
+
 #ifdef RPAL_PLATFORM_WINDOWS
     RCHAR strSeDebug[] = "SeDebugPrivilege";
     Get_Privilege( strSeDebug );
@@ -301,28 +289,41 @@ int
     UNREFERENCED_PARAMETER( argc );
     UNREFERENCED_PARAMETER( argv );
 
-    rpal_initialize( NULL, 1 );
-
-    CU_initialize_registry();
-
-    if( NULL != ( suite = CU_add_suite( "raptd", NULL, NULL ) ) )
+    if( rpal_initialize( NULL, 1 ) )
     {
-        if( NULL == CU_add_test( suite, "procEntries", test_procEntries ) ||
-            NULL == CU_add_test( suite, "processInfo", test_processInfo ) ||
-            NULL == CU_add_test( suite, "modules", test_modules ) ||
-            NULL == CU_add_test( suite, "memmap", test_memmap ) ||
-            NULL == CU_add_test( suite, "handles", test_handles ) ||
-            NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
+        if( CUE_SUCCESS == ( error = CU_initialize_registry() ) )
         {
-            ret = 0;
+            if( NULL != ( suite = CU_add_suite( "raptd", NULL, NULL ) ) )
+            {
+                if( NULL == CU_add_test( suite, "procEntries", test_procEntries ) ||
+                    NULL == CU_add_test( suite, "processInfo", test_processInfo ) ||
+                    NULL == CU_add_test( suite, "modules", test_modules ) ||
+                    NULL == CU_add_test( suite, "memmap", test_memmap ) ||
+                    NULL == CU_add_test( suite, "handles", test_handles ) ||
+                    NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
+                {
+                    rpal_debug_error( "%s", CU_get_error_msg() );
+                }
+                else
+                {
+                    CU_basic_run_tests();
+                    ret = CU_get_number_of_failures();
+                }
+            }
+
+            CU_cleanup_registry();
         }
+        else
+        {
+            rpal_debug_error( "could not init cunit: %d", error );
+        }
+
+        rpal_Context_deinitialize();
     }
-
-    CU_basic_run_tests();
-
-    CU_cleanup_registry();
-
-    rpal_Context_deinitialize();
+    else
+    {
+        printf( "error initializing rpal" );
+    }
 
     return ret;
 }

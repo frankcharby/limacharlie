@@ -889,7 +889,7 @@ int
         char* argv[]
     )
 {
-    int ret = 1;
+    int ret = -1;
 
     CU_pSuite suite = NULL;
     CU_ErrorCode error = 0;
@@ -922,11 +922,11 @@ int
                     NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
                 {
                     rpal_debug_error( "%s", CU_get_error_msg() );
-                    ret = 0;
                 }
                 else
                 {
                     CU_basic_run_tests();
+                    ret = CU_get_number_of_failures();
                 }
             }
         

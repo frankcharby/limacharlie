@@ -2,6 +2,25 @@
 #include <obsLib/obsLib.h>
 #include <Basic.h>
 
+void test_memoryLeaks( void )
+{
+    RU32 memUsed = 0;
+
+    rpal_Context_cleanup();
+
+    memUsed = rpal_memory_totalUsed();
+
+    CU_ASSERT_EQUAL( memUsed, 0 );
+
+    if( 0 != memUsed )
+    {
+        rpal_debug_critical( "Memory leak: %d bytes.\n", memUsed );
+        printf( "\nMemory leak: %d bytes.\n", memUsed );
+
+        rpal_memory_findMemory();
+    }
+}
+
 void test_CreateAndDestroy(void)
 {
     HObs hObs = NULL;
@@ -178,38 +197,53 @@ int
         char* argv[]
     )
 {
-    int ret = 1;
+    int ret = -1;
 
     CU_pSuite suite = NULL;
+    CU_ErrorCode error = 0;
 
     UNREFERENCED_PARAMETER( argc );
     UNREFERENCED_PARAMETER( argv );
 
-    rpal_initialize( NULL, 1 );
-    CU_initialize_registry();
-
-    if( NULL != ( suite = CU_add_suite( "obsLib", NULL, NULL ) ) )
+    if( rpal_initialize( NULL, 1 ) )
     {
-        if( NULL != CU_add_test( suite, "createAndDestroy", test_CreateAndDestroy ) &&
-            NULL != CU_add_test( suite, "addPattern", test_addPattern ) &&
-            NULL != CU_add_test( suite, "singlePattern", test_singlePattern ) &&
-            NULL != CU_add_test( suite, "multiPattern", test_multiPattern ) )
+        if( CUE_SUCCESS == ( error = CU_initialize_registry() ) )
         {
-            ret = 0;
+            if( NULL != ( suite = CU_add_suite( "obsLib", NULL, NULL ) ) )
+            {
+                if( NULL == CU_add_test( suite, "createAndDestroy", test_CreateAndDestroy ) ||
+                    NULL == CU_add_test( suite, "addPattern", test_addPattern ) ||
+                    NULL == CU_add_test( suite, "singlePattern", test_singlePattern ) ||
+                    NULL == CU_add_test( suite, "multiPattern", test_multiPattern ) ||
+                    NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
+                {
+                    rpal_debug_error( "%s", CU_get_error_msg() );
+                }
+                else
+                {
+                    CU_basic_run_tests();
+                    ret = CU_get_number_of_failures();
+                }
+            }
+
+            CU_cleanup_registry();
+
+            if( 0 != rpal_memory_totalUsed() )
+            {
+                ret = -1;
+            }
         }
+        else
+        {
+            rpal_debug_error( "could not init cunit: %d", error );
+        }
+
+        rpal_Context_deinitialize();
     }
-
-    CU_basic_run_tests();
-
-    CU_cleanup_registry();
-    rpal_Context_cleanup();
-
-    if( 0 != rpal_memory_totalUsed() )
+    else
     {
-        ret = -1;
+        printf( "error initializing rpal" );
     }
-
-    rpal_Context_deinitialize();
 
     return ret;
 }

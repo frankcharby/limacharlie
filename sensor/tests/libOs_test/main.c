@@ -183,9 +183,11 @@ int
         char* argv[]
     )
 {
-    int ret = 1;
+    int ret = -1;
     
     CU_pSuite suite = NULL;
+    CU_ErrorCode error = 0;
+
 #ifdef RPAL_PLATFORM_WINDOWS
     RCHAR strSeDebug[] = "SeDebugPrivilege";
     Get_Privilege( strSeDebug );
@@ -193,23 +195,37 @@ int
     UNREFERENCED_PARAMETER( argc );
     UNREFERENCED_PARAMETER( argv );
 
-    rpal_initialize( NULL, 1 );
-    CU_initialize_registry();
-
-    if( NULL != ( suite = CU_add_suite( "libOs", NULL, NULL ) ) )
+    if( rpal_initialize( NULL, 1 ) )
     {
-        if( NULL == CU_add_test( suite, "signCheck", test_signCheck ) ||
-            NULL == CU_add_test( suite, "services", test_services ) )
+        if( CUE_SUCCESS == ( error = CU_initialize_registry() ) )
         {
-            ret = 0;
+            if( NULL != ( suite = CU_add_suite( "libOs", NULL, NULL ) ) )
+            {
+                if( NULL == CU_add_test( suite, "signCheck", test_signCheck ) ||
+                    NULL == CU_add_test( suite, "services", test_services ) )
+                {
+                    rpal_debug_error( "%s", CU_get_error_msg() );
+                }
+                else
+                {
+                    CU_basic_run_tests();
+                    ret = CU_get_number_of_failures();
+                }
+            }
+
+            CU_cleanup_registry();
         }
+        else
+        {
+            rpal_debug_error( "could not init cunit: %d", error );
+        }
+
+        rpal_Context_deinitialize();
     }
-
-    CU_basic_run_tests();
-
-    CU_cleanup_registry();
-
-    rpal_Context_deinitialize();
+    else
+    {
+        printf( "error initializing rpal" );
+    }
 
     return ret;
 }

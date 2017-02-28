@@ -574,38 +574,52 @@ int
         char* argv[]
     )
 {
-    int ret = 1;
+    int ret = -1;
 
     CU_pSuite suite = NULL;
+    CU_ErrorCode error = 0;
 
     UNREFERENCED_PARAMETER( argc );
     UNREFERENCED_PARAMETER( argv );
 
-    rpal_initialize( NULL, 1 );
-
-    CU_initialize_registry();
-
-    if( NULL != ( suite = CU_add_suite( "hcp", NULL, NULL ) ) )
+    if( rpal_initialize( NULL, 1 ) )
     {
-        if( NULL == CU_add_test( suite, "create_cloud", test_create_dummy_cloud ) ||
-            NULL == CU_add_test( suite, "frames", test_frames ) ||
-            NULL == CU_add_test( suite, "exchange_frames", test_exchange_frames ) ||
-            NULL == CU_add_test( suite, "destroy_cloud", test_destroy_dummy_cloud ) ||
-            NULL == CU_add_test( suite, "module_load_bad", test_module_load_bad ) ||
-            NULL == CU_add_test( suite, "module_unload_bad", test_module_unload_bad ) ||
-            NULL == CU_add_test( suite, "module_load_unload", test_module_load_unload ) ||
-            NULL == CU_add_test( suite, "store_conf", test_store_conf ) ||
-            NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
+        if( CUE_SUCCESS == ( error = CU_initialize_registry() ) )
         {
-            ret = 0;
+            if( NULL != ( suite = CU_add_suite( "hcp", NULL, NULL ) ) )
+            {
+                if( NULL == CU_add_test( suite, "create_cloud", test_create_dummy_cloud ) ||
+                    NULL == CU_add_test( suite, "frames", test_frames ) ||
+                    NULL == CU_add_test( suite, "exchange_frames", test_exchange_frames ) ||
+                    NULL == CU_add_test( suite, "destroy_cloud", test_destroy_dummy_cloud ) ||
+                    NULL == CU_add_test( suite, "module_load_bad", test_module_load_bad ) ||
+                    NULL == CU_add_test( suite, "module_unload_bad", test_module_unload_bad ) ||
+                    NULL == CU_add_test( suite, "module_load_unload", test_module_load_unload ) ||
+                    NULL == CU_add_test( suite, "store_conf", test_store_conf ) ||
+                    NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
+                {
+                    rpal_debug_error( "%s", CU_get_error_msg() );
+                }
+                else
+                {
+                    CU_basic_run_tests();
+                    ret = CU_get_number_of_failures();
+                }
+            }
+
+            CU_cleanup_registry();
         }
+        else
+        {
+            rpal_debug_error( "could not init cunit: %d", error );
+        }
+
+        rpal_Context_deinitialize();
     }
-
-    CU_basic_run_tests();
-
-    CU_cleanup_registry();
-
-    rpal_Context_deinitialize();
+    else
+    {
+        printf( "error initializing rpal" );
+    }
 
     return ret;
 }
