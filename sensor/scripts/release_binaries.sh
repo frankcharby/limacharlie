@@ -1,5 +1,7 @@
 #! /bin/sh
 
+set +e
+
 if [ -z "$1" ]; then
     echo "No version provided. Abort."
     exit 1
