@@ -80,3 +80,27 @@ open( os.path.join( rootDir,
                     'beach',
                     'hcp',
                     'rp_hcp_tags.json' ), 'w' ).write( json.dumps( inputTags ) )
+
+#==============================================================================
+# Output Go Headers
+#==============================================================================
+goContent = [ "package rpcm",
+              "var HumanReadableTags = map[uint32]string {" ]
+for group in inputTags[ 'groups' ]:
+    for definition in group[ 'definitions' ]:
+        tagName = definition[ 'name' ]
+        tagValue = definition[ 'value' ]
+        goContent.append( "%s : \"%s\"," % ( tagValue, tagName ) )
+goContent.append( "}" )
+print( "Writing Go definitions: %s" % os.path.join( rootDir, 
+                                                    'cloud', 
+                                                    'infrastructure', 
+                                                    'termination_server', 
+                                                    'rpcm', 
+                                                    'tags.go' ) )
+open( os.path.join( rootDir, 
+                    'cloud', 
+                    'infrastructure', 
+                    'termination_server', 
+                    'rpcm', 
+                    'tags.go' ), 'w' ).write( '\n'.join( goContent ) )
