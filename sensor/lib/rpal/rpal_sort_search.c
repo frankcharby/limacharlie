@@ -168,12 +168,13 @@ RU32
     )
 {
     RU32 iMin = 0;
-    RU32 iMax = nElements;
+    RU32 iMax = nElements - 1;
     RU32 iMid = 0;
     RS32 order = 0;
 
     if( NULL != pArray &&
-        NULL != orderFunc )
+        NULL != orderFunc &&
+        0 != nElements )
     {
         while( iMin <= iMax )
         {

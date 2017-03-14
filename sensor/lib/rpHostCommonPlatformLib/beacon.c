@@ -278,7 +278,7 @@ RBOOL
 }
 
 RPRIVATE
-rSequence
+rList
     generateHeaders
     (
 
@@ -644,7 +644,7 @@ RU32
             if( isHandshakeComplete )
             {
                 // Send the headers
-                rSequence headers = generateHeaders();
+                rList headers = generateHeaders();
                 rpal_debug_info( "handshake received" );
                 if( NULL != headers )
                 {
@@ -654,7 +654,7 @@ RU32
                         isHeadersSent = TRUE;
                     }
 
-                    rSequence_free( headers );
+                    rList_free( headers );
                 }
             }
             else

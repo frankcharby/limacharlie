@@ -379,7 +379,7 @@ void test_crawler(void)
 #ifdef RPAL_PLATFORM_WINDOWS
     RPWCHAR fileArr[] = { _WCH("*.dll"), _WCH("*.exe"), NULL };
     hCrawl = rpal_file_crawlStart( _WCH("C:\\test\\"), fileArr, 2 );
-#elif defined( RPAL_PLATFORM_LINUX )
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     RPNCHAR fileArr[] = { _NC("*.pub"), _NC("*.txt"), NULL };
     hCrawl = rpal_file_crawlStart( _NC("/home/server/"), fileArr, 2 );
 #endif
