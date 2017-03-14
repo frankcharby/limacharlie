@@ -446,7 +446,11 @@ void test_EstimateSize( void )
     CU_ASSERT_TRUE( rSequence_addSTRINGW( seq, 666, _WCH( "you" ) ) );
     CU_ASSERT_FALSE( rSequence_addRU32( seq, 42, 0xDEADBEEF ) );
 
+#ifdef RPAL_PLATFORM_WINDOWS
     CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 30 );
+#else
+    CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 38 );
+#endif
 
     list = rList_new( 10, RPCM_RU32 );
 
@@ -460,7 +464,11 @@ void test_EstimateSize( void )
     CU_ASSERT_TRUE( rList_addRU32( list, 4 ) );
     CU_ASSERT_TRUE( rSequence_addLIST( seq, 66, list ) );
 
+#ifdef RPAL_PLATFORM_WINDOWS
     CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 112 );
+#else
+    CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 120 );
+#endif
 
     rSequence_free( seq );
 }
