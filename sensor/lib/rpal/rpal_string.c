@@ -747,8 +747,20 @@ RPNCHAR
     )
 {
 #ifdef RPAL_PLATFORM_WINDOWS
-    return _itow( num, outBuff, radix );
+    return rpal_string_itosW( num, outBuff, radix );
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+    return rpal_string_itosA( num, outBuff, radix );
+#endif
+}
+
+RPCHAR
+    rpal_string_itosA
+    (
+        RU32 num,
+        RPCHAR outBuff,
+        RU32 radix
+    )
+{
     if( 10 == radix )
     {
         if( 0 < sprintf( outBuff, "%d", num ) )
@@ -763,8 +775,22 @@ RPNCHAR
             return outBuff;
         }
     }
-    
+
     return NULL;
+}
+
+RPWCHAR
+    rpal_string_itosW
+    (
+        RU32 num,
+        RPWCHAR outBuff,
+        RU32 radix
+    )
+{
+#ifdef RPAL_PLATFORM_WINDOWS
+    return _itow( num, outBuff, radix );
+#else
+    rpal_debug_not_implemented();
 #endif
 }
 

@@ -173,6 +173,22 @@ RPNCHAR
         RU32 radix
     );
 
+RPCHAR
+    rpal_string_itosA
+    (
+        RU32 num,
+        RPCHAR outBuff,
+        RU32 radix
+    );
+
+RPWCHAR
+    rpal_string_itosW
+    (
+        RU32 num,
+        RPWCHAR outBuff,
+        RU32 radix
+    );
+
 RPNCHAR
     rpal_string_strdup
     (

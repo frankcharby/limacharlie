@@ -130,6 +130,9 @@
     <ClCompile Include="windows.c" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\lib\mbedtls\mbedtls-2.1.2\visualc\VS2010\mbedTLS.vcxproj">
+      <Project>{46cf2d25-6a36-4189-b59c-e4815388e554}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\lib\obfuscationLib\obfuscationLib.vcxproj">
       <Project>{53e5cf95-eaba-412b-82c4-39632419171f}</Project>
     </ProjectReference>

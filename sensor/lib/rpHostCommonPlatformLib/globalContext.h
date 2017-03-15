@@ -25,6 +25,8 @@ limitations under the License.
 #include <networkLib/networkLib.h>
 #include <cryptoLib/cryptoLib.h>
 
+#include <mbedtls/ssl.h>
+
 #pragma pack(push)
 #pragma pack(1)
 
@@ -77,14 +79,9 @@ typedef struct
     RU16 secondaryPort;
 
     // Current Connection
-    NetLibTcpConnection cloudConnection;
     rMutex cloudConnectionMutex;
     rEvent isCloudOnline;
-    struct
-    {
-        CryptoLib_SymContext symSendCtx;
-        CryptoLib_SymContext symRecvCtx;
-    } session;
+    mbedtls_ssl_context* cloudConnection;
 
     // Modules Management
     rpHCPModuleInfo modules[ RP_HCP_CONTEXT_MAX_MODULES ];

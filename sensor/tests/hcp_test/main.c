@@ -116,7 +116,7 @@ RU8 g_test_priv[ CRYPTOLIB_ASYM_KEY_SIZE_PRI ] = {
     0x03, 0x56, 0xd5, 0x9d, 0x63, 0xab, 0x60, 0x1b, 0xb0, 0x58, 0xc5, 0xbb,
     0xb4, 0x11, 0xd7, 0xd4, 0x32, 0x6c, 0xea, 0x9f, 0xf7, 0xa5, 0x19, 0xc6,
     0x40, 0xf4 };
-
+/*
 RU32
     threadServer
     (
@@ -193,25 +193,6 @@ RVOID
     CryptoLib_symFreeContext( hcpCtx->session.symSendCtx );
 
     NetLib_TcpDisconnect( hcpCtx->cloudConnection );
-}
-
-void test_memoryLeaks(void)
-{
-    RU32 memUsed = 0;
-
-    rpal_Context_cleanup();
-
-    memUsed = rpal_memory_totalUsed();
-
-    CU_ASSERT_EQUAL( memUsed, 0 );
-
-    if( 0 != memUsed )
-    {
-        rpal_debug_critical( "Memory leak: %d bytes.\n", memUsed );
-        printf( "\nMemory leak: %d bytes.\n", memUsed );
-
-        rpal_memory_findMemory();
-    }
 }
 
 void test_create_dummy_cloud( void )
@@ -344,6 +325,26 @@ void test_exchange_frames( void )
         CU_ASSERT_FALSE( NetLib_TcpReceive( hcpCtx.cloudConnection, &tmpFrameSize, sizeof( tmpFrameSize ), NULL, 1 ) );
 
         closeConnectionToServer( &hcpCtx );
+    }
+}
+*/
+
+void test_memoryLeaks( void )
+{
+    RU32 memUsed = 0;
+
+    rpal_Context_cleanup();
+
+    memUsed = rpal_memory_totalUsed();
+
+    CU_ASSERT_EQUAL( memUsed, 0 );
+
+    if( 0 != memUsed )
+    {
+        rpal_debug_critical( "Memory leak: %d bytes.\n", memUsed );
+        printf( "\nMemory leak: %d bytes.\n", memUsed );
+
+        rpal_memory_findMemory();
     }
 }
 
@@ -596,10 +597,12 @@ int
         {
             if( NULL != ( suite = CU_add_suite( "hcp", NULL, NULL ) ) )
             {
-                if( NULL == CU_add_test( suite, "create_cloud", test_create_dummy_cloud ) ||
+                if( /*
+                    NULL == CU_add_test( suite, "create_cloud", test_create_dummy_cloud ) ||
                     NULL == CU_add_test( suite, "frames", test_frames ) ||
                     NULL == CU_add_test( suite, "exchange_frames", test_exchange_frames ) ||
                     NULL == CU_add_test( suite, "destroy_cloud", test_destroy_dummy_cloud ) ||
+                    */
                     NULL == CU_add_test( suite, "module_load_bad", test_module_load_bad ) ||
                     NULL == CU_add_test( suite, "module_unload_bad", test_module_unload_bad ) ||
                     NULL == CU_add_test( suite, "module_load_unload", test_module_load_unload ) ||

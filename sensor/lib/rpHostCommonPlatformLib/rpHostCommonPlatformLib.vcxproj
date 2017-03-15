@@ -98,6 +98,9 @@
     <Lib>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -106,17 +109,26 @@
     <Lib>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile />
     <Lib>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Lib>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\include\rpal\rpal_module.c" />
@@ -151,6 +163,9 @@
     </ProjectReference>
     <ProjectReference Include="..\librpcm\librpcm.vcxproj">
       <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\mbedtls\mbedtls-2.1.2\visualc\VS2010\mbedTLS.vcxproj">
+      <Project>{46cf2d25-6a36-4189-b59c-e4815388e554}</Project>
     </ProjectReference>
     <ProjectReference Include="..\MemoryModule\MemoryModule.vcxproj">
       <Project>{f94005c9-8884-4bdb-af60-f6b07f6253cb}</Project>
