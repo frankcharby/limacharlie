@@ -2175,7 +2175,7 @@
  *
  * This module is required for SSL/TLS client support.
  */
-//#define MBEDTLS_SSL_CLI_C
+#define MBEDTLS_SSL_CLI_C
 
 /**
  * \def MBEDTLS_SSL_SRV_C

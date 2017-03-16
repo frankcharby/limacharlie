@@ -34,6 +34,7 @@ limitations under the License.
 #include <mbedtls/entropy.h>
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/debug.h>
+#include <mbedtls/error.h>
 
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <dlfcn.h>
@@ -50,21 +51,6 @@ limitations under the License.
 //=============================================================================
 //  Helpers
 //=============================================================================
-RPRIVATE RVOID 
-    tlsDebug
-    ( 
-        void *ctx, 
-        int level,
-        const char *file, 
-        int line, 
-        const char *str
-    )
-{
-    UNREFERENCED_PARAMETER( ctx );
-    UNREFERENCED_PARAMETER( level );
-    rpal_debug_info( "%s:%04d: %s", file, line, str );
-}
-
 RPRIVATE_TESTABLE
 rBlob
     wrapFrame
@@ -196,7 +182,9 @@ RBOOL
     rBlob buffer = NULL;
     RU32 frameSize = 0;
     RU32 mbedRet = 0;
-
+    RU32 toSend = 0;
+    RU32 totalSent = 0;
+    RPU8 buffToSend = NULL;
 
     if( NULL != pContext &&
         NULL != messages )
@@ -208,12 +196,21 @@ RBOOL
                 0 != ( frameSize = rpal_hton32( frameSize ) ) &&
                 rpal_blob_insert( buffer, &frameSize, sizeof( frameSize ), 0 ) )
             {
+                toSend = rpal_blob_getSize( buffer );
+                buffToSend = rpal_blob_getBuffer( buffer );
+
                 do
                 {
-                    if( 0 == ( mbedRet = mbedtls_ssl_write( pContext->cloudConnection,
-                                                            rpal_blob_getBuffer( buffer ),
-                                                            rpal_blob_getSize( buffer ) ) ) )
+                    if( 0 < ( mbedRet = mbedtls_ssl_write( pContext->cloudConnection,
+                                                           buffToSend + totalSent,
+                                                           toSend - totalSent ) ) )
                     {
+                        totalSent += mbedRet;
+                        if( totalSent < toSend )
+                        {
+                            continue;
+                        }
+
                         isSent = TRUE;
                         break;
                     }
@@ -246,7 +243,8 @@ RBOOL
     RU32 frameSize = 0;
     rBlob frame = NULL;
     RU32 mbedRet = 0;
-    RTIME endTime = rpal_time_getLocal() + timeoutSec;
+    RU32 totalReceived = 0;
+    RTIME endTime = ( 0 == timeoutSec ? 0 : rpal_time_getLocal() + timeoutSec );
 
     if( NULL != pContext &&
         NULL != targetModuleId &&
@@ -254,10 +252,16 @@ RBOOL
     {
         do
         {
-            if( 0 == ( mbedRet = mbedtls_ssl_read( pContext->cloudConnection,
-                                                   (RPU8)&frameSize,
-                                                   sizeof( frameSize ) ) ) )
+            if( 0 < ( mbedRet = mbedtls_ssl_read( pContext->cloudConnection,
+                                                  (RPU8)&frameSize + totalReceived,
+                                                  sizeof( frameSize ) - totalReceived ) ) )
             {
+                totalReceived += mbedRet;
+                if( totalReceived < sizeof( frameSize ) )
+                {
+                    continue;
+                }
+
                 isSuccess = TRUE;
                 break;
             }
@@ -267,7 +271,7 @@ RBOOL
                 break;
             }
         } while( !rEvent_wait( pContext->isBeaconTimeToStop, 100 ) &&
-                 rpal_time_getLocal() <= endTime );
+                 ( 0 == endTime || rpal_time_getLocal() <= endTime ) );
 
         if( isSuccess )
         {
@@ -278,12 +282,20 @@ RBOOL
                 NULL != ( frame = rpal_blob_create( frameSize, 0 ) ) &&
                 rpal_blob_add( frame, NULL, frameSize ) )
             {
+                totalReceived = 0;
+
                 do
                 {
-                    if( 0 == ( mbedRet = mbedtls_ssl_read( pContext->cloudConnection,
-                                                           rpal_blob_getBuffer( frame ),
-                                                           rpal_blob_getSize( frame ) ) ) )
+                    if( 0 < ( mbedRet = mbedtls_ssl_read( pContext->cloudConnection,
+                                                          (RPU8)rpal_blob_getBuffer( frame ) + totalReceived,
+                                                          frameSize - totalReceived ) ) )
                     {
+                        totalReceived += mbedRet;
+                        if( totalReceived < frameSize )
+                        {
+                            continue;
+                        }
+
                         isSuccess = TRUE;
                         break;
                     }
@@ -293,7 +305,7 @@ RBOOL
                         break;
                     }
                 } while( !rEvent_wait( pContext->isBeaconTimeToStop, 100 ) &&
-                         rpal_time_getLocal() <= endTime );
+                         ( 0 == endTime || rpal_time_getLocal() <= endTime ) );
             }
         }
 
@@ -616,7 +628,7 @@ RU32
         {
             if( 0 == ( mbedRet = mbedtls_x509_crt_parse( &cacert,
                                                          getC2PublicKey(),
-                                                         rpal_string_strlenA( (RPCHAR)getC2PublicKey() ) ) ) )
+                                                         rpal_string_strlenA( (RPCHAR)getC2PublicKey() ) + 1 ) ) )
             {
                 mbedtls_ssl_conf_ca_chain( &conf, &cacert, NULL );
 
@@ -630,17 +642,27 @@ RU32
                                                                       MBEDTLS_SSL_TRANSPORT_STREAM,
                                                                       MBEDTLS_SSL_PRESET_DEFAULT ) ) )
                     {
+                        mbedtls_ssl_conf_authmode( &conf, MBEDTLS_SSL_VERIFY_REQUIRED );
                         mbedtls_ssl_conf_rng( &conf, mbedtls_ctr_drbg_random, &ctr_drbg );
-                        mbedtls_ssl_conf_dbg( &conf, tlsDebug, stdout );
 
-                        if( 0 == ( mbedRet = mbedtls_ssl_set_hostname( &ssl, currentDest ) ) )
+                        if( 0 == ( mbedRet = mbedtls_ssl_setup( &ssl, &conf ) ) )
                         {
-                            mbedtls_ssl_set_bio( &ssl, 
-                                                 &server_fd, 
-                                                 mbedtls_net_send, 
-                                                 mbedtls_net_recv, 
+                            mbedtls_ssl_set_bio( &ssl,
+                                                 &server_fd,
+                                                 mbedtls_net_send,
+                                                 mbedtls_net_recv,
                                                  NULL );
-                            if( 0 == ( mbedRet = mbedtls_ssl_handshake( &ssl ) ) )
+
+                            while( 0 != ( mbedRet = mbedtls_ssl_handshake( &ssl ) ) )
+                            {
+                                if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
+                                    MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
+                                {
+                                    break;
+                                }
+                            }
+
+                            if( 0 == mbedRet )
                             {
                                 if( 0 == ( mbedRet = mbedtls_ssl_get_verify_result( &ssl ) ) )
                                 {
@@ -657,10 +679,6 @@ RU32
                             {
                                 rpal_debug_error( "TLS handshake failed: %d", mbedRet );
                             }
-                        }
-                        else
-                        {
-                            rpal_debug_error( "error setting hostname for TLS: %d", mbedRet );
                         }
                     }
                     else
