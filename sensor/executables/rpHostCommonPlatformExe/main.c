@@ -571,6 +571,7 @@ RU32
 
 RPAL_NATIVE_MAIN
 {
+    RU32 returnValue = 0;
     RNCHAR argFlag = 0;
     RPNCHAR argVal = NULL;
     RPNCHAR primary = NULL;
@@ -781,6 +782,8 @@ RPAL_NATIVE_MAIN
         memUsed = rpal_memory_totalUsed();
         if( 0 != memUsed )
         {
+            returnValue = 1;
+
             rpal_debug_critical( "Memory leak: %d bytes.\n", memUsed );
             //rpal_memory_findMemory();
 #ifdef RPAL_FEATURE_MEMORY_ACCOUNTING
@@ -791,5 +794,5 @@ RPAL_NATIVE_MAIN
         rpal_Context_deinitialize();
     }
 
-    return 0;
+    return returnValue;
 }

@@ -98,6 +98,7 @@
     </Midl>
     <ClCompile>
       <PreprocessorDefinitions>RPAL_MODE_MASTER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\mbedtls\mbedtls-2.1.2\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

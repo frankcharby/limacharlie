@@ -139,6 +139,9 @@
     <ProjectReference Include="..\..\lib\librpcm\librpcm.vcxproj">
       <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\..\lib\mbedtls\mbedtls-2.1.2\visualc\VS2010\mbedTLS.vcxproj">
+      <Project>{46cf2d25-6a36-4189-b59c-e4815388e554}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\lib\MemoryModule\MemoryModule.vcxproj">
       <Project>{f94005c9-8884-4bdb-af60-f6b07f6253cb}</Project>
     </ProjectReference>
