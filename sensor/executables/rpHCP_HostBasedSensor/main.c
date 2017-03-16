@@ -1052,21 +1052,6 @@ RPAL_THREAD_FUNC
                                  0,
                                  NULL,
                                  runSelfTests );
-
-        // REMOVE ME
-        {
-            rSequence ttt = NULL;
-            rSequence ccc = NULL;
-            rList confs = NULL;
-            ttt = rSequence_new();
-            ccc = rSequence_new();
-            confs = rList_new( RP_TAGS_HBS_CONFIGURATION, RPCM_SEQUENCE );
-            rSequence_addLIST( ttt, RP_TAGS_HBS_CONFIGURATIONS, confs );
-            rSequence_addRU32( ccc, RP_TAGS_HBS_CONFIGURATION_ID, 3 );
-            rList_addSEQUENCE( confs, ccc );
-            hbs_publish( RP_TAGS_NOTIFICATION_SELF_TEST, ttt );
-            rSequence_free( ttt );
-        }
     }
 
     // We'll wait for the very first online notification to start syncing.
@@ -1148,7 +1133,7 @@ RPAL_THREAD_FUNC
     sendShutdownEvent();
 
     // Shutdown everything
-    notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, NULL, runSelfTests );
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_SELF_TEST, NULL, runSelfTests );
     shutdownCollectors();
 
     // Cleanup the last few resources
