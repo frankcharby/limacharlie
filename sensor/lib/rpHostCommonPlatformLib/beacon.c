@@ -45,8 +45,21 @@ limitations under the License.
 //=============================================================================
 //  Private defines and datastructures
 //=============================================================================
-#define FRAME_MAX_SIZE  (1024 * 1024 * 50)
+#define FRAME_MAX_SIZE      (1024 * 1024 * 50)
 #define CLOUD_SYNC_TIMEOUT  (MSEC_FROM_SEC(60 * 10))
+#define TLS_CONNECT_TIMEOUT (30)
+#define TLS_SEND_TIMEOUT    (60 * 1)
+#define TLS_RECV_TIMEOUT    (60 * 1)
+
+struct
+{
+    mbedtls_net_context server_fd;
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_ssl_context ssl;
+    mbedtls_ssl_config conf;
+    mbedtls_x509_crt cacert;
+} g_tlsConnection;
 
 //=============================================================================
 //  Helpers
@@ -185,6 +198,7 @@ RBOOL
     RU32 toSend = 0;
     RU32 totalSent = 0;
     RPU8 buffToSend = NULL;
+    RTIME lastChunkSent = rpal_time_getLocal();
 
     if( NULL != pContext &&
         NULL != messages )
@@ -208,6 +222,7 @@ RBOOL
                         totalSent += mbedRet;
                         if( totalSent < toSend )
                         {
+                            lastChunkSent = rpal_time_getLocal();
                             continue;
                         }
 
@@ -216,6 +231,10 @@ RBOOL
                     }
                     else if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
                              MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
+                    {
+                        break;
+                    }
+                    else if( rpal_time_getLocal() > lastChunkSent + TLS_SEND_TIMEOUT )
                     {
                         break;
                     }
@@ -245,6 +264,7 @@ RBOOL
     RU32 mbedRet = 0;
     RU32 totalReceived = 0;
     RTIME endTime = ( 0 == timeoutSec ? 0 : rpal_time_getLocal() + timeoutSec );
+    RTIME lastChunkReceived = 0;
 
     if( NULL != pContext &&
         NULL != targetModuleId &&
@@ -259,6 +279,7 @@ RBOOL
                 totalReceived += mbedRet;
                 if( totalReceived < sizeof( frameSize ) )
                 {
+                    lastChunkReceived = rpal_time_getLocal();
                     continue;
                 }
 
@@ -267,6 +288,11 @@ RBOOL
             }
             else if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
                      MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
+            {
+                break;
+            }
+            else if( 0 != lastChunkReceived && 
+                     rpal_time_getLocal() > lastChunkReceived + TLS_RECV_TIMEOUT )
             {
                 break;
             }
@@ -603,60 +629,62 @@ RU32
         RBOOL isHandshakeComplete = FALSE;
         RBOOL isHeadersSent = FALSE;
 
-        mbedtls_net_context server_fd = { 0 };
-        mbedtls_entropy_context entropy = { 0 };
-        mbedtls_ctr_drbg_context ctr_drbg = { 0 };
-        mbedtls_ssl_context ssl = { 0 };
-        mbedtls_ssl_config conf = { 0 };
-        mbedtls_x509_crt cacert = { 0 };
+        
         RU32 mbedRet = 0;
+        RTIME tlsConnectTimeout = rpal_time_getLocal() + TLS_CONNECT_TIMEOUT;
 
         rMutex_lock( g_hcpContext.cloudConnectionMutex );
 
-        mbedtls_net_init( &server_fd );
-        mbedtls_ssl_init( &ssl );
-        mbedtls_ssl_config_init( &conf );
-        mbedtls_x509_crt_init( &cacert );
-        mbedtls_ctr_drbg_init( &ctr_drbg );
-        mbedtls_entropy_init( &entropy );
+        rpal_memory_zero( &g_tlsConnection, sizeof( g_tlsConnection ) );
 
-        if( 0 == ( mbedRet = mbedtls_ctr_drbg_seed( &ctr_drbg,
+        mbedtls_net_init( &g_tlsConnection.server_fd );
+        mbedtls_ssl_init( &g_tlsConnection.ssl );
+        mbedtls_ssl_config_init( &g_tlsConnection.conf );
+        mbedtls_x509_crt_init( &g_tlsConnection.cacert );
+        mbedtls_ctr_drbg_init( &g_tlsConnection.ctr_drbg );
+        mbedtls_entropy_init( &g_tlsConnection.entropy );
+
+        if( 0 == ( mbedRet = mbedtls_ctr_drbg_seed( &g_tlsConnection.ctr_drbg,
                                                     mbedtls_entropy_func,
-                                                    &entropy,
+                                                    &g_tlsConnection.entropy,
                                                     NULL,
                                                     0 ) ) )
         {
-            if( 0 == ( mbedRet = mbedtls_x509_crt_parse( &cacert,
+            if( 0 == ( mbedRet = mbedtls_x509_crt_parse( &g_tlsConnection.cacert,
                                                          getC2PublicKey(),
                                                          rpal_string_strlenA( (RPCHAR)getC2PublicKey() ) + 1 ) ) )
             {
-                mbedtls_ssl_conf_ca_chain( &conf, &cacert, NULL );
+                mbedtls_ssl_conf_ca_chain( &g_tlsConnection.conf, &g_tlsConnection.cacert, NULL );
 
-                if( 0 == ( mbedRet = mbedtls_net_connect( &server_fd, 
+                if( 0 == ( mbedRet = mbedtls_net_connect( &g_tlsConnection.server_fd,
                                                           currentDest, 
                                                           currentPortStr, 
                                                           MBEDTLS_NET_PROTO_TCP ) ) )
                 {
-                    if( 0 == ( mbedRet = mbedtls_ssl_config_defaults( &conf,
+                    if( 0 == ( mbedRet = mbedtls_ssl_config_defaults( &g_tlsConnection.conf,
                                                                       MBEDTLS_SSL_IS_CLIENT,
                                                                       MBEDTLS_SSL_TRANSPORT_STREAM,
                                                                       MBEDTLS_SSL_PRESET_DEFAULT ) ) )
                     {
-                        mbedtls_ssl_conf_authmode( &conf, MBEDTLS_SSL_VERIFY_REQUIRED );
-                        mbedtls_ssl_conf_rng( &conf, mbedtls_ctr_drbg_random, &ctr_drbg );
+                        mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, MBEDTLS_SSL_VERIFY_REQUIRED );
+                        mbedtls_ssl_conf_rng( &g_tlsConnection.conf, mbedtls_ctr_drbg_random, &g_tlsConnection.ctr_drbg );
 
-                        if( 0 == ( mbedRet = mbedtls_ssl_setup( &ssl, &conf ) ) )
+                        if( 0 == ( mbedRet = mbedtls_ssl_setup( &g_tlsConnection.ssl, &g_tlsConnection.conf ) ) )
                         {
-                            mbedtls_ssl_set_bio( &ssl,
-                                                 &server_fd,
+                            mbedtls_ssl_set_bio( &g_tlsConnection.ssl,
+                                                 &g_tlsConnection.server_fd,
                                                  mbedtls_net_send,
                                                  mbedtls_net_recv,
                                                  NULL );
 
-                            while( 0 != ( mbedRet = mbedtls_ssl_handshake( &ssl ) ) )
+                            mbedtls_net_set_nonblock( &g_tlsConnection.server_fd );
+
+                            while( 0 != ( mbedRet = mbedtls_ssl_handshake( &g_tlsConnection.ssl ) ) )
                             {
-                                if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
-                                    MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
+                                if( ( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
+                                      MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet ) ||
+                                    rEvent_wait( g_hcpContext.isBeaconTimeToStop, 100 ) ||
+                                    rpal_time_getLocal() > tlsConnectTimeout )
                                 {
                                     break;
                                 }
@@ -664,10 +692,10 @@ RU32
 
                             if( 0 == mbedRet )
                             {
-                                if( 0 == ( mbedRet = mbedtls_ssl_get_verify_result( &ssl ) ) )
+                                if( 0 == ( mbedRet = mbedtls_ssl_get_verify_result( &g_tlsConnection.ssl ) ) )
                                 {
                                     isHandshakeComplete = TRUE;
-                                    g_hcpContext.cloudConnection = &ssl;
+                                    g_hcpContext.cloudConnection = &g_tlsConnection.ssl;
                                     rpal_debug_info( "TLS handshake complete." );
                                 }
                                 else
@@ -725,11 +753,12 @@ RU32
             rpal_debug_warning( "failed to send headers" );
 
             // Clean up all crypto primitives
-            mbedtls_net_free( &server_fd );
-            mbedtls_ssl_free( &ssl );
-            mbedtls_ssl_config_free( &conf );
-            mbedtls_ctr_drbg_free( &ctr_drbg );
-            mbedtls_entropy_free( &entropy );
+            mbedtls_net_free( &g_tlsConnection.server_fd );
+            mbedtls_x509_crt_free( &g_tlsConnection.cacert );
+            mbedtls_ssl_free( &g_tlsConnection.ssl );
+            mbedtls_ssl_config_free( &g_tlsConnection.conf );
+            mbedtls_ctr_drbg_free( &g_tlsConnection.ctr_drbg );
+            mbedtls_entropy_free( &g_tlsConnection.entropy );
 
             // We failed to truly establish the connection so we'll reset.
             g_hcpContext.cloudConnection = NULL;
@@ -795,11 +824,12 @@ RU32
             {
                 if( NULL != g_hcpContext.cloudConnection )
                 {
-                    mbedtls_net_free( &server_fd );
-                    mbedtls_ssl_free( &ssl );
-                    mbedtls_ssl_config_free( &conf );
-                    mbedtls_ctr_drbg_free( &ctr_drbg );
-                    mbedtls_entropy_free( &entropy );
+                    mbedtls_net_free( &g_tlsConnection.server_fd );
+                    mbedtls_x509_crt_free( &g_tlsConnection.cacert );
+                    mbedtls_ssl_free( &g_tlsConnection.ssl );
+                    mbedtls_ssl_config_free( &g_tlsConnection.conf );
+                    mbedtls_ctr_drbg_free( &g_tlsConnection.ctr_drbg );
+                    mbedtls_entropy_free( &g_tlsConnection.entropy );
 
                     g_hcpContext.cloudConnection = NULL;
                 }
@@ -903,7 +933,10 @@ RBOOL
 
     if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
     {
-        isSuccess = sendFrame( &g_hcpContext, sourceModuleId, toSend, FALSE );
+        if( FALSE == ( isSuccess = sendFrame( &g_hcpContext, sourceModuleId, toSend, FALSE ) ) )
+        {
+            mbedtls_net_free( &g_tlsConnection.server_fd );
+        }
 
         rMutex_unlock( g_hcpContext.cloudConnectionMutex );
     }
