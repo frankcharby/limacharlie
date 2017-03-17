@@ -194,7 +194,7 @@ RBOOL
     RBOOL isSent = FALSE;
     rBlob buffer = NULL;
     RU32 frameSize = 0;
-    RU32 mbedRet = 0;
+    RS32 mbedRet = 0;
     RU32 toSend = 0;
     RU32 totalSent = 0;
     RPU8 buffToSend = NULL;
@@ -261,7 +261,7 @@ RBOOL
     RBOOL isSuccess = FALSE;
     RU32 frameSize = 0;
     rBlob frame = NULL;
-    RU32 mbedRet = 0;
+    RS32 mbedRet = 0;
     RU32 totalReceived = 0;
     RTIME endTime = ( 0 == timeoutSec ? 0 : rpal_time_getLocal() + timeoutSec );
     RTIME lastChunkReceived = 0;
@@ -305,6 +305,7 @@ RBOOL
 
             frameSize = rpal_ntoh32( frameSize );
             if( FRAME_MAX_SIZE >= frameSize &&
+                0 != frameSize &&
                 NULL != ( frame = rpal_blob_create( frameSize, 0 ) ) &&
                 rpal_blob_add( frame, NULL, frameSize ) )
             {
@@ -630,7 +631,7 @@ RU32
         RBOOL isHeadersSent = FALSE;
 
         
-        RU32 mbedRet = 0;
+        RS32 mbedRet = 0;
         RTIME tlsConnectTimeout = rpal_time_getLocal() + TLS_CONNECT_TIMEOUT;
 
         rMutex_lock( g_hcpContext.cloudConnectionMutex );
