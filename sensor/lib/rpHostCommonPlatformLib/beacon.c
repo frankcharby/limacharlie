@@ -617,6 +617,7 @@ RU32
 
     currentDest = effectivePrimary;
     currentPort = effectivePrimaryPort;
+    if( 0 == currentPort ) currentPort = 443;
     rpal_string_itosA( currentPort, currentPortStr, 10 );
 
     if( NULL == ( syncThread = rpal_thread_new( thread_sync, NULL ) ) )
