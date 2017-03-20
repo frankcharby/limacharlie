@@ -408,6 +408,12 @@ RBOOL
                                 isSuccess = TRUE;
                             }
 
+                            if( NULL != g_hcpContext.enrollmentToken )
+                            {
+                                rpal_memory_free( g_hcpContext.enrollmentToken );
+                                g_hcpContext.enrollmentToken = NULL;
+                            }
+
                             if( NULL != ( g_hcpContext.enrollmentToken = rpal_memory_alloc( tokenSize ) ) )
                             {
                                 rpal_memory_memcpy( g_hcpContext.enrollmentToken, token, tokenSize );
