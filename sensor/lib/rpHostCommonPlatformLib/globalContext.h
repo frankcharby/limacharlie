@@ -90,9 +90,6 @@ typedef struct
     RPU8 enrollmentToken;
     RU32 enrollmentTokenSize;
 
-    // Deployment Info
-    RPCHAR deploymentKey;
-
 } rpHCPContext;
 
 

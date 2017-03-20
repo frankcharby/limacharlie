@@ -427,12 +427,6 @@ rList
 
                 // The current version running.
                 rSequence_addRU32( headers, RP_TAGS_PACKAGE_VERSION, GIT_REVISION );
-
-                // Deployment key as set in installer
-                if( NULL != g_hcpContext.deploymentKey )
-                {
-                    rSequence_addSTRINGA( headers, RP_TAGS_HCP_DEPLOYMENT_KEY, g_hcpContext.deploymentKey );
-                }
             }
             else
             {

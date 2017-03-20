@@ -309,12 +309,6 @@ RBOOL
                     rpal_debug_info( "loading root public key from static config" );
                 }
 
-                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_DEPLOYMENT_KEY, &tmpStr ) )
-                {
-                    g_hcpContext.deploymentKey = rpal_string_strdupA( tmpStr );
-                    rpal_debug_info( "loading deployment key from static config" );
-                }
-
                 rSequence_free( staticConfig );
             }
 
