@@ -101,7 +101,7 @@ for group in inputTags[ 'groups' ]:
 
 print( "Writing Go definitions: %s" % os.path.join( rootDir, 
                                                     'cloud', 
-                                                    'infrastructure', 
+                                                    'standalone', 
                                                     'termination_server', 
                                                     'rpcm', 
                                                     'tags.go' ) )
