@@ -107,7 +107,7 @@ print( "Writing Go definitions: %s" % os.path.join( rootDir,
                                                     'tags.go' ) )
 open( os.path.join( rootDir, 
                     'cloud', 
-                    'infrastructure', 
+                    'standalone', 
                     'termination_server', 
                     'rpcm', 
                     'tags.go' ), 'w' ).write( '\n'.join( goContent ) )
