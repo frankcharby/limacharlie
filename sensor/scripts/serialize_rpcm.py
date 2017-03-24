@@ -31,10 +31,10 @@ from hcp.utils.hcp_helpers import MemoryType
 
 parser = argparse.ArgumentParser()
 parser.add_argument( 'input',
-                     type = argparse.FileType( 'r' ),
+                     type = argparse.FileType( 'rb' ),
                      help = 'file with the DSL representation of rpcm' )
 parser.add_argument( 'output',
-                     type = argparse.FileType( 'w' ),
+                     type = argparse.FileType( 'wb' ),
                      help = 'file where to output the serialized rpcm' )
 args = parser.parse_args()
 

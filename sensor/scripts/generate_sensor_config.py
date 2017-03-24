@@ -60,8 +60,8 @@ rSequence().addStringA( _.hcp.PRIMARY_URL, "%s" )
                                                    .addInt32( _.base.HCP_ID_UNIQUE, 0 )
                                                    .addInt8( _.base.HCP_ID_PLATFORM, 0 )
                                                    .addInt8( _.base.HCP_ID_CONFIG, 0 ) )
-           .addBuffer( _.hcp.C2_PUBLIC_KEY, open( '%s', 'r' ).read() )
-           .addBuffer( _.hcp.ROOT_PUBLIC_KEY, open( '%s', 'r' ).read() )
+           .addBuffer( _.hcp.C2_PUBLIC_KEY, open( '%s', 'rb' ).read() )
+           .addBuffer( _.hcp.ROOT_PUBLIC_KEY, open( '%s', 'rb' ).read() )
 ''' % ( args.primary,
         args.secondary,
         args.org,
