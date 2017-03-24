@@ -14,8 +14,11 @@
 
 import argparse
 import os
+import sys
 import glob
 import shutil
+
+ret = 0
 
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
 
@@ -70,20 +73,24 @@ for sources, destination in mainBinaries:
             shutil.copyfile( file, dest )
         except e:
             print( "ERROR: %s" % e )
+            ret = 1
 
 
 kernelModules = [
-    ( 'sensor/sample_configs/sample_kernel_osx.conf', 'kernel_osx_x64_debug_*.dylib' ),
-    ( 'sensor/sample_configs/sample_kernel_osx.conf', 'kernel_osx_x64_release_*.dylib' ),
-    ( 'sensor/sample_configs/sample_kernel_win64.conf', 'kernel_win_x64_debug_*.dll' ),
-    ( 'sensor/sample_configs/sample_kernel_win64.conf', 'kernel_win_x64_release_*.dll' ),
-    ( 'sensor/sample_configs/sample_kernel_win32.conf', 'kernel_win_x86_debug_*.dll' ),
-    ( 'sensor/sample_configs/sample_kernel_win32.conf', 'kernel_win_x86_release_*.dll' ),
+    ( 'sensor/sample_configs/sample_kernel_osx.conf', 'kernel_osx_x64_debug_%s.dylib' ),
+    ( 'sensor/sample_configs/sample_kernel_osx.conf', 'kernel_osx_x64_release_%s.dylib' ),
+    ( 'sensor/sample_configs/sample_kernel_win64.conf', 'kernel_win_x64_debug_%s.dll' ),
+    ( 'sensor/sample_configs/sample_kernel_win64.conf', 'kernel_win_x64_release_%s.dll' ),
+    ( 'sensor/sample_configs/sample_kernel_win32.conf', 'kernel_win_x86_debug_%s.dll' ),
+    ( 'sensor/sample_configs/sample_kernel_win32.conf', 'kernel_win_x86_release_%s.dll' ),
 ]
 
 for config, files in kernelModules:
-    for file in glob.glob( os.path.join( args.output, files ) ):
+    for file in glob.glob( os.path.join( args.output, files % args.version ) ):
         conf = os.path.join( root, config )
         print( "Setting config %s -> %s" % ( conf, file ) )
         if 0 != os.system( 'python %s %s %s' % ( os.path.join( root, 'sensor/scripts/set_sensor_config.py' ), conf, file ) ):
             print( "ERROR" )
+            ret = 1
+
+sys.exit( ret )
