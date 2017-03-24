@@ -333,6 +333,8 @@ void test_memoryLeaks( void )
 {
     RU32 memUsed = 0;
 
+    CryptoLib_deinit();
+
     rpal_Context_cleanup();
 
     memUsed = rpal_memory_totalUsed();
@@ -591,7 +593,8 @@ int
     UNREFERENCED_PARAMETER( argc );
     UNREFERENCED_PARAMETER( argv );
 
-    if( rpal_initialize( NULL, 1 ) )
+    if( rpal_initialize( NULL, 1 ) &&
+        CryptoLib_init() )
     {
         if( CUE_SUCCESS == ( error = CU_initialize_registry() ) )
         {
