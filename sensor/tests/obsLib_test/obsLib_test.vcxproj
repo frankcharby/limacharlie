@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>obsLis_test</ProjectName>
+    <ProjectName>obsLib_test</ProjectName>
     <ProjectGuid>{91AD5B3D-F873-404B-906E-80F6A1E88308}</ProjectGuid>
     <RootNamespace>obsLib_test</RootNamespace>
     <Keyword>Win32Proj</Keyword>
