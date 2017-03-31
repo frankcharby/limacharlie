@@ -743,6 +743,42 @@ rSequence
     return procInfo;
 }
 
+RPNCHAR
+    processLib_getCurrentModulePath
+    (
+
+    )
+{
+    RPNCHAR modulePath = NULL;
+    rList modules = NULL;
+    rSequence module = NULL;
+    RU64 baseAddr = 0;
+    RU64 memSize = 0;
+
+    if( NULL != ( modules = processLib_getProcessModules( processLib_getCurrentPid() ) ) )
+    {
+        while( rList_getSEQUENCE( modules, RP_TAGS_DLL, &module ) )
+        {
+            if( rSequence_getPOINTER64( module, RP_TAGS_BASE_ADDRESS, &baseAddr ) &&
+                rSequence_getRU64( module, RP_TAGS_MEMORY_SIZE, &memSize ) &&
+                rSequence_getSTRINGN( module, RP_TAGS_FILE_PATH, &modulePath ) )
+            {
+                if( IS_WITHIN_BOUNDS( &modulePath, sizeof( modulePath ), baseAddr, memSize ) )
+                {
+                    modulePath = rpal_string_strdup( modulePath );
+                    break;
+                }
+                else
+                {
+                    modulePath = NULL;
+                }
+            }
+        }
+    }
+
+    return modulePath;
+}
+
 
 rList
     processLib_getProcessModules

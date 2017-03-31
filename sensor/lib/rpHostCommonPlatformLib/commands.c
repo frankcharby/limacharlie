@@ -24,6 +24,7 @@ limitations under the License.
 #include <obfuscationLib/obfuscationLib.h>
 #include "beacon.h"
 #include "crashHandling.h"
+#include <processLib/processLib.h>
 
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <dlfcn.h>
@@ -156,7 +157,7 @@ RBOOL
                                  RP_TAGS_SIGNATURE,
                                  &tmpSig,
                                  &tmpSigSize ) &&
-            CRYPTOLIB_SIGNATURE_SIZE <= tmpSigSize )
+            CRYPTOLIB_SIGNATURE_SIZE == tmpSigSize )
         {
             // We got the data, now verify the buffer signature
             if( CryptoLib_verify( tmpBuff, tmpSize, getRootPublicKey(), tmpSig ) )
@@ -354,6 +355,94 @@ RBOOL
     return isSet;
 }
 
+RPRIVATE_TESTABLE
+RBOOL
+    upgradeHcp
+    (
+        rpHCPContext* hcpContext,
+        rSequence seq
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    RPU8 tmpBuff = NULL;
+    RU32 tmpSize = 0;
+    RPU8 tmpSig = NULL;
+    RU32 tmpSigSize = 0;
+    RPNCHAR currentModulePath = NULL;
+    RPNCHAR backupPath = NULL;
+
+    if( NULL != hcpContext &&
+        NULL != seq )
+    {
+        if( rSequence_getBUFFER( seq,
+                                 RP_TAGS_BINARY,
+                                 &tmpBuff,
+                                 &tmpSize ) &&
+            rSequence_getBUFFER( seq,
+                                 RP_TAGS_SIGNATURE,
+                                 &tmpSig,
+                                 &tmpSigSize ) &&
+            CRYPTOLIB_SIGNATURE_SIZE == tmpSigSize )
+        {
+            // We got the data, now verify the buffer signature
+            if( CryptoLib_verify( tmpBuff, tmpSize, getRootPublicKey(), tmpSig ) )
+            {
+                if( NULL != ( currentModulePath = processLib_getCurrentModulePath() ) )
+                {
+                    if( NULL != ( backupPath = rpal_string_strdup( currentModulePath ) ) &&
+                        NULL != ( backupPath = rpal_string_strcatEx( backupPath, _NC( ".old" ) ) ) )
+                    {
+                        if( rpal_file_move( currentModulePath, backupPath ) )
+                        {
+                            if( rpal_file_write( currentModulePath, tmpBuff, tmpSize, TRUE ) )
+                            {
+                                rpal_debug_info( "hcp was successfully updated" );
+                                isSuccess = TRUE;
+                            }
+                            else
+                            {
+                                rpal_debug_warning( "failed to write new hcp to disk" );
+
+                                if( !rpal_file_move( backupPath, currentModulePath ) )
+                                {
+                                    rpal_debug_warning( "old hcp was reverted" );
+                                }
+                                else
+                                {
+                                    rpal_debug_error( "could not revert old hcp" );
+                                }
+                            }
+                        }
+                        else
+                        {
+                            rpal_debug_warning( "failed to move hcp to backup location" );
+                        }
+
+                        rpal_memory_free( backupPath );
+                    }
+
+                    rpal_memory_free( currentModulePath );
+                }
+                else
+                {
+                    rpal_debug_error( "failed to get current module path" );
+                }
+            }
+            else
+            {
+                rpal_debug_warning( "New HCP binary signature is invalid." );
+            }
+        }
+        else
+        {
+            rpal_debug_warning( "Upgrade command missing or invalid component." );
+        }
+    }
+
+    return isSuccess;
+}
+
 
 RBOOL
     processMessage
@@ -444,6 +533,9 @@ RBOOL
                     rpal_thread_free( hQuitThread );
                     isSuccess = TRUE;
                 }
+                break;
+            case RP_HCP_COMMAND_UPGRADE:
+                isSuccess = upgradeHcp( &g_hcpContext, seq );
                 break;
             default:
                 break;
