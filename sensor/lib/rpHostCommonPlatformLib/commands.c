@@ -359,7 +359,6 @@ RPRIVATE_TESTABLE
 RBOOL
     upgradeHcp
     (
-        rpHCPContext* hcpContext,
         rSequence seq
     )
 {
@@ -372,8 +371,7 @@ RBOOL
     RPNCHAR currentModulePath = NULL;
     RPNCHAR backupPath = NULL;
 
-    if( NULL != hcpContext &&
-        NULL != seq )
+    if( NULL != seq )
     {
         if( rSequence_getBUFFER( seq,
                                  RP_TAGS_BINARY,
@@ -393,6 +391,8 @@ RBOOL
                     if( NULL != ( backupPath = rpal_string_strdup( currentModulePath ) ) &&
                         NULL != ( backupPath = rpal_string_strcatEx( backupPath, _NC( ".old" ) ) ) )
                     {
+                        rpal_file_delete( backupPath, FALSE );
+
                         if( rpal_file_move( currentModulePath, backupPath ) )
                         {
                             if( rpal_file_write( currentModulePath, tmpBuff, tmpSize, TRUE ) )
@@ -535,7 +535,7 @@ RBOOL
                 }
                 break;
             case RP_HCP_COMMAND_UPGRADE:
-                isSuccess = upgradeHcp( &g_hcpContext, seq );
+                isSuccess = upgradeHcp( seq );
                 break;
             default:
                 break;

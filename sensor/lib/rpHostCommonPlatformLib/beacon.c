@@ -360,7 +360,7 @@ RPRIVATE
 rList
     generateHeaders
     (
-
+        RBOOL isInitialGeneration
     )
 {
     rList wrapper = NULL;
@@ -378,23 +378,28 @@ rList
         {
             if( rList_addSEQUENCE( wrapper, headers ) )
             {
-                // First let's check if we have a crash context already present
-                // which would indicate we did not shut down properly
-                if( !acquireCrashContextPresent( &crashContext, &crashContextSize ) )
+                // We only check for crash contexts on the inital header generation after
+                // a startup since we will create a crash context right after.
+                if( isInitialGeneration )
                 {
-                    crashContext = NULL;
-                    crashContextSize = 0;
-                }
-                else
-                {
-                    rSequence_addBUFFER( headers, RP_TAGS_HCP_CRASH_CONTEXT, crashContext, crashContextSize );
-                    rpal_memory_free( crashContext );
-                    crashContext = NULL;
-                    crashContextSize = 0;
-                }
+                    // First let's check if we have a crash context already present
+                    // which would indicate we did not shut down properly
+                    if( !acquireCrashContextPresent( &crashContext, &crashContextSize ) )
+                    {
+                        crashContext = NULL;
+                        crashContextSize = 0;
+                    }
+                    else
+                    {
+                        rSequence_addBUFFER( headers, RP_TAGS_HCP_CRASH_CONTEXT, crashContext, crashContextSize );
+                        rpal_memory_free( crashContext );
+                        crashContext = NULL;
+                        crashContextSize = 0;
+                    }
 
-                // Set a default crashContext to be removed before exiting
-                setCrashContext( &defaultCrashContext, sizeof( defaultCrashContext ) );
+                    // Set a default crashContext to be removed before exiting
+                    setCrashContext( &defaultCrashContext, sizeof( defaultCrashContext ) );
+                }
 
                 // This is our identity
                 if( NULL != ( hcpId = hcpIdToSeq( g_hcpContext.currentId ) ) )
@@ -586,6 +591,7 @@ RU32
     RU16 currentPort = 0;
     RCHAR currentPortStr[ 6 ] = { 0 };
     rThread syncThread = NULL;
+    RBOOL isFirstConnection = TRUE;
 
     UNREFERENCED_PARAMETER( context );
 
@@ -728,7 +734,8 @@ RU32
         if( isHandshakeComplete )
         {
             // Send the headers
-            rList headers = generateHeaders();
+            rList headers = generateHeaders( isFirstConnection );
+            isFirstConnection = FALSE;
             if( NULL != headers )
             {
                 if( sendFrame( &g_hcpContext, RP_HCP_MODULE_ID_HCP, headers, FALSE ) )

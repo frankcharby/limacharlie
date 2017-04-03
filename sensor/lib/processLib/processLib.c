@@ -763,7 +763,7 @@ RPNCHAR
                 rSequence_getRU64( module, RP_TAGS_MEMORY_SIZE, &memSize ) &&
                 rSequence_getSTRINGN( module, RP_TAGS_FILE_PATH, &modulePath ) )
             {
-                if( IS_WITHIN_BOUNDS( &modulePath, sizeof( modulePath ), baseAddr, memSize ) )
+                if( IS_WITHIN_BOUNDS( processLib_getCurrentModulePath, sizeof( modulePath ), baseAddr, memSize ) )
                 {
                     modulePath = rpal_string_strdup( modulePath );
                     break;
