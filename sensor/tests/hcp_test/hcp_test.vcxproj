@@ -129,6 +129,9 @@
     <ProjectReference Include="..\..\lib\librpcm\librpcm.vcxproj">
       <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\..\lib\processLib\processLib.vcxproj">
+      <Project>{55ed069a-2899-3dfa-cccd-9036543e919f}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\lib\rpal\rpal.vcxproj">
       <Project>{c8461925-62d7-49ff-a7c7-6cb5f73fa441}</Project>
       <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>

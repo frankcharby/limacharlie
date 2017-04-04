@@ -86,4 +86,10 @@ RBOOL
         rpHCPContext* hcpContext
     );
 
+RBOOL
+    upgradeHcp
+    (
+        rSequence seq
+    );
+
 #endif
