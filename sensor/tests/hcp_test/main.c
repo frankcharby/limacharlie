@@ -457,7 +457,7 @@ int
         {
             if( NULL != ( suite = CU_add_suite( "hcp", NULL, NULL ) ) )
             {
-                if( NULL == CU_add_test(suite, "hcp_upgrade", test_upgrade ) ||
+                if( NULL == CU_add_test( suite, "hcp_upgrade", test_upgrade ) ||
                     NULL == CU_add_test( suite, "module_load_bad", test_module_load_bad ) ||
                     NULL == CU_add_test( suite, "module_unload_bad", test_module_unload_bad ) ||
                     NULL == CU_add_test( suite, "module_load_unload", test_module_load_unload ) ||

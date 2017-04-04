@@ -224,6 +224,21 @@ void
     rSequence_free( regions );
 }
 
+void
+    test_currentModule
+    (
+        void
+    )
+{
+    RPNCHAR path = NULL;
+    
+    path = processLib_getCurrentModulePath();
+    CU_ASSERT_NOT_EQUAL( path, NULL );
+    CU_ASSERT_NOT_EQUAL( rpal_string_strstr( path, _NC( "processLib_test" ) ), NULL );
+
+    rpal_memory_free( path );
+}
+
 void 
     test_handles
     (
@@ -299,6 +314,7 @@ int
                     NULL == CU_add_test( suite, "processInfo", test_processInfo ) ||
                     NULL == CU_add_test( suite, "modules", test_modules ) ||
                     NULL == CU_add_test( suite, "memmap", test_memmap ) ||
+                    NULL == CU_add_test( suite, "currentModule", test_currentModule ) ||
                     NULL == CU_add_test( suite, "handles", test_handles ) ||
                     NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
                 {
