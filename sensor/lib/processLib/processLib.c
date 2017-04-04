@@ -774,10 +774,37 @@ RPNCHAR
                 }
             }
         }
+
+        rList_free( modules );
     }
 
     return modulePath;
 }
+
+
+#ifdef RPAL_PLATFORM_MACOSX
+RPRIVATE
+RPCHAR
+    _getOsxPathForMem
+    (
+        RU32 processId,
+        RU64 baseAddr
+    )
+{
+    RPCHAR path = NULL;
+    struct proc_regionwithpathinfo rwpi = { 0 };
+    int result = 0;
+
+    result = proc_pidinfo( processId, PROC_PIDREGIONPATHINFO, baseAddr, &rwpi, sizeof( rwpi ) );
+    if( 0 != result &&
+        rwpi.prp_vip.vip_path[ 0 ] )
+    {
+        path = rpal_string_strdupA( rwpi.prp_vip.vip_path );
+    }
+
+    return path;
+}
+#endif
 
 
 rList
@@ -937,38 +964,43 @@ rList
             }
         }
 #elif defined( RPAL_PLATFORM_MACOSX )
-    struct proc_regionwithpathinfo rwpi = { 0 };
-    int result = 0;
-    uint64_t offset = 0;
+    RPCHAR tmpPath = NULL;
+    rList memMap = NULL;
+    rSequence memRegion = NULL;
+    RU8 access = 0;
+    RU64 baseAddr = 0;
 
     if( NULL != ( modules = rList_new( RP_TAGS_DLL, RPCM_SEQUENCE ) ) )
     {
-        do
+        if( NULL != ( memMap = processLib_getProcessMemoryMap( processId ) ) )
         {
-            result = proc_pidinfo( processId, PROC_PIDREGIONPATHINFO, offset, &rwpi, sizeof( rwpi ) );
-            if ( rwpi.prp_vip.vip_path[ 0 ] && 
-                 ( rpal_string_match( "*.dylib", rwpi.prp_vip.vip_path, TRUE ) ||
-                   rpal_string_match( "*dyld_shared_cache*", rwpi.prp_vip.vip_path, TRUE )
-                 ) )
+            while( rList_getSEQUENCE( memMap, RP_TAGS_MEMORY_REGION, &memRegion ) )
             {
-                if( NULL != ( module = rSequence_new() ) )
+                if( rSequence_getRU8( memRegion, RP_TAGS_MEMORY_ACCESS, &access ) &&
+                    ( PROCESSLIB_MEM_ACCESS_EXECUTE == access ||
+                      PROCESSLIB_MEM_ACCESS_EXECUTE_READ == access ||
+                      PROCESSLIB_MEM_ACCESS_EXECUTE_READ_WRITE == access ||
+                      PROCESSLIB_MEM_ACCESS_EXECUTE_WRITE == access ||
+                      PROCESSLIB_MEM_ACCESS_EXECUTE_WRITE_COPY == access ) &&
+                    rSequence_getPOINTER64( memRegion, RP_TAGS_BASE_ADDRESS, &baseAddr ) )
                 {
-                    rSequence_addRU32( module, RP_TAGS_PROCESS_ID, processId );
-                    rSequence_addPOINTER64( module, RP_TAGS_BASE_ADDRESS, rwpi.prp_prinfo.pri_address );
-                    rSequence_addRU64( module, RP_TAGS_MEMORY_SIZE, rwpi.prp_prinfo.pri_size );
-                    rSequence_addSTRINGA( module, RP_TAGS_FILE_PATH, rwpi.prp_vip.vip_path );
-
-                    if( !rList_addSEQUENCE( modules, module ) )
+                    // This is an executable region of memory.
+                    if( NULL != ( tmpPath = _getOsxPathForMem( processId, baseAddr ) ) )
                     {
-                        rSequence_free( module );
-                        module = NULL;
+                        // Add the path and pid to the region info and report it.
+                        rSequence_addRU32( memRegion, RP_TAGS_PROCESS_ID, processId );
+                        rSequence_addSTRINGA( memRegion, RP_TAGS_FILE_PATH, tmpPath );
+
+                        rList_addSEQUENCE( modules, rSequence_duplicate( memRegion ) );
+
+                        rpal_memory_free( tmpPath );
+                        tmpPath = NULL;
                     }
                 }
-                module = NULL;
             }
-            offset = rwpi.prp_prinfo.pri_address + rwpi.prp_prinfo.pri_size;
+
+            rList_free( memMap );
         }
-        while( result >= sizeof(rwpi) );
     }
 #else
     rpal_debug_not_implemented();
@@ -1388,6 +1420,7 @@ rList
     struct proc_regioninfo ri = {0};
     int result = 0;
     uint64_t offset = 0;
+    uint64_t prevBase = 0;
 
     if( NULL != ( map = rList_new( RP_TAGS_MEMORY_REGION, RPCM_SEQUENCE ) ) )
     {

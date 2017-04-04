@@ -7,6 +7,6 @@ env.AppendUnique( CPPPATH = '../../lib/mbedtls/mbedtls-2.1.2/include' )
 profiles.Program(
         'hcp_test',
         profiles.RpalModule()
-        ).Target( env, 'main.c', compmap, 'cunit', 'rpal', 'cryptoLib', 'rpcm', 'rpHostCommonPlatformLib', 'mbedtls' )
+        ).Target( env, 'main.c', compmap, 'cunit', 'rpal', 'cryptoLib', 'rpcm', 'rpHostCommonPlatformLib', 'mbedtls', 'processLib' )
 
 # EOF

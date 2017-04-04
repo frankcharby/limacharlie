@@ -377,8 +377,8 @@ void test_upgrade( void )
     RU32 bufferSize = 0;
     rSequence cmd = NULL;
     RU32 fileSize = 0;
-    //RPU8 tmpBuff = NULL;
-    //RU32 tmpSize = 0;
+    RPU8 tmpBuff = NULL;
+    RU32 tmpSize = 0;
 
     // Get expected paths, these need to match the ones in HCP
     currentFilePath = processLib_getCurrentModulePath();
@@ -405,8 +405,10 @@ void test_upgrade( void )
     fileSize = rpal_file_getSize( backupFilePath, FALSE );
     CU_ASSERT_NOT_EQUAL( fileSize, 0 );
     CU_ASSERT_NOT_EQUAL( fileSize, (RU32)(-1) );
-    //CU_ASSERT_TRUE( rpal_file_read( currentFilePath, &tmpBuff, &tmpSize, FALSE ) );
-    //CU_ASSERT_EQUAL( tmpSize, bufferSize );
+    CU_ASSERT_TRUE( rpal_file_read( currentFilePath, (RPVOID*)&tmpBuff, &tmpSize, FALSE ) );
+    CU_ASSERT_EQUAL( tmpSize, bufferSize );
+    rpal_memory_free( tmpBuff );
+    tmpBuff = NULL;
 
     // Revert
     CU_ASSERT_TRUE( rpal_file_delete( currentFilePath, FALSE ) );
@@ -429,6 +431,8 @@ void test_upgrade( void )
     rSequence_free( cmd );
 
     rpal_memory_free( buffer );
+    rpal_memory_free( currentFilePath );
+    rpal_memory_free( backupFilePath );
 }
 
 int
