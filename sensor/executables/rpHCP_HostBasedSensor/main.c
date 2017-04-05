@@ -868,6 +868,10 @@ RVOID
                 }
             }
 
+            // We also reset atoms to avoid pollution from tests.
+            atoms_deinit();
+            atoms_init();
+
             startCollectors();
         }
     }

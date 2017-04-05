@@ -1089,6 +1089,7 @@ HBS_DECLARE_TEST( history )
         evt = rSequence_new();
         buffer = rpal_memory_alloc( 1024 * 1024 );
         rSequence_addBUFFER( evt, evtType, buffer, 1024 * 1024 );
+        rpal_memory_free( buffer );
         for( i = 0; i < ( _HISTORY_MAX_SIZE / ( 1024 * 1024 ) ) + 2; i++ )
         {
             recordEvent( evtType, evt );

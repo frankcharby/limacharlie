@@ -34,7 +34,8 @@ limitations under the License.
 
 #define RPAL_FILE_ID       63
 
-#define MAX_SNAPSHOT_SIZE 1536
+#define MAX_SNAPSHOT_SIZE   1536
+#define NO_PARENT_PID       ((RU32)(-1))
 
 typedef struct
 {
@@ -106,6 +107,7 @@ RBOOL
                 if( rpal_string_stoi( (RPCHAR)finfo.fileName, &( toSnapshot[ i ].pid ) )
                     && 0 != toSnapshot[ i ].pid )
                 {
+                    toSnapshot[ i ] = NO_PARENT_PID;
                     i++;
                 }
             }
@@ -198,45 +200,54 @@ RBOOL
         atoms_getOneTime( &atom );
     }
 
-    // We prime the information with whatever was provided
-    // to us by the kernel acquisition. If not available
-    // we generate using the UM only way.
-    if( 0 != rpal_string_strlen( optFilePath ) &&
-        ( NULL != info ||
-          NULL != ( info = rSequence_new() ) ) )
+    if( NULL != ( info = rSequence_new() ) )
     {
-        cleanPath = rpal_file_clean( optFilePath );
-        rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, cleanPath ? cleanPath : optFilePath );
-        rpal_memory_free( cleanPath );
+        // If we got a real parent pid we'll include it right away since we don't want to
+        // trust the UM info gathering anymore than we have to.
+        if( NO_PARENT_PID != ppid )
+        {
+            rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
+        }
     }
 
-    if( 0 != rpal_string_strlen( optCmdLine ) &&
-        ( NULL != info ||
-          NULL != ( info = rSequence_new() ) ) )
+    // We only ever have priming information on new processes
+    if( isStarting )
     {
-        rSequence_addSTRINGN( info, RP_TAGS_COMMAND_LINE, optCmdLine );
-    }
+        if( NULL != info )
+        {
+            // We prime the information with whatever was provided
+            // to us by the kernel acquisition. If not available
+            // we generate using the UM only way.
+            if( 0 != rpal_string_strlen( optFilePath ) )
+            {
+                cleanPath = rpal_file_clean( optFilePath );
+                rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, cleanPath ? cleanPath : optFilePath );
+                rpal_memory_free( cleanPath );
+            }
 
-    if( NULL != info )
-    {
+            if( 0 != rpal_string_strlen( optCmdLine ) )
+            {
+                rSequence_addSTRINGN( info, RP_TAGS_COMMAND_LINE, optCmdLine );
+            }
+        }
+
+        // Fill in whatever is left with the UM info gathering.
         info = processLib_getProcessInfo( pid, info );
-    }
-    else if( !isStarting ||
-             NULL == ( info = processLib_getProcessInfo( pid, info ) ) )
-    {
-        info = rSequence_new();
     }
 
     if( rpal_memory_isValid( info ) )
     {
         rSequence_addRU32( info, RP_TAGS_PROCESS_ID, pid );
-        rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
-        rSequence_getRU32( info, RP_TAGS_PARENT_PROCESS_ID, &ppid ); // Get whichever ppid came first
+        if( NO_PARENT_PID == ppid )
+        {
+            // If we didn't get a parent pid we'll try to use whatever we got from UM.
+            rSequence_getRU32( info, RP_TAGS_PARENT_PROCESS_ID, &ppid );
+        }
         hbs_timestampEvent( info, optTs );
         HbsSetThisAtom( info, atom.id );
 
         // We should have reliable information on ppid now (sometimes ppid is not available before
-        // querying the process info.
+        // querying the process info).
         if( isStarting )
         {
             parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
@@ -438,7 +449,7 @@ RVOID
         {
             if( 0 == tmpProcesses[ i ].pid ) break;
             tracking_user[ i ].pid = tmpProcesses[ i ].pid;
-            tracking_user[ i ].ppid = 0;
+            tracking_user[ i ].ppid = NO_PARENT_PID;
         }
 
         rpal_memory_free( tmpProcesses );
@@ -644,6 +655,209 @@ HBS_DECLARE_TEST( um_snapshot )
     HBS_ASSERT_TRUE( isThisPidFound );
 }
 
+HBS_DECLARE_TEST( notify_process )
+{
+    RU32 pid = 42;
+    RU32 ppid = 42;
+    RU64 ts = 0;
+    rQueue notifQueue = NULL;
+    RU32 size = 0;
+    rSequence notif = NULL;
+    RU32 outPid = 0;
+    RU32 outPpid = 0;
+    RU64 outTs = 0;
+    RPNCHAR outPath = NULL;
+    RPNCHAR outCmdLine = NULL;
+    RU32 outUserId = 0;
+    RNCHAR path[] = { _NC( "test path" ) };
+    RNCHAR cmdLine[] = { _NC( "test cmd" ) };
+    RU32 userId = 24;
+    Atom atom = { 0 };
+    RU8 emptyAtomId[ HBS_ATOM_ID_SIZE ] = { 0 };
+
+    // We base our test on our own PID to ensure we have something to look at.
+    pid = processLib_getCurrentPid();
+    ts = rpal_time_getLocal();
+    HBS_ASSERT_TRUE( rQueue_create( &notifQueue, rSequence_freeWithSize, 10 ) );
+
+    // Register to the notifications we expect.
+    HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, 0, notifQueue, NULL ) );
+    HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, 0, notifQueue, NULL ) );
+    
+    // The scenarios this function supports:
+
+    // New process from UM with no authoritative info
+    HBS_ASSERT_TRUE( notifyOfProcess( pid, ppid, TRUE, NULL, NULL, KERNEL_ACQ_NO_USER_ID, ts ) );
+    HBS_ASSERT_TRUE( rQueue_getSize( notifQueue, &size ) );
+    HBS_ASSERT_TRUE( 1 == size );
+    HBS_ASSERT_TRUE( rQueue_remove( notifQueue, &notif, NULL, 0 ) );
+    if( HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PROCESS_ID, &outPid ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PARENT_PROCESS_ID, &outPpid ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getTIMESTAMP( notif, RP_TAGS_TIMESTAMP, &outTs ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
+        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) )
+    {
+        HBS_ASSERT_TRUE( pid == outPid );
+        HBS_ASSERT_TRUE( ppid == outPpid );
+        HBS_ASSERT_TRUE( ts == outTs );
+        HBS_ASSERT_TRUE( NULL != outPath );
+        HBS_ASSERT_TRUE( NULL != outCmdLine );
+
+        // Also check that atoms get registered correctly
+        atom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        atom.key.process.pid = pid;
+        if( HBS_ASSERT_TRUE( atoms_query( &atom, rpal_time_getGlobalPreciseTime() ) ) )
+        {
+            HBS_ASSERT_TRUE( 0 != rpal_memory_memcmp( emptyAtomId, &atom.key, HBS_ATOM_ID_SIZE ) );
+        }
+    }
+    rSequence_free( notif );
+
+    // New process from KM with authoritative info
+    HBS_ASSERT_TRUE( notifyOfProcess( pid, ppid, TRUE, path, cmdLine, userId, ts ) );
+    HBS_ASSERT_TRUE( rQueue_getSize( notifQueue, &size ) );
+    HBS_ASSERT_TRUE( 1 == size );
+    HBS_ASSERT_TRUE( rQueue_remove( notifQueue, &notif, NULL, 0 ) );
+    if( HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PROCESS_ID, &outPid ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PARENT_PROCESS_ID, &outPpid ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getTIMESTAMP( notif, RP_TAGS_TIMESTAMP, &outTs ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) )
+    {
+        HBS_ASSERT_TRUE( pid == outPid );
+        HBS_ASSERT_TRUE( ppid == outPpid );
+        HBS_ASSERT_TRUE( ts == outTs );
+        HBS_ASSERT_TRUE( 0 == rpal_string_strcmp( path, outPath ) );
+        HBS_ASSERT_TRUE( 0 == rpal_string_strcmp( cmdLine, outCmdLine ) );
+        HBS_ASSERT_TRUE( userId == outUserId );
+
+        // Also check that atoms get registered correctly
+        atom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        atom.key.process.pid = pid;
+        if( HBS_ASSERT_TRUE( atoms_query( &atom, rpal_time_getGlobalPreciseTime() ) ) )
+        {
+            HBS_ASSERT_TRUE( 0 != rpal_memory_memcmp( emptyAtomId, &atom.key, HBS_ATOM_ID_SIZE ) );
+        }
+    }
+    rSequence_free( notif );
+
+    // New process without a PPID info, make sure it gets populated
+    HBS_ASSERT_TRUE( notifyOfProcess( pid, NO_PARENT_PID, TRUE, NULL, NULL, KERNEL_ACQ_NO_USER_ID, ts ) );
+    HBS_ASSERT_TRUE( rQueue_getSize( notifQueue, &size ) );
+    HBS_ASSERT_TRUE( 1 == size );
+    HBS_ASSERT_TRUE( rQueue_remove( notifQueue, &notif, NULL, 0 ) );
+    if( HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PROCESS_ID, &outPid ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PARENT_PROCESS_ID, &outPpid ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getTIMESTAMP( notif, RP_TAGS_TIMESTAMP, &outTs ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
+        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) )
+    {
+        HBS_ASSERT_TRUE( pid == outPid );
+        HBS_ASSERT_TRUE( ppid != outPpid );
+        HBS_ASSERT_TRUE( ts == outTs );
+        HBS_ASSERT_TRUE( NULL != outPath );
+        HBS_ASSERT_TRUE( NULL != outCmdLine );
+
+        // Also check that atoms get registered correctly
+        atom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        atom.key.process.pid = pid;
+        if( HBS_ASSERT_TRUE( atoms_query( &atom, rpal_time_getGlobalPreciseTime() ) ) )
+        {
+            HBS_ASSERT_TRUE( 0 != rpal_memory_memcmp( emptyAtomId, &atom.key, HBS_ATOM_ID_SIZE ) );
+        }
+    }
+    rSequence_free( notif );
+
+    // Terminated process
+    // New process from UM with no authoritative info
+    HBS_ASSERT_TRUE( notifyOfProcess( pid, ppid, FALSE, NULL, NULL, KERNEL_ACQ_NO_USER_ID, ts ) );
+    HBS_ASSERT_TRUE( rQueue_getSize( notifQueue, &size ) );
+    HBS_ASSERT_TRUE( 1 == size );
+    HBS_ASSERT_TRUE( rQueue_remove( notifQueue, &notif, NULL, 0 ) );
+    if( HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PROCESS_ID, &outPid ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PARENT_PROCESS_ID, &outPpid ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getTIMESTAMP( notif, RP_TAGS_TIMESTAMP, &outTs ) ) &&
+        HBS_ASSERT_TRUE( !rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
+        HBS_ASSERT_TRUE( !rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
+        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) )
+    {
+        HBS_ASSERT_TRUE( pid == outPid );
+        HBS_ASSERT_TRUE( 42 == outPpid );
+        HBS_ASSERT_TRUE( ts == outTs );
+
+        // Also check that atoms get registered correctly, in this case it's a termination so
+        // wait a bit and make sure it's dead.
+        rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
+
+        atom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        atom.key.process.pid = pid;
+        HBS_ASSERT_TRUE( !atoms_query( &atom, rpal_time_getGlobalPreciseTime() ) );
+    }
+    rSequence_free( notif );
+
+    // Failure scenarios:
+
+    // We were somehow too slow and couldn't get the process info before it terminated.
+    // This makes the assumption the process with PID 1 doesn't exist.
+    HBS_ASSERT_TRUE( notifyOfProcess( 1, ppid, TRUE, NULL, NULL, KERNEL_ACQ_NO_USER_ID, ts ) );
+    HBS_ASSERT_TRUE( rQueue_getSize( notifQueue, &size ) );
+    HBS_ASSERT_TRUE( 1 == size );
+    HBS_ASSERT_TRUE( rQueue_remove( notifQueue, &notif, NULL, 0 ) );
+    if( HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PROCESS_ID, &outPid ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PARENT_PROCESS_ID, &outPpid ) ) &&
+        HBS_ASSERT_TRUE( rSequence_getTIMESTAMP( notif, RP_TAGS_TIMESTAMP, &outTs ) ) &&
+        processLib_isPidInUse( 1 ) ||
+        ( HBS_ASSERT_TRUE( !rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
+          HBS_ASSERT_TRUE( !rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
+          HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) ) )
+    {
+        HBS_ASSERT_TRUE( 1 == outPid );
+        HBS_ASSERT_TRUE( ppid == outPpid );
+        HBS_ASSERT_TRUE( ts == outTs );
+
+        // Also check that atoms get registered correctly
+        atom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        atom.key.process.pid = 1;
+        if( HBS_ASSERT_TRUE( atoms_query( &atom, rpal_time_getGlobalPreciseTime() ) ) )
+        {
+            HBS_ASSERT_TRUE( 0 != rpal_memory_memcmp( emptyAtomId, &atom.key, HBS_ATOM_ID_SIZE ) );
+        }
+    }
+    rSequence_free( notif );
+
+    // Teardown
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, notifQueue, NULL );
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, notifQueue, NULL );
+    rQueue_free( notifQueue );
+}
+
+HBS_DECLARE_TEST( um_diff_thread )
+{
+    rEvent dummyStop = NULL;
+    rQueue notifQueue = NULL;
+    RNCHAR spawnCmd[] = { _NC( "sh -c 'sleep 2; sleep 5' &" ) };
+
+    HBS_ASSERT_TRUE( rQueue_create( &notifQueue, rSequence_freeWithSize, 10 ) );
+
+    // Register to the notifications we expect.
+    HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, 0, notifQueue, NULL ) );
+    HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, 0, notifQueue, NULL ) );
+
+    // Start a process that will spawn more processes while we poll.
+    system( spawnCmd );
+
+    dummyStop = rEvent_create( TRUE );
+    procUserModeDiff( dummyStop );
+
+    // Teardown
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, notifQueue, NULL );
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, notifQueue, NULL );
+    rQueue_free( notifQueue );
+}
+
 HBS_TEST_SUITE( 1 )
 {
     RBOOL isSuccess = FALSE;
@@ -652,6 +866,7 @@ HBS_TEST_SUITE( 1 )
         NULL != testContext )
     {
         HBS_RUN_TEST( um_snapshot );
+        HBS_RUN_TEST( notify_process );
 
         isSuccess = TRUE;
     }
