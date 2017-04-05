@@ -618,18 +618,41 @@ RBOOL
 //=============================================================================
 //  Collector Testing
 //=============================================================================
-RBOOL
-    collector_1_test
-    (
-        HbsState* hbsState,
-        SelfTestContext* testContext
-    )
+HBS_DECLARE_TEST( um_snapshot )
+{
+    RU32 nElem = 0;
+    RBOOL isThisPidFound = FALSE;
+    RU32 i = 0;
+    RU32 thisPid = 0;
+
+    processEntry snapshot[ MAX_SNAPSHOT_SIZE ] = { 0 };
+    HBS_ASSERT_TRUE( getSnapshot( (processEntry*)&snapshot, &nElem ) );
+    HBS_ASSERT_TRUE( 0 != nElem );
+    HBS_ASSERT_TRUE( ARRAY_N_ELEM( snapshot ) > nElem );
+
+    thisPid = processLib_getCurrentPid();
+
+    for( i = 0; i < nElem; i++ )
+    {
+        if( thisPid == snapshot[ i ].pid )
+        {
+            isThisPidFound = TRUE;
+            break;
+        }
+    }
+
+    HBS_ASSERT_TRUE( isThisPidFound );
+}
+
+HBS_TEST_SUITE( 1 )
 {
     RBOOL isSuccess = FALSE;
 
     if( NULL != hbsState &&
         NULL != testContext )
     {
+        HBS_RUN_TEST( um_snapshot );
+
         isSuccess = TRUE;
     }
 

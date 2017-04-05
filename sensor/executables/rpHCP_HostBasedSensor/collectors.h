@@ -270,4 +270,17 @@ RBOOL
 #define HBS_ASSERT_TRUE(value)      HBS_ASSERT((value),NULL)
 #define HBS_ASSERT_FALSE(value)     HBS_ASSERT(!(value),NULL)
 
-#define HBS_TEST(testName)
+#define HBS_TEST_NAME(testName)     hbs_test_ ##testName
+#define HBS_RUN_TEST(testName)      HBS_TEST_NAME(testName)( testContext );
+#define HBS_DECLARE_TEST(testName)  RPRIVATE\
+                                    RVOID\
+                                        HBS_TEST_NAME(testName)\
+                                        (\
+                                            SelfTestContext* testContext\
+                                        )
+#define HBS_TEST_SUITE(collectorId) RBOOL\
+                                        collector_ ##collectorId##_test\
+                                        (\
+                                            HbsState* hbsState,\
+                                            SelfTestContext* testContext\
+                                        )

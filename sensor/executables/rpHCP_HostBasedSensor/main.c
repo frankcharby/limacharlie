@@ -1054,6 +1054,46 @@ RPAL_THREAD_FUNC
                                  runSelfTests );
     }
 
+#ifdef HBS_POWER_ON_SELF_TEST
+    // We will do a run through of all POSTs
+    {
+        rSequence testEvent = NULL;
+        rList testConfigs = NULL;
+        rSequence testConfig = NULL;
+        RU32 i = 0;
+
+        if( NULL != ( testEvent = rSequence_new() ) )
+        {
+            if( NULL != ( testConfigs = rList_new( RP_TAGS_HBS_CONFIGURATION, RPCM_SEQUENCE ) ) )
+            {
+                for( i = 0; i < ARRAY_N_ELEM( g_hbs_state.collectors ); i++ )
+                {
+                    if( g_hbs_state.collectors[ i ].isEnabled )
+                    {
+                        if( NULL != ( testConfig = rSequence_new() ) )
+                        {
+                            if( !rSequence_addRU32( testConfig, RP_TAGS_HBS_CONFIGURATION_ID, i ) ||
+                                !rList_addSEQUENCE( testConfigs, testConfig ) )
+                            {
+                                rSequence_free( testConfig );
+                            }
+                        }
+                    }
+                }
+
+                if( !rSequence_addLIST( testEvent, RP_TAGS_HBS_CONFIGURATIONS, testConfigs ) )
+                {
+                    rList_free( testConfigs );
+                }
+            }
+
+            runSelfTests( RP_TAGS_NOTIFICATION_SELF_TEST, testEvent );
+
+            rSequence_free( testEvent );
+        }
+    }
+#endif
+
     // We'll wait for the very first online notification to start syncing.
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {

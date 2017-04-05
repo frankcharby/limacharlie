@@ -860,12 +860,7 @@ RBOOL
 //=============================================================================
 //  Collector Testing
 //=============================================================================
-RPRIVATE
-RVOID
-    test_adhocExfil
-    (
-        SelfTestContext* testContext
-    )
+HBS_DECLARE_TEST( adhocExfil  )
 {
     RU32 eventId = 0;
     rQueue q = NULL;
@@ -1044,12 +1039,7 @@ RVOID
     rQueue_free( q );
 }
 
-RPRIVATE
-RVOID
-    test_history
-    (
-        SelfTestContext* testContext
-    )
+HBS_DECLARE_TEST( history )
 {
     rSequence evt = NULL;
     rSequence tmpEvt1 = NULL;
@@ -1156,20 +1146,16 @@ RVOID
     }
 }
 
-RBOOL
-    collector_0_test
-    (
-        HbsState* hbsState,
-        SelfTestContext* testContext
-    )
+HBS_TEST_SUITE( 0 )
 {
     RBOOL isSuccess = FALSE;
 
     if( NULL != hbsState &&
         NULL != testContext )
     {
-        test_adhocExfil( testContext );
-        test_history( testContext );
+        HBS_RUN_TEST( adhocExfil );
+        HBS_RUN_TEST( history );
+
         isSuccess = TRUE;
     }
 
