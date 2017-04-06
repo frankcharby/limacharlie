@@ -858,7 +858,10 @@ RVOID
                             rpal_debug_error( "error executing static self test on collector %d", collectorId );
                         }
 
-                        rpal_debug_info( "Test finishes: %d tests, %d failures.", testCtx.nTests, testCtx.nFailures );
+                        rpal_debug_info( "Test finished: col %d, %d tests, %d failures.", 
+                                         collectorId, 
+                                         testCtx.nTests, 
+                                         testCtx.nFailures );
                         hbs_sendCompletionEvent( event, RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, 0, NULL );
                     }
                 }

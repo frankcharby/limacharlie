@@ -441,7 +441,7 @@ RVOID
     KernelAcqProcess new_from_kernel[ 200 ] = { 0 };
     processEntry tracking_user[ MAX_SNAPSHOT_SIZE ] = { 0 };
     processLibProcEntry* tmpProcesses = NULL;
-    
+
     // Prime the list of tracked processes so we see them terminate.
     if( NULL != ( tmpProcesses = processLib_getProcessEntries( FALSE ) ) )
     {
@@ -809,10 +809,10 @@ HBS_DECLARE_TEST( notify_process )
     if( HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PROCESS_ID, &outPid ) ) &&
         HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PARENT_PROCESS_ID, &outPpid ) ) &&
         HBS_ASSERT_TRUE( rSequence_getTIMESTAMP( notif, RP_TAGS_TIMESTAMP, &outTs ) ) &&
-        processLib_isPidInUse( 1 ) ||
-        ( HBS_ASSERT_TRUE( !rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
-          HBS_ASSERT_TRUE( !rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
-          HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) ) )
+        ( processLib_isPidInUse( 1 ) ||
+          ( HBS_ASSERT_TRUE( !rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
+            HBS_ASSERT_TRUE( !rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
+            HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) ) ) )
     {
         HBS_ASSERT_TRUE( 1 == outPid );
         HBS_ASSERT_TRUE( ppid == outPpid );
@@ -834,11 +834,40 @@ HBS_DECLARE_TEST( notify_process )
     rQueue_free( notifQueue );
 }
 
+RPRIVATE
+RU32
+    _threadStubToThreadPool
+    (
+        rEvent isTimeToStop
+    )
+{
+    processDiffThread( isTimeToStop, NULL );
+    return 0;
+}
+
 HBS_DECLARE_TEST( um_diff_thread )
 {
+    rThread hThread = NULL;
     rEvent dummyStop = NULL;
     rQueue notifQueue = NULL;
-    RNCHAR spawnCmd[] = { _NC( "sh -c 'sleep 2; sleep 5' &" ) };
+#ifdef RPAL_PLATFORM_WINDOWS
+    //RPNCHAR spawnCmd[] = { _NC( "ping 1.1.1.1 -n 5 -w 1000" ) };
+    RCHAR spawnCmd[] = "c:\\windows\\system32\\ping.exe 1.1.1.1 -n 1 -w 1000";
+    RNCHAR cmdMarker[] = _NC( "ping" );
+    RU32 expectedRet = 1;
+#else
+    RNCHAR spawnCmd[] = _NC( "sleep 1" );
+    RNCHAR cmdMarker[] = _NC( "sleep" );
+    RU32 expectedRet = 0;
+#endif
+    RU32 ret = 0;
+    RU32 size = 0;
+    rSequence notif = NULL;
+    RPNCHAR path = NULL;
+    RPNCHAR tmpPath = NULL;
+    RU32 targetPid = 0;
+    RU32 pid = 0;
+    RBOOL isTargetFound = FALSE;
 
     HBS_ASSERT_TRUE( rQueue_create( &notifQueue, rSequence_freeWithSize, 10 ) );
 
@@ -846,11 +875,56 @@ HBS_DECLARE_TEST( um_diff_thread )
     HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, 0, notifQueue, NULL ) );
     HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, 0, notifQueue, NULL ) );
 
-    // Start a process that will spawn more processes while we poll.
-    system( spawnCmd );
-
     dummyStop = rEvent_create( TRUE );
-    procUserModeDiff( dummyStop );
+    hThread = rpal_thread_new( (rpal_thread_func)_threadStubToThreadPool, dummyStop );
+    HBS_ASSERT_TRUE( NULL != hThread );
+    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+
+    // Spawn a process
+    HBS_ASSERT_TRUE( expectedRet == ( ret = system( (RPCHAR)spawnCmd ) ) );
+
+    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+    rEvent_set( dummyStop );
+    rpal_thread_wait( hThread, RINFINITE );
+    rEvent_free( dummyStop );
+    rpal_thread_free( hThread );
+
+    // Make sure we got both the start and stop.
+    HBS_ASSERT_TRUE( rQueue_getSize( notifQueue, &size ) );
+    HBS_ASSERT_TRUE( 2 <= size );   // We check for greater since some unrelated process could have started too...
+
+    // We make sure the sleeps are in the notifications as expected.
+    while( !isTargetFound &&
+           rQueue_remove( notifQueue, &notif, NULL, 0 ) )
+    {
+        // We look for the process starting up and record the pid.
+        if( NULL == path )
+        {
+            if( !rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &path ) ||
+                NULL == rpal_string_stristr( path, (RPNCHAR)cmdMarker ) )
+            {
+                path = NULL;
+            }
+            else
+            {
+                HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PROCESS_ID, &targetPid ) );
+            }
+        }
+        // Only process termination has no path.
+        else if( !rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &tmpPath ) &&
+                 HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PROCESS_ID, &pid ) ) )
+        {
+            // This means we've identified the target process, look for the termination
+            if( pid == targetPid )
+            {
+                isTargetFound = TRUE;
+            }
+        }
+
+        rSequence_free( notif );
+    }
+
+    HBS_ASSERT_TRUE( isTargetFound );
 
     // Teardown
     notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, notifQueue, NULL );
@@ -867,6 +941,7 @@ HBS_TEST_SUITE( 1 )
     {
         HBS_RUN_TEST( um_snapshot );
         HBS_RUN_TEST( notify_process );
+        HBS_RUN_TEST( um_diff_thread );
 
         isSuccess = TRUE;
     }
