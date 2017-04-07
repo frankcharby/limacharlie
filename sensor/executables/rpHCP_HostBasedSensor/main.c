@@ -833,6 +833,8 @@ RVOID
     rList tests = NULL;
     rSequence collector = NULL;
     RU32 collectorId = 0;
+    rQueue asserts = NULL;
+    rSequence assert = NULL;
 
     UNREFERENCED_PARAMETER( eventType );
 
@@ -840,42 +842,73 @@ RVOID
     {
         if( rSequence_getLIST( event, RP_TAGS_HBS_CONFIGURATIONS, &tests ) )
         {
-            shutdownCollectors();
-
-            while( rList_getSEQUENCE( tests, RP_TAGS_HBS_CONFIGURATION, &collector ) )
+            if( rQueue_create( &asserts, rSequence_freeWithSize, 0 ) )
             {
-                if( rSequence_getRU32( collector, RP_TAGS_HBS_CONFIGURATION_ID, &collectorId ) &&
-                    ARRAY_N_ELEM( g_hbs_state.collectors ) > collectorId )
+                shutdownCollectors();
+
+                // Since all collectors are offline, we need to subscribe ourselves to test asserts
+                // and we can replay them back once collector 0 is back online (for exfil).
+                if( notifications_subscribe( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, NULL, 0, asserts, NULL ) )
                 {
-                    if( NULL != g_hbs_state.collectors[ collectorId ].test )
+                    while( rList_getSEQUENCE( tests, RP_TAGS_HBS_CONFIGURATION, &collector ) )
                     {
-                        SelfTestContext testCtx = { 0 };
-                        testCtx.config = collector;
-                        testCtx.originalTestRequest = event;
-
-                        if( !g_hbs_state.collectors[ collectorId ].test( &g_hbs_state, &testCtx ) )
+                        if( rSequence_getRU32( collector, RP_TAGS_HBS_CONFIGURATION_ID, &collectorId ) &&
+                            ARRAY_N_ELEM( g_hbs_state.collectors ) > collectorId )
                         {
-                            rpal_debug_error( "error executing static self test on collector %d", collectorId );
-                        }
+                            if( NULL != g_hbs_state.collectors[ collectorId ].test )
+                            {
+                                SelfTestContext testCtx = { 0 };
+                                testCtx.config = collector;
+                                testCtx.originalTestRequest = event;
 
-                        rpal_debug_info( "Test finished: col %d, %d tests, %d failures.", 
-                                         collectorId, 
-                                         testCtx.nTests, 
-                                         testCtx.nFailures );
-                        hbs_sendCompletionEvent( event, RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, 0, NULL );
+                                if( !g_hbs_state.collectors[ collectorId ].test( &g_hbs_state, &testCtx ) )
+                                {
+                                    rpal_debug_error( "error executing static self test on collector %d", collectorId );
+                                }
+
+                                rpal_debug_info( "Test finished: col %d, %d tests, %d failures.",
+                                                 collectorId,
+                                                 testCtx.nTests,
+                                                 testCtx.nFailures );
+                                hbs_sendCompletionEvent( event, RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, 0, NULL );
+                            }
+                        }
+                        else
+                        {
+                            rpal_debug_error( "invalid collector id to test" );
+                        }
                     }
+
+                    // We also reset atoms to avoid pollution from tests.
+                    atoms_deinit();
+                    atoms_init();
+
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, asserts, NULL );
                 }
                 else
                 {
-                    rpal_debug_error( "invalid collector id to test" );
+                    rpal_debug_error( "failed to subscribe to test results" );
                 }
+
+                if( !startCollectors() )
+                {
+                    rpal_debug_warning( "an error occured restarting collectors after tests" );
+                }
+
+                // Now we will replay all the asserts, collector 0 should pick them up if configured for that.
+                rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
+                while( rQueue_remove( asserts, &assert, NULL, 0 ) )
+                {
+                    notifications_publish( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, assert );
+                    rSequence_free( assert );
+                }
+
+                rQueue_free( asserts );
             }
-
-            // We also reset atoms to avoid pollution from tests.
-            atoms_deinit();
-            atoms_init();
-
-            startCollectors();
+            else
+            {
+                rpal_debug_error( "could not create assert collection for tests" );
+            }
         }
     }
 }
