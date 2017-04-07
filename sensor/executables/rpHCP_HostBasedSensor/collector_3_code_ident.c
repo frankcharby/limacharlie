@@ -318,6 +318,7 @@ RVOID
                 }
                 rSequence_addRU32( notif, RP_TAGS_ERROR, tmpInfo.mtd.lastError );
 
+#ifdef RPAL_PLATFORM_WINDOWS
                 if( libOs_getSignature( name,
                                         &sig,
                                         ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ),
@@ -330,6 +331,7 @@ RVOID
                         rSequence_free( sig );
                     }
                 }
+#endif
 
                 hbs_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
             }
@@ -608,12 +610,7 @@ RBOOL
 //=============================================================================
 //  Collector Testing
 //=============================================================================
-RPRIVATE
-RVOID
-    test_cleanup
-    (
-        SelfTestContext* testContext
-    )
+HBS_DECLARE_TEST( cleanup )
 {
     CodeInfo codeInfo = { 0 };
     RNCHAR tmpName1[] = { _NC( "hello" ) };
@@ -636,7 +633,7 @@ RVOID
         rpal_string_strcpy( codeInfo.info.fileName, tmpName2 );
         rpal_btree_add( g_reportedCode, &codeInfo, FALSE );
 
-        // Add 2 item to stay
+        // Add 2 items to stay
         codeInfo.mtd.timeGenerated = rpal_time_getGlobalPreciseTime();
         rpal_string_strcpy( codeInfo.info.fileName, tmpName3 );
         rpal_btree_add( g_reportedCode, &codeInfo, FALSE );
@@ -654,22 +651,20 @@ RVOID
     }
 }
 
-RPRIVATE
-RVOID
-    test_codePopulation
-    (
-        SelfTestContext* testContext
-    )
+HBS_DECLARE_TEST( code_population )
 {
     CodeInfo codeInfo = { 0 };
     CodeInfo tmpCodeInfo = { 0 };
     RNCHAR tmpName1[] = { _NC( "hello" ) };
     RNCHAR tmpName2[] = { _NC( "world" ) };
+    RNCHAR tmpName3[] = { _NC( "random" ) };
+    rSequence event = NULL;
 
     // Force a scheduled cleanup
     g_lastCleanup = rpal_time_getGlobalPreciseTime() + MSEC_FROM_SEC( 3600 );
 
-    if( HBS_ASSERT_TRUE( NULL != ( g_reportedCode = rpal_btree_create( sizeof( CodeInfo ),
+    if( HBS_ASSERT_TRUE( NULL != ( g_mutex = rMutex_create() ) ) &&
+        HBS_ASSERT_TRUE( NULL != ( g_reportedCode = rpal_btree_create( sizeof( CodeInfo ),
                                                                        (rpal_btree_comp_f)_compCodeInfo,
                                                                        NULL ) ) ) )
     {
@@ -699,25 +694,53 @@ RVOID
                                                   sizeof( tmpCodeInfo.info.fileHash ) ) );
         HBS_ASSERT_TRUE( 2 == rpal_btree_getSize( g_reportedCode, FALSE ) );
 
+        // Now check that a file io invalidates it
+        event = rSequence_new();
+        if( HBS_ASSERT_TRUE( NULL != event ) )
+        {
+            if( HBS_ASSERT_TRUE( rSequence_addSTRINGN( event, RP_TAGS_FILE_PATH, codeInfo.info.fileName ) ) &&
+                HBS_ASSERT_TRUE( rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobalPreciseTime() ) ) )
+            {
+                processFileEvents( RP_TAGS_NOTIFICATION_FILE_MODIFIED, event );
+
+                HBS_ASSERT_TRUE( 1 == rpal_btree_getSize( g_reportedCode, FALSE ) );
+            }
+
+            rSequence_free( event );
+        }
+
+        // Check that another random file io doesn't invalidate anything
+        event = rSequence_new();
+        if( HBS_ASSERT_TRUE( NULL != event ) )
+        {
+            rpal_string_strcpy( codeInfo.info.fileName, tmpName3 );
+            if( HBS_ASSERT_TRUE( rSequence_addSTRINGN( event, RP_TAGS_FILE_PATH, codeInfo.info.fileName ) ) &&
+                HBS_ASSERT_TRUE( rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobalPreciseTime() ) ) )
+            {
+                processFileEvents( RP_TAGS_NOTIFICATION_FILE_MODIFIED, event );
+
+                HBS_ASSERT_TRUE( 1 == rpal_btree_getSize( g_reportedCode, FALSE ) );
+            }
+
+            rSequence_free( event );
+        }
+
         rpal_btree_destroy( g_reportedCode, FALSE );
         g_reportedCode = NULL;
+        rMutex_free( g_mutex );
+        g_mutex = NULL;
     }
 }
 
-RBOOL
-    collector_3_test
-    (
-        HbsState* hbsState,
-        SelfTestContext* testContext
-    )
+HBS_TEST_SUITE( 3 )
 {
     RBOOL isSuccess = FALSE;
 
     if( NULL != hbsState &&
         NULL != testContext )
     {
-        test_cleanup( testContext );
-        test_codePopulation( testContext );
+        HBS_RUN_TEST( cleanup );
+        HBS_RUN_TEST( code_population );
         isSuccess = TRUE;
     }
 
