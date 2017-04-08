@@ -833,6 +833,8 @@ RVOID
     rList tests = NULL;
     rSequence collector = NULL;
     RU32 collectorId = 0;
+    rQueue asserts = NULL;
+    rSequence assert = NULL;
 
     UNREFERENCED_PARAMETER( eventType );
 
@@ -840,35 +842,73 @@ RVOID
     {
         if( rSequence_getLIST( event, RP_TAGS_HBS_CONFIGURATIONS, &tests ) )
         {
-            shutdownCollectors();
-
-            while( rList_getSEQUENCE( tests, RP_TAGS_HBS_CONFIGURATION, &collector ) )
+            if( rQueue_create( &asserts, rSequence_freeWithSize, 0 ) )
             {
-                if( rSequence_getRU32( collector, RP_TAGS_HBS_CONFIGURATION_ID, &collectorId ) &&
-                    ARRAY_N_ELEM( g_hbs_state.collectors ) > collectorId )
+                shutdownCollectors();
+
+                // Since all collectors are offline, we need to subscribe ourselves to test asserts
+                // and we can replay them back once collector 0 is back online (for exfil).
+                if( notifications_subscribe( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, NULL, 0, asserts, NULL ) )
                 {
-                    if( NULL != g_hbs_state.collectors[ collectorId ].test )
+                    while( rList_getSEQUENCE( tests, RP_TAGS_HBS_CONFIGURATION, &collector ) )
                     {
-                        SelfTestContext testCtx = { 0 };
-                        testCtx.config = collector;
-                        testCtx.originalTestRequest = event;
-
-                        if( !g_hbs_state.collectors[ collectorId ].test( &g_hbs_state, &testCtx ) )
+                        if( rSequence_getRU32( collector, RP_TAGS_HBS_CONFIGURATION_ID, &collectorId ) &&
+                            ARRAY_N_ELEM( g_hbs_state.collectors ) > collectorId )
                         {
-                            rpal_debug_error( "error executing static self test on collector %d", collectorId );
-                        }
+                            if( NULL != g_hbs_state.collectors[ collectorId ].test )
+                            {
+                                SelfTestContext testCtx = { 0 };
+                                testCtx.config = collector;
+                                testCtx.originalTestRequest = event;
 
-                        rpal_debug_info( "Test finishes: %d tests, %d failures.", testCtx.nTests, testCtx.nFailures );
-                        hbs_sendCompletionEvent( event, RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, 0, NULL );
+                                if( !g_hbs_state.collectors[ collectorId ].test( &g_hbs_state, &testCtx ) )
+                                {
+                                    rpal_debug_error( "error executing static self test on collector %d", collectorId );
+                                }
+
+                                rpal_debug_info( "Test finished: col %d, %d tests, %d failures.",
+                                                 collectorId,
+                                                 testCtx.nTests,
+                                                 testCtx.nFailures );
+                                hbs_sendCompletionEvent( event, RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, 0, NULL );
+                            }
+                        }
+                        else
+                        {
+                            rpal_debug_error( "invalid collector id to test" );
+                        }
                     }
+
+                    // We also reset atoms to avoid pollution from tests.
+                    atoms_deinit();
+                    atoms_init();
+
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, asserts, NULL );
                 }
                 else
                 {
-                    rpal_debug_error( "invalid collector id to test" );
+                    rpal_debug_error( "failed to subscribe to test results" );
                 }
-            }
 
-            startCollectors();
+                if( !startCollectors() )
+                {
+                    rpal_debug_warning( "an error occured restarting collectors after tests" );
+                }
+
+                // Now we will replay all the asserts, collector 0 should pick them up if configured for that.
+                rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
+                while( rQueue_remove( asserts, &assert, NULL, 0 ) )
+                {
+                    notifications_publish( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, assert );
+                    rSequence_free( assert );
+                }
+
+                rQueue_free( asserts );
+            }
+            else
+            {
+                rpal_debug_error( "could not create assert collection for tests" );
+            }
         }
     }
 }
@@ -1053,6 +1093,46 @@ RPAL_THREAD_FUNC
                                  NULL,
                                  runSelfTests );
     }
+
+#ifdef HBS_POWER_ON_SELF_TEST
+    // We will do a run through of all POSTs
+    {
+        rSequence testEvent = NULL;
+        rList testConfigs = NULL;
+        rSequence testConfig = NULL;
+        RU32 i = 0;
+
+        if( NULL != ( testEvent = rSequence_new() ) )
+        {
+            if( NULL != ( testConfigs = rList_new( RP_TAGS_HBS_CONFIGURATION, RPCM_SEQUENCE ) ) )
+            {
+                for( i = 0; i < ARRAY_N_ELEM( g_hbs_state.collectors ); i++ )
+                {
+                    if( g_hbs_state.collectors[ i ].isEnabled )
+                    {
+                        if( NULL != ( testConfig = rSequence_new() ) )
+                        {
+                            if( !rSequence_addRU32( testConfig, RP_TAGS_HBS_CONFIGURATION_ID, i ) ||
+                                !rList_addSEQUENCE( testConfigs, testConfig ) )
+                            {
+                                rSequence_free( testConfig );
+                            }
+                        }
+                    }
+                }
+
+                if( !rSequence_addLIST( testEvent, RP_TAGS_HBS_CONFIGURATIONS, testConfigs ) )
+                {
+                    rList_free( testConfigs );
+                }
+            }
+
+            runSelfTests( RP_TAGS_NOTIFICATION_SELF_TEST, testEvent );
+
+            rSequence_free( testEvent );
+        }
+    }
+#endif
 
     // We'll wait for the very first online notification to start syncing.
     while( !rEvent_wait( isTimeToStop, 0 ) )

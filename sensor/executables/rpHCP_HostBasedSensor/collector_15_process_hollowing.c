@@ -826,12 +826,7 @@ RBOOL
 //=============================================================================
 //  Collector Testing
 //=============================================================================
-RBOOL
-    collector_15_test
-    (
-        HbsState* hbsState,
-        SelfTestContext* testContext
-    )
+HBS_TEST_SUITE( 15 )
 {
     RBOOL isSuccess = FALSE;
 
