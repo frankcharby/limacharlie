@@ -379,7 +379,7 @@ void test_crawler(void)
 #ifdef RPAL_PLATFORM_WINDOWS
     RPWCHAR fileArr[] = { _WCH("*.dll"), _WCH("*.exe"), NULL };
     hCrawl = rpal_file_crawlStart( _WCH("C:\\test\\"), fileArr, 2 );
-#elif defined( RPAL_PLATFORM_LINUX )
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     RPNCHAR fileArr[] = { _NC("*.pub"), _NC("*.txt"), NULL };
     hCrawl = rpal_file_crawlStart( _NC("/home/server/"), fileArr, 2 );
 #endif
@@ -524,6 +524,7 @@ void test_threadpool(void)
     CU_ASSERT_PTR_NOT_EQUAL_FATAL( pool, NULL );
 
     CU_ASSERT_TRUE( rThreadPool_task( pool, (rpal_thread_pool_func)tp_testLong, &n1 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 
     CU_ASSERT_FALSE( rThreadPool_isIdle( pool ) );
 
@@ -888,7 +889,7 @@ int
         char* argv[]
     )
 {
-    int ret = 1;
+    int ret = -1;
 
     CU_pSuite suite = NULL;
     CU_ErrorCode error = 0;
@@ -921,11 +922,11 @@ int
                     NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
                 {
                     rpal_debug_error( "%s", CU_get_error_msg() );
-                    ret = 0;
                 }
                 else
                 {
                     CU_basic_run_tests();
+                    ret = CU_get_number_of_failures();
                 }
             }
         

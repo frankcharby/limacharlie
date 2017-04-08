@@ -47,7 +47,7 @@ def tarGzOf( filePath, archiveName, payloadName ):
     tar = tarfile.open( '/tmp/%s' % ( archiveName, ), 'w:gz' )
     tar.add( '/tmp/%s' % payloadName, arcname = payloadName )
     tar.close()
-    with open( '/tmp/%s' % ( archiveName, ), 'r' ) as f:
+    with open( '/tmp/%s' % ( archiveName, ), 'rb' ) as f:
         val = f.read()
     os.unlink( '/tmp/%s' % ( archiveName, ) )
     return val
@@ -56,8 +56,8 @@ if 3 > len( sys.argv ):
     print( "Usage: set_sensor_config.py configFile sensorExec [installer-uuid]" )
     sys.exit( -1 )
 
-configFile = open( sys.argv[ 1 ], 'r' ).read()
-sensorFile = open( sys.argv[ 2 ], 'r' )
+configFile = open( sys.argv[ 1 ], 'rb' ).read()
+sensorFile = open( sys.argv[ 2 ], 'rb' )
 installerUuid = uuid.UUID( sys.argv[ 3 ] ) if len( sys.argv ) >= 4 else uuid.UUID( '00000000-0000-0000-0000-000000000001' )
 sensor = sensorFile.read()
 sensorFile.close()
@@ -78,7 +78,7 @@ os.chdir( prevPath )
 
 if magic in sensor:
     sensor = sensor.replace( magic, conf )
-    sensorFile = open( sys.argv[ 2 ], 'w' )
+    sensorFile = open( sys.argv[ 2 ], 'wb' )
     sensorFile.write( sensor )
     sensorFile.close()
     print( "Sensor patched." )

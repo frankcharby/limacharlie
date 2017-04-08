@@ -446,7 +446,11 @@ void test_EstimateSize( void )
     CU_ASSERT_TRUE( rSequence_addSTRINGW( seq, 666, _WCH( "you" ) ) );
     CU_ASSERT_FALSE( rSequence_addRU32( seq, 42, 0xDEADBEEF ) );
 
+#ifdef RPAL_PLATFORM_WINDOWS
     CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 30 );
+#else
+    CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 38 );
+#endif
 
     list = rList_new( 10, RPCM_RU32 );
 
@@ -460,7 +464,11 @@ void test_EstimateSize( void )
     CU_ASSERT_TRUE( rList_addRU32( list, 4 ) );
     CU_ASSERT_TRUE( rSequence_addLIST( seq, 66, list ) );
 
+#ifdef RPAL_PLATFORM_WINDOWS
     CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 112 );
+#else
+    CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 120 );
+#endif
 
     rSequence_free( seq );
 }
@@ -472,38 +480,52 @@ int
         char* argv[]
     )
 {
-    int ret = 1;
+    int ret = -1;
 
     CU_pSuite suite = NULL;
+    CU_ErrorCode error = 0;
 
     UNREFERENCED_PARAMETER( argc );
     UNREFERENCED_PARAMETER( argv );
 
-    rpal_initialize( NULL, 1 );
-    CryptoLib_init();
-
-    CU_initialize_registry();
-
-    if( NULL != ( suite = CU_add_suite( "rpcm", NULL, NULL ) ) )
+    if( rpal_initialize( NULL, 1 ) &&
+        CryptoLib_init() )
     {
-        if( NULL == CU_add_test( suite, "createAndDestroy", test_CreateAndDestroy ) || 
-            NULL == CU_add_test( suite, "addAndRemove", test_AddAndRemove ) ||
-            NULL == CU_add_test( suite, "serializeAndDeserialize", test_SerialiseAndDeserialise ) ||
-            NULL == CU_add_test( suite, "duplicate", test_duplicate ) ||
-            NULL == CU_add_test( suite, "isEqual", test_isEqual ) ||
-            NULL == CU_add_test( suite, "complex", test_complex ) ||
-            NULL == CU_add_test( suite, "estimateSize", test_EstimateSize ) ||
-            NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
+        if( CUE_SUCCESS == ( error = CU_initialize_registry() ) )
         {
-            ret = 0;
+            if( NULL != ( suite = CU_add_suite( "rpcm", NULL, NULL ) ) )
+            {
+                if( NULL == CU_add_test( suite, "createAndDestroy", test_CreateAndDestroy ) ||
+                    NULL == CU_add_test( suite, "addAndRemove", test_AddAndRemove ) ||
+                    NULL == CU_add_test( suite, "serializeAndDeserialize", test_SerialiseAndDeserialise ) ||
+                    NULL == CU_add_test( suite, "duplicate", test_duplicate ) ||
+                    NULL == CU_add_test( suite, "isEqual", test_isEqual ) ||
+                    NULL == CU_add_test( suite, "complex", test_complex ) ||
+                    NULL == CU_add_test( suite, "estimateSize", test_EstimateSize ) ||
+                    NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
+                {
+                    rpal_debug_error( "%s", CU_get_error_msg() );
+                }
+                else
+                {
+                    CU_basic_run_tests();
+                    ret = CU_get_number_of_failures();
+                }
+            }
+
+            CU_cleanup_registry();
         }
+        else
+        {
+            rpal_debug_error( "could not init cunit: %d", error );
+        }
+
+        rpal_Context_deinitialize();
     }
-
-    CU_basic_run_tests();
-
-    CU_cleanup_registry();
-
-    rpal_Context_deinitialize();
+    else
+    {
+        printf( "error initializing rpal" );
+    }
 
     return ret;
 }

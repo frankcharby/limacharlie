@@ -1,6 +1,6 @@
 #! /bin/sh
 
-xcodebuild -project ./sensor/executables/hbs_kernel_acquisition/osx/hbs_kernel_acquisition.xcodeproj/
+xcodebuild $1 -project ./sensor/executables/hbs_kernel_acquisition/osx/hbs_kernel_acquisition.xcodeproj/
 
 mkdir -p ./sensor/bin/macosx/kernel
 rm -rf ./sensor/bin/macosx/kernel/*

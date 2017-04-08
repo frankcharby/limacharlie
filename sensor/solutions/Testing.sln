@@ -17,6 +17,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpal_test", "..\tests\rpal_test\rpal_test.vcxproj", "{8BA78796-7AF1-4A2A-9771-C97B0131E39F}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "processLib_test", "..\tests\processLib_test\processLib_test.vcxproj", "{0B5813D8-1085-C686-EFD5-D1E3101E235B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{55ED069A-2899-3DFA-CCCD-9036543E919F} = {55ED069A-2899-3DFA-CCCD-9036543E919F}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "processLib", "..\lib\processLib\processLib.vcxproj", "{55ED069A-2899-3DFA-CCCD-9036543E919F}"
 EndProject

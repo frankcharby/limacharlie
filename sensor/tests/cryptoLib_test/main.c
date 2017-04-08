@@ -416,39 +416,53 @@ int
         char* argv[]
     )
 {
-    int ret = 1;
+    int ret = -1;
 
     CU_pSuite suite = NULL;
+    CU_ErrorCode error = 0;
 
     UNREFERENCED_PARAMETER( argc );
     UNREFERENCED_PARAMETER( argv );
 
-    rpal_initialize( NULL, 1 );
-
-    CU_initialize_registry();
-
-    if( NULL != ( suite = CU_add_suite( "cryptoLib", NULL, NULL ) ) )
+    if( rpal_initialize( NULL, 1 ) )
     {
-        if( NULL == CU_add_test( suite, "initialize", test_init ) || 
-            NULL == CU_add_test( suite, "hashing", test_hashing ) ||
-            NULL == CU_add_test( suite, "file_hashing", test_file_hashing ) ||
-            NULL == CU_add_test( suite, "random", test_random_bytes ) ||
-            NULL == CU_add_test( suite, "sym_crypt", test_sym_encryption ) ||
-            NULL == CU_add_test( suite, "signature", test_sig ) ||
-            NULL == CU_add_test( suite, "asym_crypt", test_asym ) ||
-            NULL == CU_add_test( suite, "fast_asym", test_fast_asym ) ||
-            NULL == CU_add_test( suite, "deinitialize", test_deinit ) ||
-            NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
+        if( CUE_SUCCESS == ( error = CU_initialize_registry() ) )
         {
-            ret = 0;
+            if( NULL != ( suite = CU_add_suite( "cryptoLib", NULL, NULL ) ) )
+            {
+                if( NULL == CU_add_test( suite, "initialize", test_init ) ||
+                    NULL == CU_add_test( suite, "hashing", test_hashing ) ||
+                    NULL == CU_add_test( suite, "file_hashing", test_file_hashing ) ||
+                    NULL == CU_add_test( suite, "random", test_random_bytes ) ||
+                    NULL == CU_add_test( suite, "sym_crypt", test_sym_encryption ) ||
+                    NULL == CU_add_test( suite, "signature", test_sig ) ||
+                    NULL == CU_add_test( suite, "asym_crypt", test_asym ) ||
+                    NULL == CU_add_test( suite, "fast_asym", test_fast_asym ) ||
+                    NULL == CU_add_test( suite, "deinitialize", test_deinit ) ||
+                    NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
+                {
+                    rpal_debug_error( "%s", CU_get_error_msg() );
+                }
+                else
+                {
+                    CU_basic_run_tests();
+                    ret = CU_get_number_of_failures();
+                }
+            }
+
+            CU_cleanup_registry();
         }
+        else
+        {
+            rpal_debug_error( "could not init cunit: %d", error );
+        }
+
+        rpal_Context_deinitialize();
     }
-
-    CU_basic_run_tests();
-
-    CU_cleanup_registry();
-
-    rpal_Context_deinitialize();
+    else
+    {
+        printf( "error initializing rpal" );
+    }
 
     return ret;
 }

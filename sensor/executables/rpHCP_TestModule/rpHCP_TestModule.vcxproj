@@ -105,6 +105,9 @@
     <ClCompile Include="main.c" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\lib\librpcm\librpcm.vcxproj">
+      <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\lib\rpal\rpal.vcxproj">
       <Project>{c8461925-62d7-49ff-a7c7-6cb5f73fa441}</Project>
     </ProjectReference>

@@ -324,7 +324,7 @@ RBOOL
         IS_WITHIN_BOUNDS( pBlob->pData + startOffset, size, pBlob->pData, pBlob->sizeUsed ) &&
         rpal_memory_isValid( pBlob->pData ) )
     {
-        rpal_memory_memcpy( pBlob->pData + startOffset, pBlob->pData + startOffset + size, pBlob->sizeUsed - size - startOffset );
+        rpal_memory_memmove( pBlob->pData + startOffset, pBlob->pData + startOffset + size, pBlob->sizeUsed - size - startOffset );
         pBlob->sizeUsed -= size;
 
         if( rpal_memory_isValid( pBlob->pData ) )

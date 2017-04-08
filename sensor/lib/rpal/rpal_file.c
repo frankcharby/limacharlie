@@ -304,6 +304,11 @@ RBOOL
 
                     pFileInfo->size = ( (RU64) fileInfo.st_size );
                 }
+                else
+                {
+                    rpal_memory_zero( pFileInfo, sizeof( *pFileInfo ) );
+                    isSuccess = FALSE;
+                }
             }
 #endif
             rpal_memory_free( expFilePath );

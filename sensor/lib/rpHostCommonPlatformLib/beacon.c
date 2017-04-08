@@ -29,6 +29,13 @@ limitations under the License.
 #include <networkLib/networkLib.h>
 #include "git_info.h"
 
+#include <mbedtls/net.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/debug.h>
+#include <mbedtls/error.h>
+
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <dlfcn.h>
 #endif
@@ -38,8 +45,21 @@ limitations under the License.
 //=============================================================================
 //  Private defines and datastructures
 //=============================================================================
-#define FRAME_MAX_SIZE  (1024 * 1024 * 50)
+#define FRAME_MAX_SIZE      (1024 * 1024 * 50)
 #define CLOUD_SYNC_TIMEOUT  (MSEC_FROM_SEC(60 * 10))
+#define TLS_CONNECT_TIMEOUT (30)
+#define TLS_SEND_TIMEOUT    (60 * 1)
+#define TLS_RECV_TIMEOUT    (60 * 1)
+
+struct
+{
+    mbedtls_net_context server_fd;
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_ssl_context ssl;
+    mbedtls_ssl_config conf;
+    mbedtls_x509_crt cacert;
+} g_tlsConnection;
 
 //=============================================================================
 //  Helpers
@@ -174,27 +194,51 @@ RBOOL
     RBOOL isSent = FALSE;
     rBlob buffer = NULL;
     RU32 frameSize = 0;
+    RS32 mbedRet = 0;
+    RU32 toSend = 0;
+    RU32 totalSent = 0;
+    RPU8 buffToSend = NULL;
+    RTIME lastChunkSent = rpal_time_getLocal();
 
     if( NULL != pContext &&
         NULL != messages )
     {
         if( NULL != ( buffer = wrapFrame( moduleId, messages, isForAnotherSensor ) ) )
         {
-            if( CryptoLib_symEncrypt( buffer,
-                                      NULL, 
-                                      NULL,
-                                      pContext->session.symSendCtx ) &&
-                0 != ( frameSize = rpal_blob_getSize( buffer ) ) &&
+
+            if( 0 != ( frameSize = rpal_blob_getSize( buffer ) ) &&
                 0 != ( frameSize = rpal_hton32( frameSize ) ) &&
                 rpal_blob_insert( buffer, &frameSize, sizeof( frameSize ), 0 ) )
             {
-                if( NetLib_TcpSend( pContext->cloudConnection,
-                                    rpal_blob_getBuffer( buffer ), 
-                                    rpal_blob_getSize( buffer ), 
-                                    pContext->isBeaconTimeToStop ) )
+                toSend = rpal_blob_getSize( buffer );
+                buffToSend = rpal_blob_getBuffer( buffer );
+
+                do
                 {
-                    isSent = TRUE;
-                }
+                    if( 0 < ( mbedRet = mbedtls_ssl_write( pContext->cloudConnection,
+                                                           buffToSend + totalSent,
+                                                           toSend - totalSent ) ) )
+                    {
+                        totalSent += mbedRet;
+                        if( totalSent < toSend )
+                        {
+                            lastChunkSent = rpal_time_getLocal();
+                            continue;
+                        }
+
+                        isSent = TRUE;
+                        break;
+                    }
+                    else if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
+                             MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
+                    {
+                        break;
+                    }
+                    else if( rpal_time_getLocal() > lastChunkSent + TLS_SEND_TIMEOUT )
+                    {
+                        break;
+                    }
+                } while( !rEvent_wait( pContext->isBeaconTimeToStop, 100 ) );
             }
 
             rpal_blob_free( buffer );
@@ -217,71 +261,106 @@ RBOOL
     RBOOL isSuccess = FALSE;
     RU32 frameSize = 0;
     rBlob frame = NULL;
+    RS32 mbedRet = 0;
+    RU32 totalReceived = 0;
+    RTIME endTime = ( 0 == timeoutSec ? 0 : rpal_time_getLocal() + timeoutSec );
+    RTIME lastChunkReceived = 0;
 
     if( NULL != pContext &&
         NULL != targetModuleId &&
         NULL != pMessages )
     {
-        if( NetLib_TcpReceive( pContext->cloudConnection,
-                               &frameSize, 
-                               sizeof( frameSize ), 
-                               pContext->isBeaconTimeToStop,
-                               timeoutSec ) )
+        do
         {
+            if( 0 < ( mbedRet = mbedtls_ssl_read( pContext->cloudConnection,
+                                                  (RPU8)&frameSize + totalReceived,
+                                                  sizeof( frameSize ) - totalReceived ) ) )
+            {
+                totalReceived += mbedRet;
+                if( totalReceived < sizeof( frameSize ) )
+                {
+                    lastChunkReceived = rpal_time_getLocal();
+                    continue;
+                }
+
+                isSuccess = TRUE;
+                break;
+            }
+            else if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
+                     MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
+            {
+                break;
+            }
+            else if( 0 != lastChunkReceived && 
+                     rpal_time_getLocal() > lastChunkReceived + TLS_RECV_TIMEOUT )
+            {
+                break;
+            }
+        } while( !rEvent_wait( pContext->isBeaconTimeToStop, 100 ) &&
+                 ( 0 == endTime || rpal_time_getLocal() <= endTime ) );
+
+        if( isSuccess )
+        {
+            isSuccess = FALSE;
+
             frameSize = rpal_ntoh32( frameSize );
             if( FRAME_MAX_SIZE >= frameSize &&
+                0 != frameSize &&
                 NULL != ( frame = rpal_blob_create( frameSize, 0 ) ) &&
                 rpal_blob_add( frame, NULL, frameSize ) )
             {
-                if( NetLib_TcpReceive( pContext->cloudConnection,
-                                       rpal_blob_getBuffer( frame ),
-                                       rpal_blob_getSize( frame ),
-                                       pContext->isBeaconTimeToStop,
-                                       timeoutSec ) )
-                {
-                    if( CryptoLib_symDecrypt( frame, NULL, NULL, pContext->session.symRecvCtx ) &&
-                        NULL != rpal_blob_getBuffer( frame ) )
-                    {
-                        if( unwrapFrame( frame, targetModuleId, pMessages ) )
-                        {
-                            isSuccess = TRUE;
-                        }
-                        else
-                        {
-                            rpal_debug_warning( "failed to unwrap frame" );
-                        }
-                    }
-                    else
-                    {
-                        rpal_debug_warning( "failed to decrypt frame" );
-                    }
-                }
-                else
-                {
-                    rpal_debug_warning( "failed to receive frame %d bytes", rpal_blob_getSize( frame ) );
-                }
+                totalReceived = 0;
 
-                rpal_blob_free( frame );
+                do
+                {
+                    if( 0 < ( mbedRet = mbedtls_ssl_read( pContext->cloudConnection,
+                                                          (RPU8)rpal_blob_getBuffer( frame ) + totalReceived,
+                                                          frameSize - totalReceived ) ) )
+                    {
+                        totalReceived += mbedRet;
+                        if( totalReceived < frameSize )
+                        {
+                            continue;
+                        }
+
+                        isSuccess = TRUE;
+                        break;
+                    }
+                    else if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
+                             MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
+                    {
+                        break;
+                    }
+                } while( !rEvent_wait( pContext->isBeaconTimeToStop, 100 ) &&
+                         ( 0 == endTime || rpal_time_getLocal() <= endTime ) );
+            }
+        }
+
+        if( isSuccess )
+        {
+            isSuccess = FALSE;
+
+            if( unwrapFrame( frame, targetModuleId, pMessages ) )
+            {
+                isSuccess = TRUE;
             }
             else
             {
-                rpal_debug_warning( "frame size invalid" );
+                rpal_debug_warning( "failed to unwrap frame" );
             }
         }
-        else
-        {
-            rpal_debug_warning( "failed to get frame size" );
-        }
+
+        rpal_blob_free( frame );
     }
 
     return isSuccess;
 }
 
 RPRIVATE
-rSequence
+rList
     generateHeaders
     (
-
+        RBOOL isInitialGeneration
     )
 {
     rList wrapper = NULL;
@@ -299,23 +378,28 @@ rSequence
         {
             if( rList_addSEQUENCE( wrapper, headers ) )
             {
-                // First let's check if we have a crash context already present
-                // which would indicate we did not shut down properly
-                if( !acquireCrashContextPresent( &crashContext, &crashContextSize ) )
+                // We only check for crash contexts on the inital header generation after
+                // a startup since we will create a crash context right after.
+                if( isInitialGeneration )
                 {
-                    crashContext = NULL;
-                    crashContextSize = 0;
-                }
-                else
-                {
-                    rSequence_addBUFFER( headers, RP_TAGS_HCP_CRASH_CONTEXT, crashContext, crashContextSize );
-                    rpal_memory_free( crashContext );
-                    crashContext = NULL;
-                    crashContextSize = 0;
-                }
+                    // First let's check if we have a crash context already present
+                    // which would indicate we did not shut down properly
+                    if( !acquireCrashContextPresent( &crashContext, &crashContextSize ) )
+                    {
+                        crashContext = NULL;
+                        crashContextSize = 0;
+                    }
+                    else
+                    {
+                        rSequence_addBUFFER( headers, RP_TAGS_HCP_CRASH_CONTEXT, crashContext, crashContextSize );
+                        rpal_memory_free( crashContext );
+                        crashContext = NULL;
+                        crashContextSize = 0;
+                    }
 
-                // Set a default crashContext to be removed before exiting
-                setCrashContext( &defaultCrashContext, sizeof( defaultCrashContext ) );
+                    // Set a default crashContext to be removed before exiting
+                    setCrashContext( &defaultCrashContext, sizeof( defaultCrashContext ) );
+                }
 
                 // This is our identity
                 if( NULL != ( hcpId = hcpIdToSeq( g_hcpContext.currentId ) ) )
@@ -348,12 +432,6 @@ rSequence
 
                 // The current version running.
                 rSequence_addRU32( headers, RP_TAGS_PACKAGE_VERSION, GIT_REVISION );
-
-                // Deployment key as set in installer
-                if( NULL != g_hcpContext.deploymentKey )
-                {
-                    rSequence_addSTRINGA( headers, RP_TAGS_HCP_DEPLOYMENT_KEY, g_hcpContext.deploymentKey );
-                }
             }
             else
             {
@@ -490,19 +568,7 @@ RU32
         }
     } while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, timeout ) );
 
-    // We attempt to close the connection quickly, so either
-    // the beaconing thread gets to it first or we do.
     rEvent_unset( g_hcpContext.isCloudOnline );
-
-    if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
-    {
-        if( 0 != g_hcpContext.cloudConnection )
-        {
-            NetLib_TcpDisconnect( g_hcpContext.cloudConnection );
-            g_hcpContext.cloudConnection = 0;
-        }
-        rMutex_unlock( g_hcpContext.cloudConnectionMutex );
-    }
 
     return 0;
 }
@@ -523,8 +589,10 @@ RU32
     RU16 effectiveSecondaryPort = RP_HCP_CONFIG_HOME_PORT_SECONDARY;
     RPCHAR currentDest = NULL;
     RU16 currentPort = 0;
+    RCHAR currentPortStr[ 6 ] = { 0 };
     rThread syncThread = NULL;
-    
+    RBOOL isFirstConnection = TRUE;
+
     UNREFERENCED_PARAMETER( context );
 
     // Now load the various possible destinations
@@ -549,6 +617,8 @@ RU32
 
     currentDest = effectivePrimary;
     currentPort = effectivePrimaryPort;
+    if( 0 == currentPort ) currentPort = 443;
+    rpal_string_itosA( currentPort, currentPortStr, 10 );
 
     if( NULL == ( syncThread = rpal_thread_new( thread_sync, NULL ) ) )
     {
@@ -558,207 +628,224 @@ RU32
     
     while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, 0 ) )
     {
+        RBOOL isHandshakeComplete = FALSE;
+        RBOOL isHeadersSent = FALSE;
+
+        
+        RS32 mbedRet = 0;
+        RTIME tlsConnectTimeout = rpal_time_getLocal() + TLS_CONNECT_TIMEOUT;
+
         rMutex_lock( g_hcpContext.cloudConnectionMutex );
 
-        if( 0 != ( g_hcpContext.cloudConnection = NetLib_TcpConnect( currentDest, currentPort ) ) )
+        rpal_memory_zero( &g_tlsConnection, sizeof( g_tlsConnection ) );
+
+        mbedtls_net_init( &g_tlsConnection.server_fd );
+        mbedtls_ssl_init( &g_tlsConnection.ssl );
+        mbedtls_ssl_config_init( &g_tlsConnection.conf );
+        mbedtls_x509_crt_init( &g_tlsConnection.cacert );
+        mbedtls_ctr_drbg_init( &g_tlsConnection.ctr_drbg );
+        mbedtls_entropy_init( &g_tlsConnection.entropy );
+
+        if( 0 == ( mbedRet = mbedtls_ctr_drbg_seed( &g_tlsConnection.ctr_drbg,
+                                                    mbedtls_entropy_func,
+                                                    &g_tlsConnection.entropy,
+                                                    NULL,
+                                                    0 ) ) )
         {
-            RBOOL isHandshakeComplete = FALSE;
-            RBOOL isHeadersSent = FALSE;
-            RU8 key[ CRYPTOLIB_ASYM_2048_MIN_SIZE ] = { 0 };
-            RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ] = { 0 };
-
-            rpal_debug_info( "cloud connected" );
-
-            // Handshake and establish secure channel.
-            // Generate the session keys
-            if( CryptoLib_genRandomBytes( key,
-                                          CRYPTOLIB_SYM_KEY_SIZE ) &&
-                CryptoLib_genRandomBytes( iv,
-                                          sizeof( iv ) ) )
+            if( 0 == ( mbedRet = mbedtls_x509_crt_parse( &g_tlsConnection.cacert,
+                                                         getC2PublicKey(),
+                                                         rpal_string_strlenA( (RPCHAR)getC2PublicKey() ) + 1 ) ) )
             {
-                RPU8 handshake = NULL;
-                RU32 encryptedSize = 0;
-                if( CryptoLib_asymEncrypt( key,
-                                           CRYPTOLIB_SYM_KEY_SIZE,
-                                           getC2PublicKey(),
-                                           &handshake,
-                                           &encryptedSize ) )
+                mbedtls_ssl_conf_ca_chain( &g_tlsConnection.conf, &g_tlsConnection.cacert, NULL );
+
+                if( 0 == ( mbedRet = mbedtls_net_connect( &g_tlsConnection.server_fd,
+                                                          currentDest, 
+                                                          currentPortStr, 
+                                                          MBEDTLS_NET_PROTO_TCP ) ) )
                 {
-                    if( NULL != ( handshake = rpal_memory_reAlloc( handshake, encryptedSize + sizeof( iv ) ) ) )
+                    if( 0 == ( mbedRet = mbedtls_ssl_config_defaults( &g_tlsConnection.conf,
+                                                                      MBEDTLS_SSL_IS_CLIENT,
+                                                                      MBEDTLS_SSL_TRANSPORT_STREAM,
+                                                                      MBEDTLS_SSL_PRESET_DEFAULT ) ) )
                     {
-                        rpal_memory_memcpy( handshake + encryptedSize, iv, sizeof( iv ) );
-                        encryptedSize += sizeof( iv );
+                        mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, MBEDTLS_SSL_VERIFY_REQUIRED );
+                        mbedtls_ssl_conf_rng( &g_tlsConnection.conf, mbedtls_ctr_drbg_random, &g_tlsConnection.ctr_drbg );
 
-                        isHandshakeComplete = NetLib_TcpSend( g_hcpContext.cloudConnection,
-                                                              handshake,
-                                                              encryptedSize,
-                                                              g_hcpContext.isBeaconTimeToStop );
-
-                        if( isHandshakeComplete )
+                        if( 0 == ( mbedRet = mbedtls_ssl_setup( &g_tlsConnection.ssl, &g_tlsConnection.conf ) ) )
                         {
-                            rpal_debug_info( "handshake sent" );
-                            // Initialze the session symetric crypto
-                            if( NULL != ( g_hcpContext.session.symSendCtx = CryptoLib_symEncInitContext( key, iv ) ) &&
-                                NULL != ( g_hcpContext.session.symRecvCtx = CryptoLib_symDecInitContext( key, iv ) ) )
+                            mbedtls_ssl_set_bio( &g_tlsConnection.ssl,
+                                                 &g_tlsConnection.server_fd,
+                                                 mbedtls_net_send,
+                                                 mbedtls_net_recv,
+                                                 NULL );
+
+                            mbedtls_net_set_nonblock( &g_tlsConnection.server_fd );
+
+                            while( 0 != ( mbedRet = mbedtls_ssl_handshake( &g_tlsConnection.ssl ) ) )
                             {
-                                RPU8 handshakeResponse = NULL;
-                                RU32 handshakeResponseSize = 0;
-                                RpHcp_ModuleId tmpModuleId = 0;
-                                rList messages = NULL;
-                                rSequence message = NULL;
-
-                                // The handshake response is supposed to be a single message
-                                // that contains a buffer with whatever was sent initially.
-                                isHandshakeComplete = recvFrame( &g_hcpContext, &tmpModuleId, &messages, 5 );
-
-                                if( isHandshakeComplete )
+                                if( ( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
+                                      MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet ) ||
+                                    rEvent_wait( g_hcpContext.isBeaconTimeToStop, 100 ) ||
+                                    rpal_time_getLocal() > tlsConnectTimeout )
                                 {
-                                    if( !rList_getSEQUENCE( messages, RP_TAGS_MESSAGE, &message ) ||
-                                        !rSequence_getBUFFER( message,
-                                                              RP_TAGS_BINARY,
-                                                              &handshakeResponse,
-                                                              &handshakeResponseSize ) ||
-                                        handshakeResponseSize != encryptedSize ||
-                                        0 != rpal_memory_memcmp( handshakeResponse,
-                                                                 handshake,
-                                                                 handshakeResponseSize ) )
-                                    {
-                                        isHandshakeComplete = FALSE;
-                                        rpal_debug_warning( "handshake respone content invalid" );
-                                    }
+                                    break;
+                                }
+                            }
 
-                                    rList_free( messages );
+                            if( 0 == mbedRet )
+                            {
+                                if( 0 == ( mbedRet = mbedtls_ssl_get_verify_result( &g_tlsConnection.ssl ) ) )
+                                {
+                                    isHandshakeComplete = TRUE;
+                                    g_hcpContext.cloudConnection = &g_tlsConnection.ssl;
+                                    rpal_debug_info( "TLS handshake complete." );
                                 }
                                 else
                                 {
-                                    rpal_debug_warning( "failed to receive handshake response" );
+                                    rpal_debug_error( "failed to validate remote certificate: %d", mbedRet );
                                 }
                             }
-                        }
-
-                        rpal_memory_free( handshake );
-                    }
-                }
-            }
-
-            if( isHandshakeComplete )
-            {
-                // Send the headers
-                rSequence headers = generateHeaders();
-                rpal_debug_info( "handshake received" );
-                if( NULL != headers )
-                {
-                    if( sendFrame( &g_hcpContext, RP_HCP_MODULE_ID_HCP, headers, FALSE ) )
-                    {
-                        rpal_debug_info( "headers sent" );
-                        isHeadersSent = TRUE;
-                    }
-
-                    rSequence_free( headers );
-                }
-            }
-            else
-            {
-                rpal_debug_warning( "failed to handshake" );
-            }
-
-            if( !isHeadersSent )
-            {
-                rpal_debug_warning( "failed to send headers" );
-
-                // Clean up all crypto primitives
-                CryptoLib_symFreeContext( g_hcpContext.session.symSendCtx );
-                g_hcpContext.session.symSendCtx = NULL;
-                CryptoLib_symFreeContext( g_hcpContext.session.symRecvCtx );
-                g_hcpContext.session.symRecvCtx = NULL;
-
-                // We failed to truly establish the connection so we'll reset.
-                NetLib_TcpDisconnect( g_hcpContext.cloudConnection );
-                g_hcpContext.cloudConnection = 0;
-            }
-
-            rMutex_unlock( g_hcpContext.cloudConnectionMutex );
-
-            if( 0 != g_hcpContext.cloudConnection )
-            {
-                // Notify the modules of the connect.
-                RU32 moduleIndex = 0;
-                rpal_debug_info( "comms channel up with the cloud" );
-
-                // Secure channel is up and running, start receiving messages.
-                rEvent_set( g_hcpContext.isCloudOnline );
-
-                do
-                {
-                    rList messages = NULL;
-                    rSequence message = NULL;
-                    RpHcp_ModuleId targetModuleId = 0;
-
-                    if( !recvFrame( &g_hcpContext, &targetModuleId, &messages, 0 ) )
-                    {
-                        rpal_debug_warning( "error receiving frame" );
-                        break;
-                    }
-
-                    // HCP is not a module so check manually
-                    if( RP_HCP_MODULE_ID_HCP == targetModuleId )
-                    {
-                        while( rList_getSEQUENCE( messages, RP_TAGS_MESSAGE, &message ) )
-                        {
-                            processMessage( message );
+                            else
+                            {
+                                rpal_debug_error( "TLS handshake failed: %d", mbedRet );
+                            }
                         }
                     }
                     else
                     {
-                        // Look for the module this message is destined to
-                        for( moduleIndex = 0; moduleIndex < ARRAY_N_ELEM( g_hcpContext.modules ); moduleIndex++ )
-                        {
-                            if( targetModuleId == g_hcpContext.modules[ moduleIndex ].id )
-                            {
-                                if( NULL != g_hcpContext.modules[ moduleIndex ].func_recvMessage )
-                                {
-                                    while( rList_getSEQUENCE( messages, RP_TAGS_MESSAGE, &message ) )
-                                    {
-                                        g_hcpContext.modules[ moduleIndex ].func_recvMessage( message );
-                                    }
-                                }
-
-                                break;
-                            }
-                        }
+                        rpal_debug_error( "error setting TLS defaults: %d", mbedRet );
                     }
-
-                    rList_free( messages );
-                } while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, 0 ) );
-
-                rEvent_unset( g_hcpContext.isCloudOnline );
-
-                if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
-                {
-                    if( 0 != g_hcpContext.cloudConnection )
-                    {
-                        NetLib_TcpDisconnect( g_hcpContext.cloudConnection );
-                        g_hcpContext.cloudConnection = 0;
-                    }
-                    rMutex_unlock( g_hcpContext.cloudConnectionMutex );
                 }
-
-                rpal_debug_info( "comms with cloud down" );
+                else
+                {
+                    rpal_debug_error( "error connecting over TLS: %d", mbedRet );
+                }
+            }
+            else
+            {
+                rpal_debug_error( "error parsing C2 cert: %d", mbedRet );
             }
         }
         else
         {
-            rMutex_unlock( g_hcpContext.cloudConnectionMutex );
+            rpal_debug_error( "failed to seed random number generator: %d", mbedRet );
+        }
+        
+        if( isHandshakeComplete )
+        {
+            // Send the headers
+            rList headers = generateHeaders( isFirstConnection );
+            isFirstConnection = FALSE;
+            if( NULL != headers )
+            {
+                if( sendFrame( &g_hcpContext, RP_HCP_MODULE_ID_HCP, headers, FALSE ) )
+                {
+                    isHeadersSent = TRUE;
+                }
+
+                rList_free( headers );
+            }
+        }
+        else
+        {
+            rpal_debug_warning( "failed to handshake" );
         }
 
-        // Clean up all crypto primitives
-        CryptoLib_symFreeContext( g_hcpContext.session.symSendCtx );
-        g_hcpContext.session.symSendCtx = NULL;
-        CryptoLib_symFreeContext( g_hcpContext.session.symRecvCtx );
-        g_hcpContext.session.symRecvCtx = NULL;
+        if( !isHeadersSent )
+        {
+            rpal_debug_warning( "failed to send headers" );
+
+            // Clean up all crypto primitives
+            mbedtls_net_free( &g_tlsConnection.server_fd );
+            mbedtls_x509_crt_free( &g_tlsConnection.cacert );
+            mbedtls_ssl_free( &g_tlsConnection.ssl );
+            mbedtls_ssl_config_free( &g_tlsConnection.conf );
+            mbedtls_ctr_drbg_free( &g_tlsConnection.ctr_drbg );
+            mbedtls_entropy_free( &g_tlsConnection.entropy );
+
+            // We failed to truly establish the connection so we'll reset.
+            g_hcpContext.cloudConnection = NULL;
+        }
+
+        rMutex_unlock( g_hcpContext.cloudConnectionMutex );
+
+        if( NULL != g_hcpContext.cloudConnection )
+        {
+            // Notify the modules of the connect.
+            RU32 moduleIndex = 0;
+            rpal_debug_info( "comms channel up with the cloud" );
+
+            // Secure channel is up and running, start receiving messages.
+            rEvent_set( g_hcpContext.isCloudOnline );
+
+            do
+            {
+                rList messages = NULL;
+                rSequence message = NULL;
+                RpHcp_ModuleId targetModuleId = 0;
+
+                if( !recvFrame( &g_hcpContext, &targetModuleId, &messages, 0 ) )
+                {
+                    rpal_debug_warning( "error receiving frame" );
+                    break;
+                }
+
+                // HCP is not a module so check manually
+                if( RP_HCP_MODULE_ID_HCP == targetModuleId )
+                {
+                    while( rList_getSEQUENCE( messages, RP_TAGS_MESSAGE, &message ) )
+                    {
+                        processMessage( message );
+                    }
+                }
+                else
+                {
+                    // Look for the module this message is destined to
+                    for( moduleIndex = 0; moduleIndex < ARRAY_N_ELEM( g_hcpContext.modules ); moduleIndex++ )
+                    {
+                        if( targetModuleId == g_hcpContext.modules[ moduleIndex ].id )
+                        {
+                            if( NULL != g_hcpContext.modules[ moduleIndex ].func_recvMessage )
+                            {
+                                while( rList_getSEQUENCE( messages, RP_TAGS_MESSAGE, &message ) )
+                                {
+                                    g_hcpContext.modules[ moduleIndex ].func_recvMessage( message );
+                                }
+                            }
+
+                            break;
+                        }
+                    }
+                }
+
+                rList_free( messages );
+            } while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, 0 ) );
+
+            rEvent_unset( g_hcpContext.isCloudOnline );
+
+            if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
+            {
+                if( NULL != g_hcpContext.cloudConnection )
+                {
+                    mbedtls_net_free( &g_tlsConnection.server_fd );
+                    mbedtls_x509_crt_free( &g_tlsConnection.cacert );
+                    mbedtls_ssl_free( &g_tlsConnection.ssl );
+                    mbedtls_ssl_config_free( &g_tlsConnection.conf );
+                    mbedtls_ctr_drbg_free( &g_tlsConnection.ctr_drbg );
+                    mbedtls_entropy_free( &g_tlsConnection.entropy );
+
+                    g_hcpContext.cloudConnection = NULL;
+                }
+
+                rMutex_unlock( g_hcpContext.cloudConnectionMutex );
+            }
+
+            rpal_debug_info( "comms with cloud down" );
+        }
 
         rEvent_wait( g_hcpContext.isBeaconTimeToStop, MSEC_FROM_SEC( 10 ) );
         rpal_debug_warning( "failed connecting, cycling destination" );
+
         if( currentDest == effectivePrimary )
         {
             currentDest = effectiveSecondary;
@@ -769,6 +856,8 @@ RU32
             currentDest = effectivePrimary;
             currentPort = effectivePrimaryPort;
         }
+        if( 0 == currentPort ) currentPort = 443;
+        rpal_string_itosA( currentPort, currentPortStr, 10 );
     }
 
     rpal_thread_wait( syncThread, MSEC_FROM_SEC( 10 ) );
@@ -848,7 +937,10 @@ RBOOL
 
     if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
     {
-        isSuccess = sendFrame( &g_hcpContext, sourceModuleId, toSend, FALSE );
+        if( FALSE == ( isSuccess = sendFrame( &g_hcpContext, sourceModuleId, toSend, FALSE ) ) )
+        {
+            mbedtls_net_free( &g_tlsConnection.server_fd );
+        }
 
         rMutex_unlock( g_hcpContext.cloudConnectionMutex );
     }

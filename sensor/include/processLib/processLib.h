@@ -108,6 +108,12 @@ RU32
 
     );
 
+RPNCHAR
+    processLib_getCurrentModulePath
+    (
+    
+    );
+
 #define processLib_getProcessEnvironment( pid )    processLib_getProcessEnvironment_from( pid, RPAL_LINE_SUBTAG )
 rList
     processLib_getProcessEnvironment_from
