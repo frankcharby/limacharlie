@@ -107,7 +107,7 @@ RBOOL
                 if( rpal_string_stoi( (RPCHAR)finfo.fileName, &( toSnapshot[ i ].pid ) )
                     && 0 != toSnapshot[ i ].pid )
                 {
-                    toSnapshot[ i ] = NO_PARENT_PID;
+                    toSnapshot[ i ].ppid = NO_PARENT_PID;
                     i++;
                 }
             }
