@@ -18,7 +18,7 @@ limitations under the License.
 #define _DEPLOYMENTS_H
 
 // Uncomment to always run a Post On Self Test of HBS.
-#define HBS_POWER_ON_SELF_TEST
+//#define HBS_POWER_ON_SELF_TEST
 
 #endif
 
