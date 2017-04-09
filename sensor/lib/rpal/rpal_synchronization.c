@@ -443,10 +443,15 @@ RBOOL
         gettimeofday( &cur_time, &ts );
         
         abs_time.tv_sec = cur_time.tv_sec;
-        abs_time.tv_nsec = cur_time.tv_usec / 1000;
+        abs_time.tv_nsec = cur_time.tv_usec * 1000;
         
         abs_time.tv_sec += ( timeout / 1000 );
         abs_time.tv_nsec += ( ( timeout % 1000 ) * 1000000 );
+        if( abs_time.tv_nsec >= 1000000000 )
+        {
+            abs_time.tv_sec += ( abs_time.tv_nsec / 1000000000 );
+            abs_time.tv_nsec = abs_time.tv_nsec % 1000000000;
+        }
         
         if( 0 == pthread_mutex_lock( &evt->hMutex ) )
         {
