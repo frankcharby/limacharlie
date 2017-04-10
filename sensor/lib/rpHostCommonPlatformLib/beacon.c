@@ -51,6 +51,7 @@ limitations under the License.
 #define TLS_SEND_TIMEOUT    (60 * 1)
 #define TLS_RECV_TIMEOUT    (60 * 1)
 
+RPRIVATE
 struct
 {
     mbedtls_net_context server_fd;
@@ -60,6 +61,8 @@ struct
     mbedtls_ssl_config conf;
     mbedtls_x509_crt cacert;
 } g_tlsConnection;
+
+RPRIVATE rMutex g_tlsMutex = NULL;;
 
 //=============================================================================
 //  Helpers
@@ -196,16 +199,14 @@ RBOOL
     RU32 frameSize = 0;
     RS32 mbedRet = 0;
     RU32 toSend = 0;
-    RU32 totalSent = 0;
     RPU8 buffToSend = NULL;
-    RTIME lastChunkSent = rpal_time_getLocal();
+    RU32 offset = 0;
 
     if( NULL != pContext &&
         NULL != messages )
     {
         if( NULL != ( buffer = wrapFrame( moduleId, messages, isForAnotherSensor ) ) )
         {
-
             if( 0 != ( frameSize = rpal_blob_getSize( buffer ) ) &&
                 0 != ( frameSize = rpal_hton32( frameSize ) ) &&
                 rpal_blob_insert( buffer, &frameSize, sizeof( frameSize ), 0 ) )
@@ -215,26 +216,26 @@ RBOOL
 
                 do
                 {
-                    if( 0 < ( mbedRet = mbedtls_ssl_write( pContext->cloudConnection,
-                                                           buffToSend + totalSent,
-                                                           toSend - totalSent ) ) )
-                    {
-                        totalSent += mbedRet;
-                        if( totalSent < toSend )
-                        {
-                            lastChunkSent = rpal_time_getLocal();
-                            continue;
-                        }
+                    mbedRet = 0;
 
-                        isSent = TRUE;
-                        break;
+                    if( rMutex_lock( g_tlsMutex ) )
+                    {
+                        mbedRet = mbedtls_ssl_write( &g_tlsConnection.ssl, buffToSend + offset, toSend - offset );
+
+                        rMutex_unlock( g_tlsMutex );
+                    }
+
+                    if( 0 < mbedRet )
+                    {
+                        offset += mbedRet;
+                        if( offset == toSend )
+                        {
+                            isSent = TRUE;
+                            break;
+                        }
                     }
                     else if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
                              MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
-                    {
-                        break;
-                    }
-                    else if( rpal_time_getLocal() > lastChunkSent + TLS_SEND_TIMEOUT )
                     {
                         break;
                     }
@@ -262,37 +263,40 @@ RBOOL
     RU32 frameSize = 0;
     rBlob frame = NULL;
     RS32 mbedRet = 0;
-    RU32 totalReceived = 0;
+    RU32 offset = 0;
     RTIME endTime = ( 0 == timeoutSec ? 0 : rpal_time_getLocal() + timeoutSec );
-    RTIME lastChunkReceived = 0;
-
+    
     if( NULL != pContext &&
         NULL != targetModuleId &&
         NULL != pMessages )
     {
         do
         {
-            if( 0 < ( mbedRet = mbedtls_ssl_read( pContext->cloudConnection,
-                                                  (RPU8)&frameSize + totalReceived,
-                                                  sizeof( frameSize ) - totalReceived ) ) )
-            {
-                totalReceived += mbedRet;
-                if( totalReceived < sizeof( frameSize ) )
-                {
-                    lastChunkReceived = rpal_time_getLocal();
-                    continue;
-                }
+            mbedRet = 0;
 
-                isSuccess = TRUE;
+            if( rMutex_lock( g_tlsMutex ) )
+            {
+                mbedRet = mbedtls_ssl_read( &g_tlsConnection.ssl, (RPU8)&frameSize + offset, sizeof( frameSize ) - offset );
+
+                rMutex_unlock( g_tlsMutex );
+            }
+
+            if( 0 < mbedRet )
+            {
+                offset += mbedRet;
+                if( offset == sizeof( frameSize ) )
+                {
+                    isSuccess = TRUE;
+                    break;
+                }
+            }
+            else if( 0 == mbedRet ||
+                     MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY  == mbedRet )
+            {
                 break;
             }
             else if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
                      MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
-            {
-                break;
-            }
-            else if( 0 != lastChunkReceived && 
-                     rpal_time_getLocal() > lastChunkReceived + TLS_RECV_TIMEOUT )
             {
                 break;
             }
@@ -302,6 +306,7 @@ RBOOL
         if( isSuccess )
         {
             isSuccess = FALSE;
+            offset = 0;
 
             frameSize = rpal_ntoh32( frameSize );
             if( FRAME_MAX_SIZE >= frameSize &&
@@ -309,21 +314,29 @@ RBOOL
                 NULL != ( frame = rpal_blob_create( frameSize, 0 ) ) &&
                 rpal_blob_add( frame, NULL, frameSize ) )
             {
-                totalReceived = 0;
-
                 do
                 {
-                    if( 0 < ( mbedRet = mbedtls_ssl_read( pContext->cloudConnection,
-                                                          (RPU8)rpal_blob_getBuffer( frame ) + totalReceived,
-                                                          frameSize - totalReceived ) ) )
-                    {
-                        totalReceived += mbedRet;
-                        if( totalReceived < frameSize )
-                        {
-                            continue;
-                        }
+                    mbedRet = 0;
 
-                        isSuccess = TRUE;
+                    if( rMutex_lock( g_tlsMutex ) )
+                    {
+                        mbedRet = mbedtls_ssl_read( &g_tlsConnection.ssl, (RPU8)rpal_blob_getBuffer( frame ) + offset, frameSize - offset );
+
+                        rMutex_unlock( g_tlsMutex );
+                    }
+
+                    if( 0 < mbedRet )
+                    {
+                        offset += mbedRet;
+                        if( offset == frameSize )
+                        {
+                            isSuccess = TRUE;
+                            break;
+                        }
+                    }
+                    else if( 0 == mbedRet ||
+                        MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY == mbedRet )
+                    {
                         break;
                     }
                     else if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
@@ -635,7 +648,7 @@ RU32
         RS32 mbedRet = 0;
         RTIME tlsConnectTimeout = rpal_time_getLocal() + TLS_CONNECT_TIMEOUT;
 
-        rMutex_lock( g_hcpContext.cloudConnectionMutex );
+        rMutex_lock( g_tlsMutex );
 
         rpal_memory_zero( &g_tlsConnection, sizeof( g_tlsConnection ) );
 
@@ -656,19 +669,20 @@ RU32
                                                          getC2PublicKey(),
                                                          rpal_string_strlenA( (RPCHAR)getC2PublicKey() ) + 1 ) ) )
             {
-                mbedtls_ssl_conf_ca_chain( &g_tlsConnection.conf, &g_tlsConnection.cacert, NULL );
-
                 if( 0 == ( mbedRet = mbedtls_net_connect( &g_tlsConnection.server_fd,
                                                           currentDest, 
                                                           currentPortStr, 
                                                           MBEDTLS_NET_PROTO_TCP ) ) )
                 {
+                    mbedtls_net_set_nonblock( &g_tlsConnection.server_fd );
+
                     if( 0 == ( mbedRet = mbedtls_ssl_config_defaults( &g_tlsConnection.conf,
                                                                       MBEDTLS_SSL_IS_CLIENT,
                                                                       MBEDTLS_SSL_TRANSPORT_STREAM,
                                                                       MBEDTLS_SSL_PRESET_DEFAULT ) ) )
                     {
                         mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, MBEDTLS_SSL_VERIFY_REQUIRED );
+                        mbedtls_ssl_conf_ca_chain( &g_tlsConnection.conf, &g_tlsConnection.cacert, NULL );
                         mbedtls_ssl_conf_rng( &g_tlsConnection.conf, mbedtls_ctr_drbg_random, &g_tlsConnection.ctr_drbg );
 
                         if( 0 == ( mbedRet = mbedtls_ssl_setup( &g_tlsConnection.ssl, &g_tlsConnection.conf ) ) )
@@ -678,8 +692,6 @@ RU32
                                                  mbedtls_net_send,
                                                  mbedtls_net_recv,
                                                  NULL );
-
-                            mbedtls_net_set_nonblock( &g_tlsConnection.server_fd );
 
                             while( 0 != ( mbedRet = mbedtls_ssl_handshake( &g_tlsConnection.ssl ) ) )
                             {
@@ -697,7 +709,6 @@ RU32
                                 if( 0 == ( mbedRet = mbedtls_ssl_get_verify_result( &g_tlsConnection.ssl ) ) )
                                 {
                                     isHandshakeComplete = TRUE;
-                                    g_hcpContext.cloudConnection = &g_tlsConnection.ssl;
                                     rpal_debug_info( "TLS handshake complete." );
                                 }
                                 else
@@ -730,6 +741,8 @@ RU32
         {
             rpal_debug_error( "failed to seed random number generator: %d", mbedRet );
         }
+
+        rMutex_unlock( g_tlsMutex );
         
         if( isHandshakeComplete )
         {
@@ -754,8 +767,10 @@ RU32
         if( !isHeadersSent )
         {
             rpal_debug_warning( "failed to send headers" );
+            rMutex_lock( g_tlsMutex );
 
             // Clean up all crypto primitives
+            mbedtls_ssl_close_notify( &g_tlsConnection.ssl );
             mbedtls_net_free( &g_tlsConnection.server_fd );
             mbedtls_x509_crt_free( &g_tlsConnection.cacert );
             mbedtls_ssl_free( &g_tlsConnection.ssl );
@@ -763,13 +778,10 @@ RU32
             mbedtls_ctr_drbg_free( &g_tlsConnection.ctr_drbg );
             mbedtls_entropy_free( &g_tlsConnection.entropy );
 
-            // We failed to truly establish the connection so we'll reset.
-            g_hcpContext.cloudConnection = NULL;
+            rMutex_unlock( g_tlsMutex );
         }
 
-        rMutex_unlock( g_hcpContext.cloudConnectionMutex );
-
-        if( NULL != g_hcpContext.cloudConnection )
+        if( isHeadersSent )
         {
             // Notify the modules of the connect.
             RU32 moduleIndex = 0;
@@ -823,21 +835,17 @@ RU32
 
             rEvent_unset( g_hcpContext.isCloudOnline );
 
-            if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
+            if( rMutex_lock( g_tlsMutex ) )
             {
-                if( NULL != g_hcpContext.cloudConnection )
-                {
-                    mbedtls_net_free( &g_tlsConnection.server_fd );
-                    mbedtls_x509_crt_free( &g_tlsConnection.cacert );
-                    mbedtls_ssl_free( &g_tlsConnection.ssl );
-                    mbedtls_ssl_config_free( &g_tlsConnection.conf );
-                    mbedtls_ctr_drbg_free( &g_tlsConnection.ctr_drbg );
-                    mbedtls_entropy_free( &g_tlsConnection.entropy );
+                mbedtls_ssl_close_notify( &g_tlsConnection.ssl );
+                mbedtls_net_free( &g_tlsConnection.server_fd );
+                mbedtls_x509_crt_free( &g_tlsConnection.cacert );
+                mbedtls_ssl_free( &g_tlsConnection.ssl );
+                mbedtls_ssl_config_free( &g_tlsConnection.conf );
+                mbedtls_ctr_drbg_free( &g_tlsConnection.ctr_drbg );
+                mbedtls_entropy_free( &g_tlsConnection.entropy );
 
-                    g_hcpContext.cloudConnection = NULL;
-                }
-
-                rMutex_unlock( g_hcpContext.cloudConnectionMutex );
+                rMutex_unlock( g_tlsMutex );
             }
 
             rpal_debug_info( "comms with cloud down" );
@@ -881,16 +889,21 @@ RBOOL
 
     if( NULL != g_hcpContext.isBeaconTimeToStop )
     {
-        g_hcpContext.hBeaconThread = rpal_thread_new( thread_conn, NULL );
+        if( NULL != ( g_tlsMutex = rMutex_create() ) )
+        {
+            g_hcpContext.hBeaconThread = rpal_thread_new( thread_conn, NULL );
 
-        if( 0 != g_hcpContext.hBeaconThread )
-        {
-            isSuccess = TRUE;
-        }
-        else
-        {
-            rEvent_free( g_hcpContext.isBeaconTimeToStop );
-            g_hcpContext.isBeaconTimeToStop = NULL;
+            if( 0 != g_hcpContext.hBeaconThread )
+            {
+                isSuccess = TRUE;
+            }
+            else
+            {
+                rMutex_free( g_tlsMutex );
+                g_tlsMutex = NULL;
+                rEvent_free( g_hcpContext.isBeaconTimeToStop );
+                g_hcpContext.isBeaconTimeToStop = NULL;
+            }
         }
     }
 
@@ -921,6 +934,8 @@ RBOOL
 
         rEvent_free( g_hcpContext.isBeaconTimeToStop );
         g_hcpContext.isBeaconTimeToStop = NULL;
+        rMutex_free( g_tlsMutex );
+        g_tlsMutex = NULL;
     }
 
     return isSuccess;
@@ -935,14 +950,9 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-    if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
+    if( rEvent_wait( g_hcpContext.isCloudOnline, 0 ) )
     {
-        if( FALSE == ( isSuccess = sendFrame( &g_hcpContext, sourceModuleId, toSend, FALSE ) ) )
-        {
-            mbedtls_net_free( &g_tlsConnection.server_fd );
-        }
-
-        rMutex_unlock( g_hcpContext.cloudConnectionMutex );
+        isSuccess = sendFrame( &g_hcpContext, sourceModuleId, toSend, FALSE );
     }
 
     return isSuccess;

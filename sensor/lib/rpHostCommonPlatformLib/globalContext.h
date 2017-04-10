@@ -79,9 +79,7 @@ typedef struct
     RU16 secondaryPort;
 
     // Current Connection
-    rMutex cloudConnectionMutex;
     rEvent isCloudOnline;
-    mbedtls_ssl_context* cloudConnection;
 
     // Modules Management
     rpHCPModuleInfo modules[ RP_HCP_CONTEXT_MAX_MODULES ];
