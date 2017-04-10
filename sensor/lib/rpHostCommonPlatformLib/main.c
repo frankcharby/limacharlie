@@ -262,11 +262,9 @@ RBOOL
         {
             CryptoLib_init();
 
-            if( NULL == ( g_hcpContext.cloudConnectionMutex = rMutex_create() ) ||
-                NULL == ( g_hcpContext.isCloudOnline = rEvent_create( TRUE ) ) )
+            if( NULL == ( g_hcpContext.isCloudOnline = rEvent_create( TRUE ) ) )
             {
-                rMutex_free( g_hcpContext.cloudConnectionMutex );
-                rpal_debug_error( "could not create cloud connection mutex or event" );
+                rpal_debug_error( "could not create cloud connection event" );
                 return FALSE;
             }
 
@@ -396,9 +394,7 @@ RBOOL
         SetConsoleCtrlHandler( (PHANDLER_ROUTINE)ctrlHandler, FALSE );
 #endif
 
-        rMutex_free( g_hcpContext.cloudConnectionMutex );
         rEvent_free( g_hcpContext.isCloudOnline );
-        g_hcpContext.cloudConnectionMutex = NULL;
         g_hcpContext.isCloudOnline = NULL;
 
         rpal_Context_cleanup();

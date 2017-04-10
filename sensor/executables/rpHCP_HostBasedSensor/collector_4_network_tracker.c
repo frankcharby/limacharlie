@@ -505,6 +505,8 @@ RBOOL
 
     if( NULL != hbsState )
     {
+        g_is_kernel_failure = FALSE;
+
         if( rThreadPool_task( hbsState->hThreadPool, networkDiffThread, NULL ) )
         {
             isSuccess = TRUE;
