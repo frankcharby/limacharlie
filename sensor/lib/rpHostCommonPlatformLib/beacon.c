@@ -741,6 +741,8 @@ RU32
         {
             rpal_debug_error( "failed to seed random number generator: %d", mbedRet );
         }
+
+        rMutex_unlock( g_tlsMutex );
         
         if( isHandshakeComplete )
         {
@@ -765,6 +767,7 @@ RU32
         if( !isHeadersSent )
         {
             rpal_debug_warning( "failed to send headers" );
+            rMutex_lock( g_tlsMutex );
 
             // Clean up all crypto primitives
             mbedtls_ssl_close_notify( &g_tlsConnection.ssl );
@@ -774,9 +777,9 @@ RU32
             mbedtls_ssl_config_free( &g_tlsConnection.conf );
             mbedtls_ctr_drbg_free( &g_tlsConnection.ctr_drbg );
             mbedtls_entropy_free( &g_tlsConnection.entropy );
-        }
 
-        rMutex_unlock( g_tlsMutex );
+            rMutex_unlock( g_tlsMutex );
+        }
 
         if( isHeadersSent )
         {
