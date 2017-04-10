@@ -312,6 +312,11 @@ RU32
         rMutex_unlock( g_km_mutex );
     }
 
+    if( 0 != error )
+    {
+        rpal_debug_warning( "kernel error: %d", error );
+    }
+
     return error;
 }
 
