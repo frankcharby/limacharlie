@@ -114,10 +114,12 @@ RBOOL
 }
 
 RBOOL
-    atoms_query
+    atoms_query_from
     (
         Atom* pAtom,
-        RU64 atTime
+        RU64 atTime,
+        RU32 fromFileId,
+        RU32 fromLineNumber
     )
 {
     RBOOL isSuccess = FALSE;
@@ -127,7 +129,7 @@ RBOOL
         isSuccess = rpal_btree_search( g_atoms, pAtom, pAtom, FALSE );
         if( !isSuccess )
         {
-            rpal_debug_warning( "atom not found" );
+            rpal_debug_warning( "atom not found (%d:%d)", fromFileId, fromLineNumber );
         }
         else if( 0 != atTime &&
                  0 != pAtom->expiredOn &&
