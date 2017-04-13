@@ -24,8 +24,6 @@ limitations under the License.
 
 #define RPAL_FILE_ID          67
 
-RPRIVATE RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
-
 RPRIVATE RBOOL g_is_create_enabled = TRUE;
 RPRIVATE RBOOL g_is_delete_enabled = TRUE;
 RPRIVATE RBOOL g_is_modified_enabled = TRUE;
@@ -93,8 +91,7 @@ RPVOID
     {
         while( rpal_memory_isValid( isTimeToStop ) &&
                !rEvent_wait( isTimeToStop, 0 ) &&
-               ( !kAcq_isAvailable() ||
-                 g_is_kernel_failure ) )
+               !kAcq_isAvailable() )
         {
             event = RP_TAGS_INVALID;
 
@@ -169,7 +166,6 @@ RPVOID
         if( !kAcq_getNewFileIo( new_from_kernel, &nScratch ) )
         {
             rpal_debug_warning( "kernel acquisition for new file io failed" );
-            g_is_kernel_failure = TRUE;
             break;
         }
 
@@ -250,8 +246,7 @@ RPVOID
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
-        if( kAcq_isAvailable() &&
-            !g_is_kernel_failure )
+        if( kAcq_isAvailable() )
         {
             // We first attempt to get new fileio through
             // the kernel mode acquisition driver
@@ -296,8 +291,6 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        g_is_kernel_failure = FALSE;
-
         if( rSequence_getLIST( config, RP_TAGS_IS_DISABLED, &disabledList ) )
         {
             while( rList_getRU32( disabledList, RP_TAGS_IS_DISABLED, &tagDisabled ) )

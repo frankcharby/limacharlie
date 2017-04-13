@@ -43,9 +43,6 @@ typedef struct
     RU32 ppid;
 } processEntry;
 
-RPRIVATE RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
-
-
 RPRIVATE
 RBOOL
     getSnapshot
@@ -342,8 +339,7 @@ RVOID
     perfProfile.timeoutIncrementPerSec = 10;
 
     while( !rEvent_wait( isTimeToStop, 0 ) &&
-           ( !kAcq_isAvailable() ||
-             g_is_kernel_failure ) )
+           !kAcq_isAvailable() )
     {
         libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
@@ -463,7 +459,6 @@ RVOID
         if( !kAcq_getNewProcesses( new_from_kernel, &nScratch ) )
         {
             rpal_debug_warning( "kernel acquisition for new processes failed" );
-            g_is_kernel_failure = TRUE;
             break;
         }
 
@@ -534,6 +529,11 @@ RPVOID
         // initialization, so we'll give them a chance to get subscribed.
         rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
 
+        // We manually register a pid 0 to be used to represent kernel.
+        tmpAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        tmpAtom.key.process.pid = 0;
+        atoms_register( &tmpAtom );
+
         for( i = 0; i < MAX_SNAPSHOT_SIZE; i++ )
         {
             if( 0 == tmpProcesses[ i ].pid ) break;
@@ -556,8 +556,7 @@ RPVOID
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
-        if( kAcq_isAvailable() &&
-            !g_is_kernel_failure )
+        if( kAcq_isAvailable() )
         {
             // We first attempt to get new processes through
             // the kernel mode acquisition driver
@@ -597,8 +596,6 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        g_is_kernel_failure = FALSE;
-
         if( rThreadPool_task( hbsState->hThreadPool, processDiffThread, NULL ) )
         {
             isSuccess = TRUE;
