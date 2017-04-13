@@ -73,10 +73,10 @@ int
     {
         ret = EINVAL;
         rpal_debug_error( "invalid challenge: %p:%d / %p:%d",
-                         pArgs,
-                         argsSize,
-                         pResult,
-                         *resultSize );
+                          pArgs,
+                          argsSize,
+                          pResult,
+                          (int)sizeof(uint32_t) );
     }
     
     return ret;
@@ -110,12 +110,12 @@ int
     
     if( NULL != cmd )
     {
-        rpal_debug_info( "OP: %d, ARG: %p, ARGS: %d, RES: %p, RESS: %d",
-                        op,
-                        cmd->pArgs,
-                        cmd->argsSize,
-                        cmd->pResult,
-                        cmd->resultSize );
+        // rpal_debug_info( "OP: %d, ARG: %p, ARGS: %d, RES: %p, RESS: %d",
+        //                 op,
+        //                 cmd->pArgs,
+        //                 cmd->argsSize,
+        //                 cmd->pResult,
+        //                 cmd->resultSize );
         
         if( op >= ARRAY_N_ELEM( g_tasks ) ||
             NULL == g_tasks[ op ] )
@@ -156,7 +156,7 @@ int
                 }
                 else
                 {
-                    rpal_debug_info( "op success" );
+                    // rpal_debug_info( "op success" );
                     
                     if( NULL != cmd->pResult &&
                        0 != resSize &&
@@ -208,7 +208,7 @@ errno_t
 {
     int error = EINVAL;
     
-    if( g_is_shutting_down ) return EINVAL;
+    if( g_is_shutting_down ) return EBUSY;
     
     return error;
 }
@@ -226,7 +226,7 @@ errno_t
 {
     int error = EINVAL;
     
-    if( g_is_shutting_down ) return EINVAL;
+    if( g_is_shutting_down ) return EBUSY;
     
     return error;
 }
@@ -245,14 +245,14 @@ errno_t
 {
     int error = EINVAL;
     
-    if( g_is_shutting_down ) return EINVAL;
+    if( g_is_shutting_down ) return EBUSY;
     
-    rpal_debug_info( "received request" );
+    // rpal_debug_info( "received request" );
     
     if( NULL != data &&
        sizeof(KernelAcqCommand) <= len )
     {
-        rpal_debug_info( "calling dispatcher" );
+        // rpal_debug_info( "calling dispatcher" );
         
         error = um_dispatcher( opt, data );
     }
@@ -261,7 +261,7 @@ errno_t
         rpal_debug_critical( "not enough data for request" );
     }
     
-    rpal_debug_info( "returned status: %d", error );
+    // rpal_debug_info( "returned status: %d", error );
     
     return error;
 }
@@ -275,7 +275,7 @@ errno_t
         void **unitinfo
     )
 {
-    if( g_is_shutting_down ) return EINVAL;
+    if( g_is_shutting_down ) return EBUSY;
     g_n_connected++;
     rpal_debug_info( "now %d clients connected", g_n_connected );
     return (0);
@@ -290,7 +290,7 @@ errno_t
         void *unitinfo
     )
 {
-    g_n_connected--;
+    if( 0 != g_n_connected ) g_n_connected--;
     rpal_debug_info( "now %d clients connected", g_n_connected );
     return 0;
 }
@@ -305,6 +305,7 @@ kern_return_t hbs_kernel_acquisition_start(kmod_info_t * ki, void *d)
     int i = 0;
     
     g_is_shutting_down = 0;
+    g_n_connected = 0;
     
     rpal_debug_info( "Initializing collectors" );
     

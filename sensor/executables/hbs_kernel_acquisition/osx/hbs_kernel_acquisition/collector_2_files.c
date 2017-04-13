@@ -99,17 +99,17 @@ static int
             if( sTs == file_attr.va_create_time.tv_sec )
             {
                 file_action = KERNEL_ACQ_FILE_ACTION_ADDED;
-                rpal_debug_info( "FILEIO-NEW: %lld %d %d %s", ts, uid, pid, file_path );
+                // rpal_debug_info( "FILEIO-NEW: %lld %d %d %s", ts, uid, pid, file_path );
             }
             else if( sTs == file_attr.va_modify_time.tv_sec )
             {
                 file_action = KERNEL_ACQ_FILE_ACTION_MODIFIED;
-                rpal_debug_info( "FILEIO-MODIFIED: %lld %d %d %s", ts, uid, pid, file_path );
+                // rpal_debug_info( "FILEIO-MODIFIED: %lld %d %d %s", ts, uid, pid, file_path );
             }
             else
             {
                 file_action = KERNEL_ACQ_FILE_ACTION_READ;
-                rpal_debug_info( "FILEIO-READ: %lld %d %d %s", ts, uid, pid, file_path );
+                // rpal_debug_info( "FILEIO-READ: %lld %d %d %s", ts, uid, pid, file_path );
             }
             
             g_files[ g_nextFile ].action = file_action;
@@ -121,7 +121,7 @@ static int
                      file_path,
                      sizeof( g_files[ g_nextFile ].path ) - 1 );
             g_files[ g_nextFile ].action = file_action;
-            rpal_debug_info( "FILEIO-RENAME-OLD: %lld %d %d %s", ts, uid, pid, file_path );
+            // rpal_debug_info( "FILEIO-RENAME-OLD: %lld %d %d %s", ts, uid, pid, file_path );
             
             // We're generating two records so we increment manually
             next_file();
@@ -135,7 +135,7 @@ static int
                      file_path,
                      sizeof( g_files[ g_nextFile ].path ) - 1 );
             g_files[ g_nextFile ].action = file_action;
-            rpal_debug_info( "FILEIO-RENAME-NEW: %lld %d %d %s", ts, uid, pid, file_path );
+            // rpal_debug_info( "FILEIO-RENAME-NEW: %lld %d %d %s", ts, uid, pid, file_path );
             break;
         case KAUTH_FILEOP_DELETE:
             file_action = KERNEL_ACQ_FILE_ACTION_REMOVED;
@@ -144,7 +144,7 @@ static int
                      file_path,
                      sizeof( g_files[ g_nextFile ].path ) - 1 );
             g_files[ g_nextFile ].action = file_action;
-            rpal_debug_info( "FILEIO-DELETE: %lld %d %d %s", ts, uid, pid, file_path );
+            // rpal_debug_info( "FILEIO-DELETE: %lld %d %d %s", ts, uid, pid, file_path );
             break;
         default:
             rpal_mutex_unlock( g_collector_2_mutex );
@@ -155,7 +155,7 @@ static int
     
     rpal_mutex_unlock( g_collector_2_mutex );
     
-    rpal_debug_info( "now %d fileio in buffer", g_nextFile );
+    // rpal_debug_info( "now %d fileio in buffer", g_nextFile );
     
     return KAUTH_RESULT_DEFER;
 }
