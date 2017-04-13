@@ -791,6 +791,7 @@ RPWCHAR
     return _itow( num, outBuff, radix );
 #else
     rpal_debug_not_implemented();
+    return NULL;
 #endif
 }
 

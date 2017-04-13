@@ -40,8 +40,6 @@ typedef struct
     RU64 size;
 } _moduleHistEntry;
 
-RPRIVATE RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
-
 RPRIVATE
 RS32
     _cmpModule
@@ -88,8 +86,7 @@ RPVOID
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) &&
-           ( !kAcq_isAvailable() ||
-             g_is_kernel_failure ) )
+           !kAcq_isAvailable() )
     {
         if( NULL != ( processes = processLib_getProcessEntries( FALSE ) ) )
         {
@@ -268,7 +265,6 @@ RVOID
         if( !kAcq_getNewModules( new_from_kernel, &nScratch ) )
         {
             rpal_debug_warning( "kernel acquisition for new modules failed" );
-            g_is_kernel_failure = TRUE;
             break;
         }
 
@@ -295,8 +291,7 @@ RPVOID
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
-        if( kAcq_isAvailable() &&
-            !g_is_kernel_failure )
+        if( kAcq_isAvailable() )
         {
             // We first attempt to get new modules through
             // the kernel mode acquisition driver
@@ -335,8 +330,6 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        g_is_kernel_failure = FALSE;
-
         if( rThreadPool_task( hbsState->hThreadPool, moduleDiffThread, NULL ) )
         {
             isSuccess = TRUE;

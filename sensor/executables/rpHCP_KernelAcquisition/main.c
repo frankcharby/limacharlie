@@ -119,6 +119,7 @@ RBOOL
             RPU8 package = NULL;
             RU32 packageSize = 0;
             RPVOID lastHandler = NULL;
+            RU32 nRetries = 0;
 
             rpal_debug_info( "getting kext from config" );
             if( !rSequence_getBUFFER( config, RP_TAGS_BINARY, &package, &packageSize ) )
@@ -148,23 +149,29 @@ RBOOL
                 // This is not fatal
             }
 
-            rpal_debug_info( "unloading previous kernel extension if present" );
-            system( tmpUnload );
-
             rpal_debug_info( "loading kernel extension" );
             if( 0 != ( error = system( tmpLoad ) ) )
             {
-                rpal_debug_error( "could not load kernel extension: %d", error );
+                // On OSX the KM stays alive as long as there are clients connected
+                // so we may encounter race conditions with other components disconnecting.
+                rpal_debug_info( "unloading previous kernel extension if present" );
+                for( nRetries = 0; nRetries < 20; nRetries++ )
+                {
+                    rpal_thread_sleep( 200 );
+
+                    if( 0 == ( error = system( tmpUnload ) ) )
+                    {
+                        break;
+                    }
+                }
+
+                if( 0 != ( error = system( tmpLoad ) ) )
+                {
+                    rpal_debug_error( "could not load kernel extension: %d", error );
+                }
             }
 
             isLoaded = TRUE;
-
-            rpal_debug_info( "deleting kernel extension from disk" );
-            if( !rpal_file_delete( tmpPath, FALSE ) )
-            {
-                rpal_debug_warning( "error deleting kernel extension from disk" );
-                // This is not fatal
-            }
 
         } while( FALSE );
 #elif defined( RPAL_PLATFORM_WINDOWS )
@@ -380,6 +387,7 @@ RBOOL
     do
     {
         RCHAR tmpUnload[] = "kextunload /tmp/tmp_hbs_acq.kext";
+        RCHAR tmpDelete[] = "/tmp/tmp_hbs_acq.kext";
         RU32 nRetries = 0;
 
         // On OSX the KM stays alive as long as there are clients connected
@@ -397,6 +405,15 @@ RBOOL
         if( 0 != error )
         {
             rpal_debug_error( "could not unload kernel extension: %d", error );
+        }
+        else
+        {
+            rpal_debug_info( "deleting kernel extension from disk" );
+            if( !rpal_file_delete( tmpDelete, FALSE ) )
+            {
+                rpal_debug_warning( "error deleting kernel extension from disk" );
+                // This is not fatal
+            }
         }
     } while( FALSE );
 #elif defined( RPAL_PLATFORM_WINDOWS )

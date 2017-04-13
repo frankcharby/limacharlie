@@ -17,7 +17,7 @@
 #ifndef helpers_h
 #define helpers_h
 
-//#define RPAL_PLATFORM_DEBUG
+#define RPAL_PLATFORM_DEBUG
 
 #include <stdarg.h>
 #include <sys/systm.h>

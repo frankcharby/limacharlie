@@ -259,11 +259,21 @@ RBOOL
         
         if( !isIpV6 )
         {
-            rpal_debug_info( "^^^^^^ CONNECTION V4 (%d): incoming=%d 0x%08X:%d ---> 0x%08X:%d", (RU32)sc->netEvent.proto, (RU32)sc->netEvent.isIncoming, sc->netEvent.srcIp.value.v4, (RU32)sc->netEvent.srcPort, sc->netEvent.dstIp.value.v4, (RU32)sc->netEvent.dstPort );
+            // rpal_debug_info( "^^^^^^ CONNECTION V4 (%d): incoming=%d 0x%08X:%d ---> 0x%08X:%d",
+            //                  (RU32)sc->netEvent.proto,
+            //                  (RU32)sc->netEvent.isIncoming,
+            //                  sc->netEvent.srcIp.value.v4,
+            //                  (RU32)sc->netEvent.srcPort,
+            //                  sc->netEvent.dstIp.value.v4,
+            //                  (RU32)sc->netEvent.dstPort );
         }
         else
         {
-            rpal_debug_info( "^^^^^^ CONNECTION V6 (%d): incoming=%d %d ---> %d", (RU32)sc->netEvent.proto, (RU32)sc->netEvent.isIncoming, (RU32)sc->netEvent.srcPort, (RU32)sc->netEvent.dstPort );
+            // rpal_debug_info( "^^^^^^ CONNECTION V6 (%d): incoming=%d %d ---> %d",
+            //                  (RU32)sc->netEvent.proto,
+            //                  (RU32)sc->netEvent.isIncoming,
+            //                  (RU32)sc->netEvent.srcPort,
+            //                  (RU32)sc->netEvent.dstPort );
         }
         
         isPopulated = TRUE;

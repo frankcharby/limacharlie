@@ -62,11 +62,14 @@ RBOOL
     );
 
 RBOOL
-    atoms_query
+    atoms_query_from
     (
         Atom* pAtom,
-        RU64 atTime
+        RU64 atTime,
+        RU32 fromFileId,
+        RU32 fromLineNumber
     );
+#define atoms_query(pAtom, atTime) atoms_query_from( (pAtom), (atTime), RPAL_FILE_ID, __LINE__ )
 
 RBOOL
     atoms_remove

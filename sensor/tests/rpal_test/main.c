@@ -398,17 +398,40 @@ void test_crawler(void)
 void test_file(void)
 {
     rFile hFile = NULL;
+    rFileInfo fileInfo = { 0 };
     RWCHAR testBuff[] = _WCH("testing...");
     RWCHAR outBuff[ ARRAY_N_ELEM( testBuff ) ] = {0};
+    RPNCHAR testDir = _NC( "./tmp_test_dir" );
+    RPNCHAR testFile = _NC( "./tmp_test_dir/testFile.dat" );
 
-    CU_ASSERT_TRUE_FATAL( rFile_open( _NC("./testfile.dat"), &hFile, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) );
+    CU_ASSERT_TRUE( rDir_create( testDir ) );
+    CU_ASSERT_TRUE( rpal_file_getInfo( testDir, &fileInfo ) );
+    CU_ASSERT_TRUE( IS_FLAG_ENABLED( fileInfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) );
+
+    CU_ASSERT_TRUE_FATAL( rFile_open( testFile, &hFile, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) );
     CU_ASSERT_TRUE( rFile_write( hFile, sizeof( testBuff ), &testBuff ) );
     rFile_close( hFile );
-    CU_ASSERT_TRUE_FATAL( rFile_open( _NC( "./testfile.dat" ), &hFile, RPAL_FILE_OPEN_EXISTING | RPAL_FILE_OPEN_READ ) );
+
+    CU_ASSERT_TRUE( rpal_file_getInfo( testFile, &fileInfo ) );
+    CU_ASSERT_TRUE( !IS_FLAG_ENABLED( fileInfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) );
+
+    CU_ASSERT_TRUE_FATAL( rFile_open( testFile, &hFile, RPAL_FILE_OPEN_EXISTING | RPAL_FILE_OPEN_READ ) );
     CU_ASSERT_TRUE( rFile_read( hFile, sizeof( outBuff ), &outBuff ) );
     rFile_close( hFile );
     CU_ASSERT_EQUAL( rpal_memory_memcmp( testBuff, outBuff, sizeof( testBuff ) ), 0 );
 
+    CU_ASSERT_TRUE( rpal_file_delete( testFile, FALSE ) );
+    CU_ASSERT_FALSE( rpal_file_getInfo( testFile, &fileInfo ) );
+
+    CU_ASSERT_TRUE_FATAL( rFile_open( testFile, &hFile, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) );
+    CU_ASSERT_TRUE( rFile_write( hFile, sizeof( testBuff ), &testBuff ) );
+    rFile_close( hFile );
+
+    CU_ASSERT_TRUE( rpal_file_getInfo( testFile, &fileInfo ) );
+    CU_ASSERT_TRUE( !IS_FLAG_ENABLED( fileInfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) );
+
+    CU_ASSERT_TRUE( rpal_file_delete( testDir, FALSE ) );
+    CU_ASSERT_FALSE( rpal_file_getInfo( testFile, &fileInfo ) );
 }
 
 

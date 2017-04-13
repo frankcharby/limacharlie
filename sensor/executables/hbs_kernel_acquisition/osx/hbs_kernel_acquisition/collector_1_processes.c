@@ -107,7 +107,7 @@ static int
     
     if( NULL != file_path )
     {
-        rpal_debug_info( "!!!!!! process start: %d/%d/%d %s", ppid, pid, uid, file_path );
+        // rpal_debug_info( "!!!!!! process start: %d/%d/%d %s", ppid, pid, uid, file_path );
     }
     
     rpal_mutex_lock( g_collector_1_mutex );
@@ -135,7 +135,7 @@ static int
         rpal_debug_warning( "overflow of the execution buffer" );
     }
     
-    rpal_debug_info( "now %d processes in buffer", g_nextProcess );
+    // rpal_debug_info( "now %d processes in buffer", g_nextProcess );
     
     rpal_mutex_unlock( g_collector_1_mutex );
 

@@ -14,6 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// This definition is required for FTW on Linux, it MUST be the first line
+// in the source, not even an ifdef.
+#define _XOPEN_SOURCE 500
+
 #include <rpal/rpal_file.h>
 
 #define RPAL_FILE_ID     6
@@ -22,10 +26,12 @@ limitations under the License.
     #include <dirent.h>
     #include <sys/stat.h>
     #include <unistd.h>
+    #include <ftw.h>
 #elif defined( RPAL_PLATFORM_WINDOWS )
     #include <shobjidl.h>
     #include <shlguid.h>
     #include <strsafe.h>
+    #include <shellapi.h>
 #endif
 
 typedef struct
@@ -76,6 +82,25 @@ typedef struct
 #endif
 } _rDirWatch;
 
+
+#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+RPRIVATE
+int 
+    unlink_dir_cb
+    ( 
+        const char* path, 
+        const struct stat* sb, 
+        int typeFlag, 
+        struct FTW* ftwBuff
+    )
+{
+    UNREFERENCED_PARAMETER( sb );
+    UNREFERENCED_PARAMETER( typeFlag );
+    UNREFERENCED_PARAMETER( ftwBuff );
+    return remove( path );
+}
+#endif
+
 RBOOL
     rpal_file_delete
     (
@@ -86,6 +111,8 @@ RBOOL
     RBOOL isDeleted = FALSE;
 
     RPNCHAR tmpPath = NULL;
+    rFileInfo info = { 0 };
+    RBOOL isDir = FALSE;
 
     if( NULL != filePath )
     {
@@ -96,15 +123,47 @@ RBOOL
                 // TODO: overwrite several times with random data
             }
 
-#ifdef RPAL_PLATFORM_WINDOWS
-            if( DeleteFileW( tmpPath ) )
+            if( rpal_file_getInfo( tmpPath, &info ) )
             {
-                isDeleted = TRUE;
+                isDir = IS_FLAG_ENABLED( info.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY );
+            }
+#ifdef RPAL_PLATFORM_WINDOWS
+            if( !isDir )
+            {
+                if( DeleteFileW( tmpPath ) )
+                {
+                    isDeleted = TRUE;
+                }
+            }
+            else
+            {
+                if( NULL != ( tmpPath = rpal_memory_reAlloc( tmpPath, rpal_string_strsize( tmpPath ) + sizeof( RNCHAR ) ) ) )
+                {
+                    SHFILEOPSTRUCTW opInfo = { 0 };
+                    opInfo.wFunc = FO_DELETE;
+                    opInfo.pFrom = tmpPath;
+                    ENABLE_FLAG( opInfo.fFlags, FOF_NOCONFIRMATION );
+                    ENABLE_FLAG( opInfo.fFlags, FOF_SILENT );
+                    if( 0 == SHFileOperationW( &opInfo ) )
+                    {
+                        isDeleted = TRUE;
+                    }
+                }
             }
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-            if( 0 == unlink( tmpPath ) )
+            if( !isDir )
             {
-                isDeleted = TRUE;
+                if( 0 == unlink( tmpPath ) )
+                {
+                    isDeleted = TRUE;
+                }
+            }
+            else
+            {
+                if( 0 == nftw( tmpPath, unlink_dir_cb, 64, FTW_DEPTH | FTW_PHYS ) )
+                {
+                    isDeleted = TRUE;
+                }
             }
 #endif
             rpal_memory_free( tmpPath );
@@ -1639,12 +1698,12 @@ RBOOL
             }
 
             hFile->handle = CreateFileW( tmpPath,
-                osAccessFlags,
-                FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-                NULL,
-                osCreateFlags,
-                osAttributeFlags,
-                NULL );
+                                         osAccessFlags,
+                                         FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                         NULL,
+                                         osCreateFlags,
+                                         osAttributeFlags,
+                                         NULL );
 
             if( INVALID_HANDLE_VALUE == hFile->handle )
             {

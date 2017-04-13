@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 #ifndef _RPAL_PLATFORM_H
 #define _RPAL_PLATFORM_H
 
@@ -58,6 +57,7 @@ limitations under the License.
     #endif
     #define RPAL_PLATFORM_FS_CASE_SENSITIVITY   1
 #elif defined( __APPLE__ )
+    #define _DARWIN_C_SOURCE
     #include <TargetConditionals.h>
     #if TARGET_OS_IPHONE
         #define RPAL_PLATFORM_IOS

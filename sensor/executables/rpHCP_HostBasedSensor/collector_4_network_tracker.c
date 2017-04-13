@@ -25,8 +25,6 @@ limitations under the License.
 
 #define RPAL_FILE_ID        79
 
-static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
-
 RPRIVATE
 RBOOL
     isTcpEqual
@@ -107,8 +105,7 @@ RPVOID
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) &&
-           ( !kAcq_isAvailable() ||
-             g_is_kernel_failure ) )
+           !kAcq_isAvailable() )
     {
         libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
@@ -365,7 +362,6 @@ RPVOID
         if( !kAcq_getNewConnections( new_from_kernel, &nScratch ) )
         {
             rpal_debug_warning( "kernel acquisition for new network connections failed" );
-            g_is_kernel_failure = TRUE;
             break;
         }
 
@@ -463,8 +459,7 @@ RPVOID
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
-        if( kAcq_isAvailable() &&
-            !g_is_kernel_failure )
+        if( kAcq_isAvailable() )
         {
             // We first attempt to get new network connections through
             // the kernel mode acquisition driver
@@ -505,8 +500,6 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        g_is_kernel_failure = FALSE;
-
         if( rThreadPool_task( hbsState->hThreadPool, networkDiffThread, NULL ) )
         {
             isSuccess = TRUE;

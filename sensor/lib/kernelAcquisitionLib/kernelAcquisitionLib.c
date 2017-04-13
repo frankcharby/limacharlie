@@ -244,7 +244,10 @@ RU32
             struct timeval timeout = { 0 };
             int waitVal = 0;
 
-            error = setsockopt( g_km_socket, SYSPROTO_CONTROL, op, &cmd, sizeof( cmd ) );
+            if( 0 != ( error = setsockopt( g_km_socket, SYSPROTO_CONTROL, op, &cmd, sizeof( cmd ) ) ) )
+            {
+                error = errno;
+            }
 #elif defined( RPAL_PLATFORM_WINDOWS )
             RU32 ioBufferSize = sizeof( KernelAcqCommand ) + argsSize;
             RPU8 ioBuffer = NULL;
