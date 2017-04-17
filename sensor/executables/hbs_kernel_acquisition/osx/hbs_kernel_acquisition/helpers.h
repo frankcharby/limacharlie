@@ -34,6 +34,10 @@
 
 #define ARRAY_N_ELEM(arr)               (sizeof(arr) / sizeof((arr)[0]))
 
+#define IS_WITHIN_BOUNDS(elem,elemSize,container,containerSize) (((RU64)(elem) >= (RU64)(container)) &&\
+                                                                 ((RU64)(elem) < ((RU64)(container) + (RU64)(containerSize))) &&\
+                                                                 ((((RU64)(container) + (RU64)(containerSize)) - (RU64)(elem)) >= (RU64)(elemSize)))
+
 void*
     rpal_memory_alloc
     (

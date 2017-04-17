@@ -22,14 +22,21 @@
 #include <sys/types.h>
 
 #define _NUM_BUFFERED_CONNECTIONS   200
+#define _NUM_BUFFERED_DNS           200
 #define _FLT_HANDLE_BASE            0x52484350// RHCP
 #define _FLT_NAME                   "com.refractionpoint.hbs.acq.net"
 
 static rMutex g_collector_4_mutex = NULL;
 static KernelAcqNetwork g_connections[ _NUM_BUFFERED_CONNECTIONS ] = { 0 };
 static uint32_t g_nextConnection = 0;
+static rMutex g_collector_4_mutex_dns = NULL;
+static KernelAcqDnsResp g_dns[ _NUM_BUFFERED_DNS ] = { 0 };
+static uint32_t g_nextDns = 0;
 static uint32_t g_socketsPending = 0;
 static RBOOL g_shuttingDown = FALSE;
+
+#define DNS_A_RECORD    0x0001
+#define DNS_AAAA_RECORD 0x001C
 
 typedef struct
 {
@@ -43,6 +50,51 @@ typedef struct
     
 } SockCookie;
 
+#pragma pack(push, 1)
+typedef struct
+{
+    RU16 msgId;
+    RU8 rd:1;
+    RU8 tc:1;
+    RU8 aa:1;
+    RU8 opCode:4;
+    RU8 qr:1;
+    RU8 rCode:4;
+    RU8 reserved:3;
+    RU8 ra:1;
+    RU16 qdCount;
+    RU16 anCount;
+    RU16 nsCount;
+    RU16 arCount;
+    RU8 data[];
+    
+} DnsHeader;
+
+typedef struct
+{
+    RU8 nChar;
+    RU8 label[];
+    
+} DnsLabel;
+
+typedef struct
+{
+    RU16 recordType;
+    RU16 recordClass;
+    
+} DnsQuestionInfo;
+
+typedef struct
+{
+    RU16 recordType;
+    RU16 recordClass;
+    RU32 ttl;
+    RU16 rDataLength;
+    RU8 rData[];
+    
+} DnsResponseInfo;
+#pragma pack(pop)
+
 static void
     next_connection
     (
@@ -53,8 +105,69 @@ static void
     if( g_nextConnection == _NUM_BUFFERED_CONNECTIONS )
     {
         g_nextConnection = 0;
-        rpal_debug_warning( "overflow of the network conenction buffer" );
+        rpal_debug_warning( "overflow of the network connection buffer" );
     }
+}
+
+static void
+    next_dns
+    (
+
+    )
+{
+    g_nextDns++;
+    if( g_nextDns == _NUM_BUFFERED_DNS )
+    {
+        g_nextDns = 0;
+        rpal_debug_warning( "overflow of the dns buffer" );
+    }
+}
+
+static
+RBOOL
+    getPacket
+    (
+        mbuf_t* mbuf,
+        RPU8* pPacket,
+        RSIZET* pPacketSize
+    )
+{
+    mbuf_t data = NULL;
+    RPU8 packet = NULL;
+    RSIZET packetLength = 0;
+    
+    if( NULL == mbuf ||
+        NULL == pPacket ||
+        NULL == pPacketSize )
+    {
+        return FALSE;
+    }
+    
+    data = *mbuf;
+    while( NULL != data && MBUF_TYPE_DATA != mbuf_type( data ) )
+    {
+        data = mbuf_next( data );
+    }
+    
+    if( NULL == data )
+    {
+        return FALSE;
+    }
+    
+    if( NULL == ( packet = mbuf_data( data ) ) )
+    {
+        return FALSE;
+    }
+    
+    if( 0 == (packetLength = mbuf_len( data ) ) )
+    {
+        return FALSE;
+    }
+    
+    *pPacket = packet;
+    *pPacketSize = packetLength;
+    
+    return TRUE;
 }
 
 static
@@ -295,28 +408,200 @@ errno_t
     )
 {
     SockCookie* sc = (SockCookie*)cookie;
+    RPU8 packet = NULL;
+    RSIZET packetSize = 0;
     
     UNREFERENCED_PARAMETER( data );
     UNREFERENCED_PARAMETER( control );
     UNREFERENCED_PARAMETER( flags );
     
-    if( NULL != cookie &&
-        !sc->isReported )
+    if( NULL != cookie )
     {
-        if( !sc->isConnected )
+        // Report on the connection event
+        if( !sc->isReported )
         {
-            sc->netEvent.isIncoming = TRUE;
+            if( !sc->isConnected )
+            {
+                sc->netEvent.isIncoming = TRUE;
+            }
+            
+            populateCookie( sc, so, from );
+            
+            rpal_mutex_lock( g_collector_4_mutex );
+        
+            sc->isReported = TRUE;
+            g_connections[ g_nextConnection ] = sc->netEvent;
+            next_connection();
+            
+            rpal_mutex_unlock( g_collector_4_mutex );
         }
         
-        populateCookie( sc, so, from );
-        
-        rpal_mutex_lock( g_collector_4_mutex );
-    
-        sc->isReported = TRUE;
-        g_connections[ g_nextConnection ] = sc->netEvent;
-        next_connection();
-        
-        rpal_mutex_unlock( g_collector_4_mutex );
+        // See if we need to report on any content based parsing
+        // Looking for DNS responses
+        if( 53 == sc->netEvent.srcPort &&
+            ( IPPROTO_TCP == sc->netEvent.proto ||
+              IPPROTO_UDP == sc->netEvent.proto ) &&
+            getPacket( data, &packet, &packetSize ) &&
+            sizeof( DnsHeader ) < packetSize )
+        {
+            RU32 i = 0;
+            DnsLabel* pLabel = NULL;
+            DnsHeader* dnsHeader = (DnsHeader*)packet;
+            rpal_debug_info("DNS response (%d): ID %d, QR %d, OPCODE %d, RCODE %d, QD %d, AN %d, NS %d, AR %d", (RU32)packetSize, (RU32)ntohs( dnsHeader->msgId ), (RU32)ntohs(dnsHeader->qr), (RU32)ntohs(dnsHeader->opCode), (RU32)ntohs(dnsHeader->rCode), (RU32)ntohs(dnsHeader->qdCount), (RU32)ntohs(dnsHeader->anCount), (RU32)ntohs(dnsHeader->nsCount), (RU32)ntohs(dnsHeader->arCount) );
+            
+            // Parsing the questions
+            pLabel = (DnsLabel*)dnsHeader->data;
+            for( i = 0; i < ntohs( dnsHeader->qdCount ); i++ )
+            {
+                DnsQuestionInfo* pQInfo = NULL;
+                
+                while( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ) + pLabel->nChar, dnsHeader, packetSize ) &&
+                       0 != pLabel->nChar )
+                {
+                    /*
+                    RU8 tmpTerminator = pLabel->label[ pLabel->nChar ];
+                    pLabel->label[ pLabel->nChar ] = 0;
+                    rpal_debug_info( "Label:: %s", pLabel->label );
+                    pLabel->label[ pLabel->nChar ] = tmpTerminator;
+                    */
+                    
+                    pLabel = (DnsLabel*)( (RPU8)pLabel + pLabel->nChar + 1 );
+                }
+                
+                pQInfo = (DnsQuestionInfo*)( (RPU8)pLabel + 1 );
+                if( !IS_WITHIN_BOUNDS( pQInfo, sizeof( *pQInfo ), dnsHeader, packetSize ) )
+                {
+                    break;
+                }
+                
+                rpal_debug_info( "Type / Class:: %d / %d", ntohs( pQInfo->recordType ), ntohs( pQInfo->recordClass ) );
+                
+                pLabel = (DnsLabel*)( (RPU8)pQInfo + sizeof( *pQInfo ) );
+            }
+            
+            if( !IS_WITHIN_BOUNDS( pLabel, sizeof( RU16 ), dnsHeader, packetSize ) )
+            {
+                rpal_debug_info( "OOPS" );
+                return KERN_SUCCESS;
+            }
+            
+            for( i = 0; i < ntohs( dnsHeader->anCount ); i++ )
+            {
+                DnsResponseInfo* pResponseInfo = NULL;
+                KernelAcqDnsResp dnsRecord = {0};
+                
+                dnsRecord.ts = rpal_time_getLocal();
+                
+                // Labels can be pointers here (11xx xxxx)
+                if( 0xC0 <= pLabel->nChar )
+                {
+                    // Pointer to a label
+                    DnsLabel* tmpLabel = NULL;
+                    RU16 offset = ntohs( *(RU16*)pLabel ) - 0xC000;
+                    RU32 copied = 0;
+                    
+                    if( !IS_WITHIN_BOUNDS( (RPU8)dnsHeader + offset, sizeof( RU16 ), dnsHeader, packetSize ) )
+                    {
+                        rpal_debug_info( "OOPS" );
+                        break;
+                    }
+                    
+                    tmpLabel = (DnsLabel*)( (RPU8)dnsHeader + offset );
+                    while( IS_WITHIN_BOUNDS( tmpLabel, sizeof( *tmpLabel ) + tmpLabel->nChar, dnsHeader, packetSize ) &&
+                           0 != tmpLabel->nChar )
+                    {
+                        /*
+                        RU8 tmpTerminator = tmpLabel->label[ tmpLabel->nChar ];
+                        tmpLabel->label[ tmpLabel->nChar ] = 0;
+                        rpal_debug_info( "Ptr Label:: %s", tmpLabel->label );
+                        tmpLabel->label[ tmpLabel->nChar ] = tmpTerminator;
+                        */
+                        
+                        if( sizeof( dnsRecord.domain ) < copied + 1 + tmpLabel->nChar )
+                        {
+                            rpal_debug_info( "OOPS" );
+                            break;
+                        }
+                        
+                        if( 0 != copied )
+                        {
+                            dnsRecord.domain[ copied ] = '.';
+                            copied++;
+                        }
+                        memcpy( &dnsRecord.domain + copied, tmpLabel->label, tmpLabel->nChar );
+                        copied += tmpLabel->nChar;
+                        
+                        tmpLabel = (DnsLabel*)( (RPU8)tmpLabel + tmpLabel->nChar + 1 );
+                    }
+                    
+                    pLabel = (DnsLabel*)( (RPU8)pLabel + sizeof( RU16 ) );
+                }
+                else
+                {
+                    RU32 copied = 0;
+                    
+                    // Classic labels
+                    while( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ) + pLabel->nChar, dnsHeader, packetSize ) &&
+                           0 != pLabel->nChar )
+                    {
+                        RU8 tmpTerminator = pLabel->label[ pLabel->nChar ];
+                        pLabel->label[ pLabel->nChar ] = 0;
+                        rpal_debug_info( "Label:: %s", pLabel->label );
+                        pLabel->label[ pLabel->nChar ] = tmpTerminator;
+                        
+                        if( sizeof( dnsRecord.domain ) < copied + 1 + pLabel->nChar )
+                        {
+                            rpal_debug_info( "OOPS" );
+                            break;
+                        }
+                        
+                        if( 0 != copied )
+                        {
+                            dnsRecord.domain[ copied ] = '.';
+                        }
+                        memcpy( &dnsRecord.domain + copied, pLabel->label, pLabel->nChar );
+                        copied += pLabel->nChar;
+                        
+                        pLabel = (DnsLabel*)( (RPU8)pLabel + pLabel->nChar + 1 );
+                    }
+                }
+                
+                pResponseInfo = (DnsResponseInfo*)( (RPU8)pLabel + 1 );
+                
+                if( !IS_WITHIN_BOUNDS( pResponseInfo, sizeof( *pResponseInfo ), dnsHeader, packetSize ) )
+                {
+                    rpal_debug_info( "OOPS" );
+                    break;
+                }
+                
+                rpal_debug_info( "Resp Type / Class:: %d / %d", ntohs( pResponseInfo->recordType ), ntohs( pResponseInfo->recordClass ) );
+                dnsRecord.qType = ntohs( pResponseInfo->recordType );
+                dnsRecord.qClass = ntohs( pResponseInfo->recordClass );
+                
+                if( DNS_A_RECORD == dnsRecord.qType )
+                {
+                    dnsRecord.ip.isV6 = FALSE;
+                    dnsRecord.ip.value.v4 = *(RU32*)pResponseInfo->rData;
+                }
+                else if( DNS_AAAA_RECORD == dnsRecord.qType )
+                {
+                    dnsRecord.ip.isV6 = TRUE;
+                    memcpy( &dnsRecord.ip.value.v6, pResponseInfo->rData, sizeof( dnsRecord.ip.value.v6 ) );
+                }
+                else
+                {
+                    // Right now we only care for A and AAAA records.
+                    continue;
+                }
+                
+                rpal_mutex_lock( g_collector_4_mutex_dns );
+                
+                g_dns[ g_nextDns ] = dnsRecord;
+                next_dns();
+                
+                rpal_mutex_unlock( g_collector_4_mutex_dns );
+            }
+        }
     }
     
     return KERN_SUCCESS;
@@ -517,6 +802,47 @@ int
 }
 
 int
+    task_get_new_dns
+    (
+        void* pArgs,
+        int argsSize,
+        void* pResult,
+        uint32_t* resultSize
+    )
+{
+    int ret = 0;
+    
+    int toCopy = 0;
+    
+    if( NULL != pResult &&
+        NULL != resultSize &&
+        0 != *resultSize )
+    {
+        rpal_mutex_lock( g_collector_4_mutex_dns );
+        toCopy = (*resultSize) / sizeof( KernelAcqDnsResp );
+        
+        if( 0 != toCopy )
+        {
+            toCopy = ( toCopy > g_nextDns ? g_nextDns : toCopy );
+            
+            *resultSize = toCopy * sizeof( KernelAcqDnsResp );
+            memcpy( pResult, g_dns, *resultSize );
+            
+            g_nextDns -= toCopy;
+            memmove( g_dns, g_dns + toCopy, g_nextDns );
+        }
+        
+        rpal_mutex_unlock( g_collector_4_mutex_dns );
+    }
+    else
+    {
+        ret = EINVAL;
+    }
+    
+    return ret;
+}
+
+int
     collector_4_initialize
     (
         void* d
@@ -524,7 +850,8 @@ int
 {
     int isSuccess = 0;
     
-    if( NULL != ( g_collector_4_mutex = rpal_mutex_create() ) )
+    if( NULL != ( g_collector_4_mutex = rpal_mutex_create() ) &&
+        NULL != ( g_collector_4_mutex_dns = rpal_mutex_create() ) )
     {
         if( register_filter( 0, AF_INET, SOCK_STREAM, IPPROTO_TCP ) &&
             register_filter( 1, AF_INET6, SOCK_STREAM, IPPROTO_TCP ) &&
@@ -583,6 +910,7 @@ int
     }
     
     rpal_mutex_free( g_collector_4_mutex );
+    rpal_mutex_free( g_collector_4_mutex_dns );
     
     return 1;
 }

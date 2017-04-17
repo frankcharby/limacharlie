@@ -41,7 +41,8 @@ limitations under the License.
 #define KERNEL_ACQ_OP_GET_NEW_FILE_IO       2
 #define KERNEL_ACQ_OP_MODULE_LOAD           3
 #define KERNEL_ACQ_OP_NETWORK_CONN          4
-#define KERNEL_ACQ_OP_COUNT                 5
+#define KERNEL_ACQ_OP_DNS                   5
+#define KERNEL_ACQ_OP_COUNT                 6
 
 #pragma warning( disable: 4200 ) // Disabling error on zero-sized arrays
 
@@ -116,5 +117,14 @@ typedef struct
     RU16 dstPort;
     RU32 nBytes;
 } KernelAcqNetwork;
+
+typedef struct
+{
+    RU64 ts;
+    RCHAR domain[ 254 ];
+    RU16 qType;
+    RU16 qClass;
+    RIpAddress ip;
+} KernelAcqDnsResp;
 
 #endif
