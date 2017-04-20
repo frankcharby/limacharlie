@@ -93,7 +93,8 @@ static collector_task g_tasks[ KERNEL_ACQ_OP_COUNT ] = { task_ping,
                                                          task_get_new_processes,
                                                          task_get_new_fileio,
                                                          NULL,
-                                                         task_get_new_connections };
+                                                         task_get_new_connections,
+                                                         task_get_new_dns };
 
 static
 int

@@ -20,6 +20,7 @@ limitations under the License.
 #include <notificationsLib/notificationsLib.h>
 #include <libOs/libOs.h>
 #include <rpHostCommonPlatformLib/rTags.h>
+#include <kernelAcquisitionLib/kernelAcquisitionLib.h>
 
 #define RPAL_FILE_ID          71
 
@@ -33,6 +34,12 @@ RPRIVATE DnsGetCacheDataTable_f getCache = NULL;
 RPRIVATE DnsFree_f freeCacheEntry = NULL;
 #endif
 
+#define DNS_LABEL_MAX_SIZE      254
+#define DNS_A_RECORD            0x0001
+#define DNS_AAAA_RECORD         0x001C
+#define DNS_CNAME_RECORD        0x0005
+
+
 typedef struct
 {
     RU16 type;
@@ -41,6 +48,155 @@ typedef struct
     RPNCHAR name;
 
 } _dnsRecord;
+
+
+#pragma pack(push, 1)
+typedef struct
+{
+    RU16 msgId;
+    RU8 rd : 1;
+    RU8 tc : 1;
+    RU8 aa : 1;
+    RU8 opCode : 4;
+    RU8 qr : 1;
+    RU8 rCode : 4;
+    RU8 reserved : 3;
+    RU8 ra : 1;
+    RU16 qdCount;
+    RU16 anCount;
+    RU16 nsCount;
+    RU16 arCount;
+    RU8 data[];
+
+} DnsHeader;
+
+typedef struct
+{
+    RU8 nChar;
+    RU8 label[];
+
+} DnsLabel;
+
+typedef struct
+{
+    RU16 recordType;
+    RU16 recordClass;
+
+} DnsQuestionInfo;
+
+typedef struct
+{
+    RU16 recordType;
+    RU16 recordClass;
+    RU32 ttl;
+    RU16 rDataLength;
+    RU8 rData[];
+
+} DnsResponseInfo;
+#pragma pack(pop)
+
+RPRIVATE
+DnsLabel*
+    dnsReadLabels
+    (
+        DnsLabel* pLabel,
+        RCHAR humanLabel[ DNS_LABEL_MAX_SIZE ],
+        RPU8 packetStart,
+        RSIZET packetSize,
+        RU32 labelOffset
+    )
+{
+    if( NULL != pLabel )
+    {
+        if( NULL != humanLabel && 0 == labelOffset )
+        {
+            rpal_memory_zero( humanLabel, sizeof( RCHAR ) * DNS_LABEL_MAX_SIZE );
+        }
+
+        // Labels can be pointers here (11xx xxxx)
+        if( 0xC0 <= pLabel->nChar )
+        {
+            // Pointer to a label
+            DnsLabel* tmpLabel = NULL;
+            RU16 offset = rpal_ntoh16( *(RU16*)pLabel ) - 0xC000;
+            RU32 copied = labelOffset;
+
+            if( !IS_WITHIN_BOUNDS( (RPU8)packetStart + offset, sizeof( RU16 ), packetStart, packetSize ) )
+            {
+                rpal_debug_info( "OOPS" );
+                return NULL;
+            }
+
+            tmpLabel = (DnsLabel*)( (RPU8)packetStart + offset );
+            while( IS_WITHIN_BOUNDS( tmpLabel, sizeof( *tmpLabel ) + tmpLabel->nChar, packetStart, packetSize ) &&
+                   0 != tmpLabel->nChar )
+            {
+                if( NULL != humanLabel &&
+                    ( sizeof( RCHAR ) * 254 ) >= copied + 1 + tmpLabel->nChar )
+                {
+                    if( 0 != copied )
+                    {
+                        humanLabel[ copied ] = '.';
+                        copied++;
+                    }
+                    rpal_memory_memcpy( (RPU8)(humanLabel)+copied, tmpLabel->label, tmpLabel->nChar );
+                    copied += tmpLabel->nChar;
+                }
+                else if( NULL != humanLabel )
+                {
+                    rpal_debug_info( "OVERFLOW: %u / %u + %u", (RU32)copied, ( RU32 )sizeof( RCHAR ) * 254, (RU32)tmpLabel->nChar );
+                }
+                tmpLabel = (DnsLabel*)( (RPU8)tmpLabel + tmpLabel->nChar + 1 );
+            }
+
+            pLabel = (DnsLabel*)( (RPU8)pLabel + sizeof( RU16 ) );
+        }
+        else if( 0 == labelOffset )
+        {
+            RU32 copied = 0;
+
+            // Classic labels
+            while( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ), packetStart, packetSize ) &&
+                   ( 0xC0 <= pLabel->nChar ||
+                     ( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ) + pLabel->nChar, packetStart, packetSize ) &&
+                       0 != pLabel->nChar  ) ) )
+            {
+                // It's possible for a pointer to be terminating a traditional label
+                if( 0xC0 <= pLabel->nChar )
+                {
+                    pLabel = dnsReadLabels( pLabel, humanLabel, packetStart, packetSize, copied );
+                    break;
+                }
+                else
+                {
+                    if( NULL != humanLabel &&
+                        DNS_LABEL_MAX_SIZE >= copied + 1 + pLabel->nChar )
+                    {
+                        if( 0 != copied )
+                        {
+                            humanLabel[ copied ] = '.';
+                            copied++;
+                        }
+                        rpal_memory_memcpy( (RPU8)humanLabel + copied, pLabel->label, pLabel->nChar );
+                        copied += pLabel->nChar;
+                    }
+                    else if( NULL != humanLabel )
+                    {
+                        rpal_debug_info( "OVERFLOW: %u / %u + %u", (RU32)copied, ( RU32 )sizeof( RCHAR ) * 254, (RU32)pLabel->nChar );
+                    }
+
+                    pLabel = (DnsLabel*)( (RPU8)pLabel + pLabel->nChar + 1 );
+                }
+            }
+        }
+        else
+        {
+            rpal_debug_info( "OOPS" );
+        }
+    }
+
+    return pLabel;
+}
 
 
 RPRIVATE
@@ -91,11 +247,10 @@ RS32
 }
 
 RPRIVATE
-RPVOID
-    dnsDiffThread
+RVOID
+    dnsUmDiffThread
     (
-        rEvent isTimeToStop,
-        RPVOID ctx
+        rEvent isTimeToStop
     )
 {
     rSequence notif = NULL;
@@ -118,9 +273,8 @@ RPVOID
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.timeoutIncrementPerSec = 1;
 
-    UNREFERENCED_PARAMETER( ctx );
-
-    while( !rEvent_wait( isTimeToStop, 0 ) )
+    while( !rEvent_wait( isTimeToStop, 0 ) &&
+           !kAcq_isAvailable() )
     {
         libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
@@ -200,6 +354,183 @@ RPVOID
         rpal_blob_free( snapPrev );
         snapPrev = NULL;
     }
+}
+
+RPRIVATE
+RVOID
+    processDnsPacket
+    (
+        KernelAcqDnsPacket* pDns
+    )
+{
+    rSequence notification = NULL;
+    RU32 i = 0;
+    DnsLabel* pLabel = NULL;
+    DnsHeader* dnsHeader = NULL;
+    DnsResponseInfo* pResponseInfo = NULL;
+    RCHAR domain[ DNS_LABEL_MAX_SIZE ] = { 0 };
+    RCHAR cname[ DNS_LABEL_MAX_SIZE ] = { 0 };
+    RU16 recordType = 0;
+
+    if( NULL != pDns )
+    {
+        dnsHeader = (DnsHeader*)( (RPU8)pDns + sizeof( *pDns ) );
+        pLabel = (DnsLabel*)dnsHeader->data;
+
+        // We may receive DNS requests from the kernel, so we will discard packets without Answers
+        if( 0 == dnsHeader->anCount || 0 == dnsHeader->qr )
+        {
+            return;
+        }
+
+        for( i = 0; i < rpal_ntoh16( dnsHeader->qdCount ); i++ )
+        {
+            DnsQuestionInfo* pQInfo = NULL;
+
+            pLabel = dnsReadLabels( pLabel, NULL, (RPU8)dnsHeader, pDns->packetSize, 0 );
+
+            pQInfo = (DnsQuestionInfo*)( (RPU8)pLabel + 1 );
+            if( !IS_WITHIN_BOUNDS( pQInfo, sizeof( *pQInfo ), dnsHeader, pDns->packetSize ) )
+            {
+                break;
+            }
+
+            pLabel = (DnsLabel*)( (RPU8)pQInfo + sizeof( *pQInfo ) );
+        }
+
+        if( !IS_WITHIN_BOUNDS( pLabel, sizeof( RU16 ), dnsHeader, pDns->packetSize ) )
+        {
+            rpal_debug_info( "OOPS" );
+            return;
+        }
+
+        for( i = 0; i < rpal_ntoh16( dnsHeader->anCount ); i++ )
+        {
+            pResponseInfo = NULL;
+            
+            pLabel = dnsReadLabels( pLabel, domain, (RPU8)dnsHeader, pDns->packetSize, 0 );
+
+            pResponseInfo = (DnsResponseInfo*)pLabel;
+            pLabel = (DnsLabel*)( (RPU8)pResponseInfo + sizeof( *pResponseInfo ) + rpal_ntoh16( pResponseInfo->rDataLength ) );
+
+            if( !IS_WITHIN_BOUNDS( pResponseInfo, sizeof( *pResponseInfo ), dnsHeader, pDns->packetSize ) )
+            {
+                rpal_debug_info( "OOPS" );
+                break;
+            }
+
+            if( NULL == ( notification = rSequence_new() ) )
+            {
+                break;
+            }
+
+            rSequence_addTIMESTAMP( notification, RP_TAGS_TIMESTAMP, pDns->ts );
+            rSequence_addSTRINGA( notification, RP_TAGS_DOMAIN_NAME, domain );
+            rpal_debug_info( "))) DOMAIN %s", domain );
+
+            recordType = rpal_ntoh16( pResponseInfo->recordType );
+
+            rSequence_addRU16( notification, RP_TAGS_MESSAGE_ID, rpal_ntoh16( dnsHeader->msgId ) );
+            rSequence_addRU16( notification, RP_TAGS_DNS_TYPE, recordType );
+
+            rpal_debug_info( "))) ID/TYPE %x / %x", rpal_ntoh16( dnsHeader->msgId ), recordType );
+
+            if( DNS_A_RECORD == recordType )
+            {
+                rpal_debug_info( "))) V4 %x", *(RU32*)pResponseInfo->rData );
+                rSequence_addIPV4( notification, RP_TAGS_IP_ADDRESS, *(RU32*)pResponseInfo->rData );
+            }
+            else if( DNS_AAAA_RECORD == recordType )
+            {
+                rpal_debug_info( "))) V6" );
+                rSequence_addIPV6( notification, RP_TAGS_IP_ADDRESS, pResponseInfo->rData );
+            }
+            else if( DNS_CNAME_RECORD == recordType )
+            {
+                dnsReadLabels( (DnsLabel*)pResponseInfo->rData, cname, (RPU8)dnsHeader, pDns->packetSize, 0 );
+                rSequence_addSTRINGA( notification, RP_TAGS_CNAME, cname );
+                rpal_debug_info( "))) CNAME %s", cname );
+            }
+            else
+            {
+                // Right now we only care for A, CNAME and AAAA records.
+                rpal_debug_info( "NOPEEEEEEEEEEEE: %d", recordType );
+                rSequence_free( notification );
+                notification = NULL;
+                continue;
+            }
+
+            hbs_publish( RP_TAGS_NOTIFICATION_DNS_REQUEST, notification );
+            rSequence_free( notification );
+            notification = NULL;
+        }
+    }
+}
+
+RPRIVATE
+RVOID
+    dnsKmDiffThread
+    (
+        rEvent isTimeToStop
+    )
+{
+    RU8 new_from_kernel[ 128 * 1024 ] = { 0 };
+    RU8 prev_from_kernel[ 128 * 1024 ] = { 0 };
+
+    RU32 sizeInNew = 0;
+    RU32 sizeInPrev = 0;
+
+    KernelAcqDnsPacket* pDns = NULL;
+
+    while( !rEvent_wait( isTimeToStop, 1000 ) )
+    {
+        rpal_memory_zero( new_from_kernel, sizeof( new_from_kernel ) );
+        sizeInNew = sizeof( new_from_kernel );
+
+        if( !kAcq_getNewDnsPackets( (KernelAcqDnsPacket*)new_from_kernel, &sizeInNew ) )
+        {
+            rpal_debug_warning( "kernel acquisition for new dns packets failed" );
+            break;
+        }
+        rpal_debug_info( "Got %d bytes of DNS", sizeInNew );
+        pDns = (KernelAcqDnsPacket*)prev_from_kernel;
+        while( IS_WITHIN_BOUNDS( pDns, sizeof( *pDns ), prev_from_kernel, sizeInPrev ) &&
+               0 != pDns->ts &&
+               IS_WITHIN_BOUNDS( pDns, sizeof( *pDns ) + pDns->packetSize, prev_from_kernel, sizeInPrev ) )
+        {
+            processDnsPacket( pDns );
+
+            pDns = (KernelAcqDnsPacket*)( (RPU8)pDns + sizeof( *pDns ) + pDns->packetSize );
+        }
+
+        rpal_memory_memcpy( prev_from_kernel, new_from_kernel, sizeInNew );
+        sizeInPrev = sizeInNew;
+    }
+}
+
+RPRIVATE
+RPVOID
+    dnsDiffThread
+    (
+        rEvent isTimeToStop,
+        RPVOID ctx
+    )
+{
+    UNREFERENCED_PARAMETER( ctx );
+
+    while( !rEvent_wait( isTimeToStop, 0 ) )
+    {
+        if( kAcq_isAvailable() )
+        {
+            rpal_debug_info( "running kernelmode acquisition dns notification" );
+            dnsKmDiffThread( isTimeToStop );
+        }
+        else if( !rEvent_wait( isTimeToStop, 0 ) )
+        {
+            rpal_debug_info( "running usermode acquisition dns notification" );
+            dnsUmDiffThread( isTimeToStop );
+        }
+    }
 
     return NULL;
 }
@@ -230,6 +561,7 @@ RBOOL
 
         if( NULL != ( hDnsApi = LoadLibraryW( (RPWCHAR)&apiName ) ) )
         {
+            // TODO: investigate the DnsQuery API on Windows to get the DNS resolutions.
             if( NULL != ( getCache = (DnsGetCacheDataTable_f)GetProcAddress( hDnsApi, (RPCHAR)&funcName1 ) ) &&
                 NULL != ( freeCacheEntry = (DnsFree_f)GetProcAddress( hDnsApi, (RPCHAR)&funcName2 ) ) )
             {
@@ -245,6 +577,8 @@ RBOOL
         {
             rpal_debug_warning( "failed to load dns api" );
         }
+#elif defined( RPAL_PLATFORM_MACOSX )
+        isSuccess = TRUE;
 #endif
         if( isSuccess )
         {

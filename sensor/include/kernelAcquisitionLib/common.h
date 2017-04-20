@@ -121,10 +121,13 @@ typedef struct
 typedef struct
 {
     RU64 ts;
-    RCHAR domain[ 254 ];
-    RU16 qType;
-    RU16 qClass;
-    RIpAddress ip;
-} KernelAcqDnsResp;
+    RU32 pid;
+    RU8 proto;
+    RIpAddress srcIp;
+    RU16 srcPort;
+    RIpAddress dstIp;
+    RU16 dstPort;
+    RU32 packetSize;
+} KernelAcqDnsPacket;
 
 #endif

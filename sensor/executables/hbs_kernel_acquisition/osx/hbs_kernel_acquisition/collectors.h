@@ -36,6 +36,7 @@ _DECLARE_COLLECTOR( 4 );
 _DECLARE_TASK( task_get_new_processes );
 _DECLARE_TASK( task_get_new_fileio );
 _DECLARE_TASK( task_get_new_connections );
+_DECLARE_TASK( task_get_new_dns );
 
 
 

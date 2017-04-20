@@ -160,21 +160,25 @@ int
     int toCopy = 0;
     
     if( NULL != pResult &&
-       NULL != resultSize &&
-       0 != *resultSize )
+        NULL != resultSize &&
+        0 != *resultSize )
     {
         rpal_mutex_lock( g_collector_1_mutex );
         toCopy = (*resultSize) / sizeof( KernelAcqProcess );
+        toCopy = ( toCopy > g_nextProcess ? g_nextProcess : toCopy );
+        *resultSize = toCopy * sizeof( KernelAcqProcess );
         
         if( 0 != toCopy )
         {
-            toCopy = ( toCopy > g_nextProcess ? g_nextProcess : toCopy );
-            
-            *resultSize = toCopy * sizeof( KernelAcqProcess );
             memcpy( pResult, g_processes, *resultSize );
             
             g_nextProcess -= toCopy;
-            memmove( g_processes, g_processes + toCopy, g_nextProcess );
+            if( 0 != g_nextProcess )
+            {
+                memmove( g_processes,
+                         &g_processes[ toCopy ],
+                         g_nextProcess * sizeof( KernelAcqProcess ) );
+            }
         }
         
         rpal_mutex_unlock( g_collector_1_mutex );

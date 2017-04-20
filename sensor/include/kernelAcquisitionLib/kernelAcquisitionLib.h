@@ -77,4 +77,11 @@ RBOOL
         RU32* nEntries
     );
 
+RBOOL
+    kAcq_getNewDnsPackets
+    (
+        KernelAcqDnsPacket* packets,
+        RU32* totalSize
+    );
+
 #endif
