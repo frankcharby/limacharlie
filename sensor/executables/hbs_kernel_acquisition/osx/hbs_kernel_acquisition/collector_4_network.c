@@ -664,12 +664,10 @@ int
         if( 0 != toCopy )
         {
             memcpy( pResult, g_dns, toCopy );
-            //rpal_debug_info("memcpy %p %p %u", pResult, g_dns, toCopy);
             g_nextDns -= toCopy;
             if( 0 != g_nextDns )
             {
                 memmove( g_dns, g_dns + toCopy, g_nextDns );
-                //rpal_debug_info("memmove %p %p %u", g_dns, g_dns + toCopy, g_nextDns);
             }
         }
         
