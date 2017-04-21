@@ -33,9 +33,9 @@ DRIVER_DISPATCH DispatchControl;
 
 
 #ifdef RPAL_PLATFORM_DEBUG
-#define ACCESS_SDDL     SDDL_DEVOBJ_SYS_ALL_ADM_ALL
+    #define ACCESS_SDDL     SDDL_DEVOBJ_SYS_ALL_ADM_ALL
 #else
-#define ACCESS_SDDL     SDDL_DEVOBJ_SYS_ALL
+    #define ACCESS_SDDL     SDDL_DEVOBJ_SYS_ALL
 #endif
 
 #define DEVICE_NAME         _WCH("\\Device\\") ## ACQUISITION_COMMS_NAME

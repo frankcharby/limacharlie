@@ -103,101 +103,70 @@ DnsLabel*
         RCHAR humanLabel[ DNS_LABEL_MAX_SIZE ],
         RPU8 packetStart,
         RSIZET packetSize,
-        RU32 labelOffset
+        RU32 labelOffset,
+        RU32 depth
     )
 {
+    RU32 copied = labelOffset;
+
+    if( 3 < depth )
+    {
+        return NULL;
+    }
+
     if( NULL != pLabel )
     {
-        if( NULL != humanLabel && 0 == labelOffset )
+        while( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ), packetStart, packetSize ) &&
+               ( 0xC0 <= pLabel->nChar ||
+                 ( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ) + pLabel->nChar, packetStart, packetSize ) &&
+                   0 != pLabel->nChar ) ) )
         {
-            rpal_memory_zero( humanLabel, sizeof( RCHAR ) * DNS_LABEL_MAX_SIZE );
-        }
-
-        // Labels can be pointers here (11xx xxxx)
-        if( 0xC0 <= pLabel->nChar )
-        {
-            // Pointer to a label
-            DnsLabel* tmpLabel = NULL;
-            RU16 offset = rpal_ntoh16( *(RU16*)pLabel ) - 0xC000;
-            RU32 copied = labelOffset;
-
-            if( !IS_WITHIN_BOUNDS( (RPU8)packetStart + offset, sizeof( RU16 ), packetStart, packetSize ) )
+            // It's possible for a pointer to be terminating a traditional label
+            if( 0xC0 <= pLabel->nChar )
             {
-                rpal_debug_info( "OOPS" );
-                return NULL;
-            }
+                // Pointer to a label
+                DnsLabel* tmpLabel = NULL;
+                RU16 offset = rpal_ntoh16( *(RU16*)pLabel ) - 0xC000;
 
-            tmpLabel = (DnsLabel*)( (RPU8)packetStart + offset );
-            while( IS_WITHIN_BOUNDS( tmpLabel, sizeof( *tmpLabel ) + tmpLabel->nChar, packetStart, packetSize ) &&
-                   0 != tmpLabel->nChar )
+                if( !IS_WITHIN_BOUNDS( (RPU8)packetStart + offset, sizeof( RU16 ), packetStart, packetSize ) )
+                {
+                    rpal_debug_warning( "error parsing dns packet" );
+                    return NULL;
+                }
+
+                tmpLabel = (DnsLabel*)( (RPU8)packetStart + offset );
+
+                dnsReadLabels( tmpLabel, humanLabel, packetStart, packetSize, copied, depth + 1 );
+
+                // Pointers are always terminating the label.
+                pLabel = (DnsLabel*)( (RPU8)pLabel + sizeof( RU16 ) );
+                break;
+            }
+            else
             {
                 if( NULL != humanLabel &&
-                    ( sizeof( RCHAR ) * 254 ) >= copied + 1 + tmpLabel->nChar )
+                    DNS_LABEL_MAX_SIZE >= copied + 1 + pLabel->nChar )
                 {
                     if( 0 != copied )
                     {
                         humanLabel[ copied ] = '.';
                         copied++;
                     }
-                    rpal_memory_memcpy( (RPU8)(humanLabel)+copied, tmpLabel->label, tmpLabel->nChar );
-                    copied += tmpLabel->nChar;
+                    rpal_memory_memcpy( (RPU8)humanLabel + copied, pLabel->label, pLabel->nChar );
+                    copied += pLabel->nChar;
                 }
                 else if( NULL != humanLabel )
                 {
-                    rpal_debug_info( "OVERFLOW: %u / %u + %u", (RU32)copied, ( RU32 )sizeof( RCHAR ) * 254, (RU32)tmpLabel->nChar );
+                    rpal_debug_warning( "error parsing dns packet" );
                 }
-                tmpLabel = (DnsLabel*)( (RPU8)tmpLabel + tmpLabel->nChar + 1 );
+
+                pLabel = (DnsLabel*)( (RPU8)pLabel + pLabel->nChar + 1 );
             }
-
-            pLabel = (DnsLabel*)( (RPU8)pLabel + sizeof( RU16 ) );
-        }
-        else if( 0 == labelOffset )
-        {
-            RU32 copied = 0;
-
-            // Classic labels
-            while( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ), packetStart, packetSize ) &&
-                   ( 0xC0 <= pLabel->nChar ||
-                     ( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ) + pLabel->nChar, packetStart, packetSize ) &&
-                       0 != pLabel->nChar  ) ) )
-            {
-                // It's possible for a pointer to be terminating a traditional label
-                if( 0xC0 <= pLabel->nChar )
-                {
-                    pLabel = dnsReadLabels( pLabel, humanLabel, packetStart, packetSize, copied );
-                    break;
-                }
-                else
-                {
-                    if( NULL != humanLabel &&
-                        DNS_LABEL_MAX_SIZE >= copied + 1 + pLabel->nChar )
-                    {
-                        if( 0 != copied )
-                        {
-                            humanLabel[ copied ] = '.';
-                            copied++;
-                        }
-                        rpal_memory_memcpy( (RPU8)humanLabel + copied, pLabel->label, pLabel->nChar );
-                        copied += pLabel->nChar;
-                    }
-                    else if( NULL != humanLabel )
-                    {
-                        rpal_debug_info( "OVERFLOW: %u / %u + %u", (RU32)copied, ( RU32 )sizeof( RCHAR ) * 254, (RU32)pLabel->nChar );
-                    }
-
-                    pLabel = (DnsLabel*)( (RPU8)pLabel + pLabel->nChar + 1 );
-                }
-            }
-        }
-        else
-        {
-            rpal_debug_info( "OOPS" );
         }
     }
 
     return pLabel;
 }
-
 
 RPRIVATE
 RVOID
@@ -369,8 +338,8 @@ RVOID
     DnsHeader* dnsHeader = NULL;
     DnsResponseInfo* pResponseInfo = NULL;
     RCHAR domain[ DNS_LABEL_MAX_SIZE ] = { 0 };
-    RCHAR cname[ DNS_LABEL_MAX_SIZE ] = { 0 };
     RU16 recordType = 0;
+    RU64 timestamp = 0;
 
     if( NULL != pDns )
     {
@@ -387,11 +356,12 @@ RVOID
         {
             DnsQuestionInfo* pQInfo = NULL;
 
-            pLabel = dnsReadLabels( pLabel, NULL, (RPU8)dnsHeader, pDns->packetSize, 0 );
+            pLabel = dnsReadLabels( pLabel, NULL, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
 
             pQInfo = (DnsQuestionInfo*)( (RPU8)pLabel + 1 );
             if( !IS_WITHIN_BOUNDS( pQInfo, sizeof( *pQInfo ), dnsHeader, pDns->packetSize ) )
             {
+                rpal_debug_warning( "error parsing dns packet" );
                 break;
             }
 
@@ -400,7 +370,7 @@ RVOID
 
         if( !IS_WITHIN_BOUNDS( pLabel, sizeof( RU16 ), dnsHeader, pDns->packetSize ) )
         {
-            rpal_debug_info( "OOPS" );
+            rpal_debug_warning( "error parsing dns packet" );
             return;
         }
 
@@ -408,53 +378,53 @@ RVOID
         {
             pResponseInfo = NULL;
             
-            pLabel = dnsReadLabels( pLabel, domain, (RPU8)dnsHeader, pDns->packetSize, 0 );
+            rpal_memory_zero( domain, sizeof( domain ) );
+            pLabel = dnsReadLabels( pLabel, domain, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
 
             pResponseInfo = (DnsResponseInfo*)pLabel;
             pLabel = (DnsLabel*)( (RPU8)pResponseInfo + sizeof( *pResponseInfo ) + rpal_ntoh16( pResponseInfo->rDataLength ) );
 
             if( !IS_WITHIN_BOUNDS( pResponseInfo, sizeof( *pResponseInfo ), dnsHeader, pDns->packetSize ) )
             {
-                rpal_debug_info( "OOPS" );
+                rpal_debug_warning( "error parsing dns packet" );
                 break;
             }
 
             if( NULL == ( notification = rSequence_new() ) )
             {
+                rpal_debug_warning( "error parsing dns packet" );
                 break;
             }
 
-            rSequence_addTIMESTAMP( notification, RP_TAGS_TIMESTAMP, pDns->ts );
+            timestamp = pDns->ts;
+            timestamp += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
+
+            rSequence_addTIMESTAMP( notification, RP_TAGS_TIMESTAMP, timestamp );
             rSequence_addSTRINGA( notification, RP_TAGS_DOMAIN_NAME, domain );
-            rpal_debug_info( "))) DOMAIN %s", domain );
+            rSequence_addRU32( notification, RP_TAGS_PROCESS_ID, pDns->pid );
 
             recordType = rpal_ntoh16( pResponseInfo->recordType );
 
             rSequence_addRU16( notification, RP_TAGS_MESSAGE_ID, rpal_ntoh16( dnsHeader->msgId ) );
             rSequence_addRU16( notification, RP_TAGS_DNS_TYPE, recordType );
 
-            rpal_debug_info( "))) ID/TYPE %x / %x", rpal_ntoh16( dnsHeader->msgId ), recordType );
-
             if( DNS_A_RECORD == recordType )
             {
-                rpal_debug_info( "))) V4 %x", *(RU32*)pResponseInfo->rData );
                 rSequence_addIPV4( notification, RP_TAGS_IP_ADDRESS, *(RU32*)pResponseInfo->rData );
             }
             else if( DNS_AAAA_RECORD == recordType )
             {
-                rpal_debug_info( "))) V6" );
                 rSequence_addIPV6( notification, RP_TAGS_IP_ADDRESS, pResponseInfo->rData );
             }
             else if( DNS_CNAME_RECORD == recordType )
             {
-                dnsReadLabels( (DnsLabel*)pResponseInfo->rData, cname, (RPU8)dnsHeader, pDns->packetSize, 0 );
-                rSequence_addSTRINGA( notification, RP_TAGS_CNAME, cname );
-                rpal_debug_info( "))) CNAME %s", cname );
+                rpal_memory_zero( domain, sizeof( domain ) );
+                dnsReadLabels( (DnsLabel*)pResponseInfo->rData, domain, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
+                rSequence_addSTRINGA( notification, RP_TAGS_CNAME, domain );
             }
             else
             {
                 // Right now we only care for A, CNAME and AAAA records.
-                rpal_debug_info( "NOPEEEEEEEEEEEE: %d", recordType );
                 rSequence_free( notification );
                 notification = NULL;
                 continue;
@@ -492,7 +462,7 @@ RVOID
             rpal_debug_warning( "kernel acquisition for new dns packets failed" );
             break;
         }
-        rpal_debug_info( "Got %d bytes of DNS", sizeInNew );
+
         pDns = (KernelAcqDnsPacket*)prev_from_kernel;
         while( IS_WITHIN_BOUNDS( pDns, sizeof( *pDns ), prev_from_kernel, sizeInPrev ) &&
                0 != pDns->ts &&
