@@ -20,7 +20,8 @@ limitations under the License.
 
 #pragma warning(disable:4127)       // constant expressions
 
-#define _NUM_BUFFERED_CONNECTIONS 200
+#define _NUM_BUFFERED_CONNECTIONS   200
+#define _NUM_BUFFERED_DNS_BYTES     (128 * 1024)
 
 typedef struct
 {
@@ -61,6 +62,18 @@ RVOID
         FWPS_CLASSIFY_OUT* result
     );
 
+RVOID
+    coInboundTransport
+    (
+        const FWPS_INCOMING_VALUES* fixVals,
+        const FWPS_INCOMING_METADATA_VALUES* metaVals,
+        RPVOID data,
+        const void* classifyCtx,
+        const FWPS_FILTER* flt,
+        RU64 flowCtx,
+        FWPS_CLASSIFY_OUT* result
+    );
+
 static LayerInfo g_layerAuthConnect4 = {
     _WCH( "slAuthConnect4" ),
     _WCH( "coAuthConnect4" ),
@@ -89,10 +102,26 @@ static LayerInfo g_layerAuthRecvAccept6 = {
     coAuthRecvAccept
 };
 
+static LayerInfo g_layerInboundTransport4 = {
+    _WCH( "slInboundTransport4" ),
+    _WCH( "coInboundTransport4" ),
+    _WCH( "flInboundTransport4" ),
+    coInboundTransport
+};
+
+static LayerInfo g_layerInboundTransport6 = {
+    _WCH( "slInboundTransport6" ),
+    _WCH( "coInboundTransport6" ),
+    _WCH( "flInboundTransport6" ),
+    coInboundTransport
+};
+
 static LayerInfo* g_layers[] = { &g_layerAuthConnect4,
                                  &g_layerAuthConnect6,
                                  &g_layerAuthRecvAccept4,
-                                 &g_layerAuthRecvAccept6 };
+                                 &g_layerAuthRecvAccept6,
+                                 &g_layerInboundTransport4,
+                                 &g_layerInboundTransport6 };
 
 static HANDLE g_stateChangeHandle = NULL;
 static HANDLE g_engineHandle = NULL;
@@ -100,6 +129,10 @@ static HANDLE g_engineHandle = NULL;
 static KSPIN_LOCK g_collector_4_mutex = { 0 };
 static KernelAcqNetwork g_connections[ _NUM_BUFFERED_CONNECTIONS ] = { 0 };
 static RU32 g_nextConnection = 0;
+
+static KSPIN_LOCK g_collector_4_mutex_dns = { 0 };
+static RU8 g_dns[ _NUM_BUFFERED_DNS_BYTES ] = { 0 };
+static RU32 g_nextDns = 0;
 
 RBOOL
     task_get_new_network
@@ -136,6 +169,67 @@ RBOOL
             g_nextConnection -= toCopy;
             memmove( g_connections, g_connections + toCopy, g_nextConnection );
         }
+
+        KeReleaseInStackQueuedSpinLock( &hMutex );
+
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    task_get_new_dns
+    (
+        RPU8 pArgs,
+        RU32 argsSize,
+        RPU8 pResult,
+        RU32* resultSize
+    )
+{
+    RBOOL isSuccess = FALSE;
+    KLOCK_QUEUE_HANDLE hMutex = { 0 };
+    KernelAcqDnsPacket* pDns = NULL;
+
+    RU32 currentFrameSize = 0;
+    RU32 toCopy = 0;
+
+    UNREFERENCED_PARAMETER( pArgs );
+    UNREFERENCED_PARAMETER( argsSize );
+
+    if( NULL != pResult &&
+        NULL != resultSize &&
+        0 != *resultSize )
+    {
+        KeAcquireInStackQueuedSpinLock( &g_collector_4_mutex_dns, &hMutex );
+
+        // Unlike other kernel sources, these are variable size so
+        // we have to crawl them until we've filled the buffer.
+        pDns = (KernelAcqDnsPacket*)g_dns;
+
+        while( IS_WITHIN_BOUNDS( pDns, sizeof( *pDns ), g_dns, g_nextDns ) &&
+               0 != ( currentFrameSize = sizeof( *pDns ) + pDns->packetSize ) &&
+               IS_WITHIN_BOUNDS( pDns, currentFrameSize, g_dns, g_nextDns ) &&
+               ( toCopy + currentFrameSize ) <= *resultSize )
+        {
+            // Current pDns fits in buffer, add the size and move to the next packet.
+            // We accumulate the buffer size so we do a single memcpy/memmove.
+            toCopy += currentFrameSize;
+            pDns = (KernelAcqDnsPacket*)( (RPU8)pDns + currentFrameSize );
+        }
+
+        // We now have the total size of buffer to copy.
+        if( 0 != toCopy )
+        {
+            memcpy( pResult, g_dns, toCopy );
+            g_nextDns -= toCopy;
+            if( 0 != g_nextDns )
+            {
+                memmove( g_dns, g_dns + toCopy, g_nextDns );
+            }
+        }
+
+        *resultSize = toCopy;
 
         KeReleaseInStackQueuedSpinLock( &hMutex );
 
@@ -197,6 +291,26 @@ static NTSTATUS
             netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V6_IP_REMOTE_PORT ].value.uint16;
             netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V6_IP_PROTOCOL ].value.uint8;
             break;
+        case FWPS_LAYER_INBOUND_TRANSPORT_V4:
+            netEntry->isIncoming = FALSE; // We say it's outgoing but in reality we're not sure
+            netEntry->srcIp.isV6 = FALSE;
+            netEntry->dstIp.isV6 = FALSE;
+            netEntry->srcIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_LOCAL_ADDRESS ].value.uint32;
+            netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_LOCAL_PORT ].value.uint16;
+            netEntry->dstIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_REMOTE_ADDRESS ].value.uint32;
+            netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_REMOTE_PORT ].value.uint16;
+            netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_PROTOCOL ].value.uint8;
+            break;
+        case FWPS_LAYER_INBOUND_TRANSPORT_V6:
+            netEntry->isIncoming = FALSE; // We say it's outgoing but in reality we're not sure
+            netEntry->srcIp.isV6 = TRUE;
+            netEntry->dstIp.isV6 = TRUE;
+            netEntry->srcIp.value.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V6_IP_LOCAL_ADDRESS ].value.byteArray16;
+            netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V6_IP_LOCAL_PORT ].value.uint16;
+            netEntry->dstIp.value.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V6_IP_REMOTE_ADDRESS ].value.byteArray16;
+            netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V6_IP_REMOTE_PORT ].value.uint16;
+            netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V6_IP_PROTOCOL ].value.uint8;
+            break;
 
         default:
             rpal_debug_kernel( "Unknown layer protocol family: 0x%08X", layerId );
@@ -219,6 +333,7 @@ RVOID
     )
 {
     NTSTATUS status = STATUS_SUCCESS;
+    KLOCK_QUEUE_HANDLE hMutex = { 0 };
 
     UNREFERENCED_PARAMETER( data );
     UNREFERENCED_PARAMETER( classifyCtx );
@@ -229,8 +344,6 @@ RVOID
     {
         result->actionType = FWP_ACTION_CONTINUE;
     }
-
-    KLOCK_QUEUE_HANDLE hMutex = { 0 };
 
     KeAcquireInStackQueuedSpinLock( &g_collector_4_mutex, &hMutex );
 
@@ -271,6 +384,7 @@ RVOID
     )
 {
     NTSTATUS status = STATUS_SUCCESS;
+    KLOCK_QUEUE_HANDLE hMutex = { 0 };
 
     UNREFERENCED_PARAMETER( data );
     UNREFERENCED_PARAMETER( classifyCtx );
@@ -281,8 +395,6 @@ RVOID
     {
         result->actionType = FWP_ACTION_CONTINUE;
     }
-
-    KLOCK_QUEUE_HANDLE hMutex = { 0 };
 
     KeAcquireInStackQueuedSpinLock( &g_collector_4_mutex, &hMutex );
 
@@ -305,6 +417,130 @@ RVOID
         rpal_debug_kernel( "Failed to get tuple: 0x%08X", status );
         status = STATUS_INTERNAL_ERROR;
         RtlZeroMemory( &g_connections[ g_nextConnection ], sizeof( g_connections[ g_nextConnection ] ) );
+    }
+
+    KeReleaseInStackQueuedSpinLock( &hMutex );
+}
+
+RVOID
+    coInboundTransport
+    (
+        const FWPS_INCOMING_VALUES* fixVals,
+        const FWPS_INCOMING_METADATA_VALUES* metaVals,
+        RPVOID data,
+        const void* classifyCtx,
+        const FWPS_FILTER* flt,
+        RU64 flowCtx,
+        FWPS_CLASSIFY_OUT* result
+    )
+{
+    KernelAcqNetwork netEntry = { 0 };
+    KernelAcqDnsPacket dnsEntry = { 0 };
+    KLOCK_QUEUE_HANDLE hMutex = { 0 };
+    RSIZET packetSize = 0;
+    RSIZET requiredSize = 0;
+    PNET_BUFFER_LIST bufferList = NULL;
+    PNET_BUFFER buffer = NULL;
+    RPVOID pPayload = NULL;
+
+    UNREFERENCED_PARAMETER( data );
+    UNREFERENCED_PARAMETER( classifyCtx );
+    UNREFERENCED_PARAMETER( flt );
+    UNREFERENCED_PARAMETER( flowCtx );
+
+    if( IS_FLAG_ENABLED( result->rights, FWPS_RIGHT_ACTION_WRITE ) )
+    {
+        result->actionType = FWP_ACTION_CONTINUE;
+    }
+
+    // Before locking anything check if the packet is of interest
+    // Right now we only care about port 53 (DNS) in and outbound
+    if( !getIpTuple( fixVals->layerId, fixVals, &netEntry ) ||
+        ( 53 != netEntry.dstPort &&
+          53 != netEntry.srcPort ) ||
+        ( IPPROTO_UDP != netEntry.proto &&
+          IPPROTO_TCP != netEntry.proto ) )
+    {
+        return;
+    }
+
+    if( NULL == data )
+    {
+        return;
+    }
+
+    // No need to advance or retreat the buffer since we just want the payload
+    // regardless of protocol.
+
+    if( FWPS_IS_METADATA_FIELD_PRESENT( metaVals, FWPS_METADATA_FIELD_PROCESS_ID ) )
+    {
+        dnsEntry.pid = (RU32)metaVals->processId;
+    }
+
+    // Common metadata for all packets we're about to process.
+    dnsEntry.dstIp = netEntry.dstIp;
+    dnsEntry.dstPort = netEntry.dstPort;
+    dnsEntry.srcIp = netEntry.srcIp;
+    dnsEntry.srcPort = netEntry.srcPort;
+    dnsEntry.proto = netEntry.proto;
+    dnsEntry.ts = rpal_time_getLocal();
+
+    bufferList = (PNET_BUFFER_LIST)data;
+
+    KeAcquireInStackQueuedSpinLock( &g_collector_4_mutex_dns, &hMutex );
+
+    // We get a list of packets, so we might record more than one.
+    while( NULL != bufferList )
+    {
+        buffer = NET_BUFFER_LIST_FIRST_NB( bufferList );
+        packetSize = NET_BUFFER_DATA_LENGTH( buffer );
+
+        // Calculate the size needed for this packet.
+        requiredSize = sizeof( KernelAcqDnsPacket ) + packetSize;
+
+        // Check to see if we have enough room in the global buffer or if we need
+        // to reset it to 0.
+        if( sizeof( g_dns ) - g_nextDns < requiredSize )
+        {
+            if( sizeof( g_dns ) < requiredSize )
+            {
+                // There is no way we can ever log this packet, bail.
+                rpal_debug_kernel( "DNS packet too large for entire global buffer?" );
+            }
+            else
+            {
+                // Buffer overflow, reset to the beginning.
+                g_nextDns = 0;
+                rpal_debug_kernel( "DNS packet buffer overflow" );
+            }
+        }
+
+        // Ok we did our best to accomodate this new packet, was it enought?
+        if( sizeof( g_dns ) - g_nextDns >= requiredSize )
+        {
+            // By this point, we know we're good to log packet at g_nextDns.
+            dnsEntry.packetSize = (RU32)packetSize;
+
+            // Copy in the header.
+            memcpy( g_dns + g_nextDns, &dnsEntry, sizeof( KernelAcqDnsPacket ) );
+
+            // Now start copying the payload chunks.
+            pPayload = NdisGetDataBuffer( buffer, (ULONG)packetSize, g_dns + g_nextDns + sizeof( KernelAcqDnsPacket ), 1, 0 );
+            if( NULL != pPayload )
+            {
+                // Ndis already had the packet mapped contiguously, so we just need to copy to our buffer.
+                memcpy( g_dns + g_nextDns + sizeof( KernelAcqDnsPacket ), pPayload, packetSize );
+            }
+            else
+            {
+                // Payload wasn't already continuous in memory, so the NdisGetDataBuffer stored it directly
+                // in the storage area we provided.
+            }
+
+            g_nextDns += (RU32)sizeof( KernelAcqDnsPacket ) + (RU32)packetSize;
+        }
+
+        bufferList = NET_BUFFER_LIST_NEXT_NBL( bufferList );
     }
 
     KeReleaseInStackQueuedSpinLock( &hMutex );
@@ -606,6 +842,32 @@ static NTSTATUS
             break;
         }
 
+        if( NT_SUCCESS( status = ExUuidCreate( &g_layerInboundTransport4.slGuid ) ) &&
+            NT_SUCCESS( status = ExUuidCreate( &g_layerInboundTransport4.coGuid ) ) &&
+            NT_SUCCESS( status = ExUuidCreate( &g_layerInboundTransport4.flGuid ) ) )
+        {
+            g_layerInboundTransport4.guid = FWPM_LAYER_INBOUND_TRANSPORT_V4;
+        }
+
+        if( !NT_SUCCESS( status ) )
+        {
+            rpal_debug_kernel( "Failed to create inboundTransport4 GUIDs: 0x%08X", status );
+            break;
+        }
+
+        if( NT_SUCCESS( status = ExUuidCreate( &g_layerInboundTransport6.slGuid ) ) &&
+            NT_SUCCESS( status = ExUuidCreate( &g_layerInboundTransport6.coGuid ) ) &&
+            NT_SUCCESS( status = ExUuidCreate( &g_layerInboundTransport6.flGuid ) ) )
+        {
+            g_layerInboundTransport6.guid = FWPM_LAYER_INBOUND_TRANSPORT_V6;
+        }
+
+        if( !NT_SUCCESS( status ) )
+        {
+            rpal_debug_kernel( "Failed to create inboundTransport6 GUIDs: 0x%08X", status );
+            break;
+        }
+
         if( !NT_SUCCESS( status = FwpmBfeStateSubscribeChanges( deviceObject,
                                                                 stateChangeCallback,
                                                                 (RPVOID)deviceObject,
@@ -666,6 +928,7 @@ RBOOL
     UNREFERENCED_PARAMETER( driverObject );
 
     KeInitializeSpinLock( &g_collector_4_mutex );
+    KeInitializeSpinLock( &g_collector_4_mutex_dns );
 
     status = installWfp( deviceObject );
 

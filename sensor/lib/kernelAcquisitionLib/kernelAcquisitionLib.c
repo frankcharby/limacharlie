@@ -55,7 +55,7 @@ static RBOOL g_platform_availability[ KERNEL_ACQ_OP_COUNT ] = {
     TRUE, // KERNEL_ACQ_OP_GET_NEW_FILE_IO
     TRUE, // KERNEL_ACQ_OP_NEW_MODULE
     TRUE, // KERNEL_ACQ_OP_NEW_NETWORK
-    FALSE, // KERNEL_ACQ_OP_DNS
+    TRUE, // KERNEL_ACQ_OP_DNS
 #endif
 };
 

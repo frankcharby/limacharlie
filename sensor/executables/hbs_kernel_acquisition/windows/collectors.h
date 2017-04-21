@@ -37,6 +37,7 @@ _DECLARE_TASK( task_get_new_processes );
 _DECLARE_TASK( task_get_new_module_loads );
 _DECLARE_TASK( task_get_new_files );
 _DECLARE_TASK( task_get_new_network );
+_DECLARE_TASK( task_get_new_dns );
 
 
 #endif

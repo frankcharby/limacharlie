@@ -103,7 +103,8 @@ static collector_task g_tasks[ KERNEL_ACQ_OP_COUNT  ] = { task_ping,
                                                           task_get_new_processes,
                                                           task_get_new_files,
                                                           task_get_new_module_loads,
-                                                          task_get_new_network};
+                                                          task_get_new_network,
+                                                          task_get_new_dns };
 
 
 NTSTATUS

@@ -99,7 +99,7 @@
       <PreprocessorDefinitions>RPAL_PLATFORM_KERNEL;%(PreprocessorDefinitions);NDIS_SUPPORT_NDIS6</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>wdmsec.lib;fltMgr.lib;fwpkclnt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wdmsec.lib;fltMgr.lib;fwpkclnt.lib;ndis.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/INTEGRITYCHECK %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -109,7 +109,7 @@
       <PreprocessorDefinitions>RPAL_PLATFORM_KERNEL;%(PreprocessorDefinitions);NDIS_SUPPORT_NDIS6</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>wdmsec.lib;fltMgr.lib;fwpkclnt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wdmsec.lib;fltMgr.lib;fwpkclnt.lib;ndis.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/INTEGRITYCHECK %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -119,7 +119,7 @@
       <PreprocessorDefinitions>RPAL_PLATFORM_KERNEL;%(PreprocessorDefinitions);NDIS_SUPPORT_NDIS6</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>wdmsec.lib;fltMgr.lib;fwpkclnt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wdmsec.lib;fltMgr.lib;fwpkclnt.lib;ndis.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/INTEGRITYCHECK %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -129,7 +129,7 @@
       <PreprocessorDefinitions>RPAL_PLATFORM_KERNEL;%(PreprocessorDefinitions);NDIS_SUPPORT_NDIS6</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>wdmsec.lib;fltMgr.lib;fwpkclnt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wdmsec.lib;fltMgr.lib;fwpkclnt.lib;ndis.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/INTEGRITYCHECK %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
