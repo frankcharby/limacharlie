@@ -340,6 +340,7 @@ RVOID
     RCHAR domain[ DNS_LABEL_MAX_SIZE ] = { 0 };
     RU16 recordType = 0;
     RU64 timestamp = 0;
+    Atom parentAtom = { 0 };
 
     if( NULL != pDns )
     {
@@ -398,6 +399,13 @@ RVOID
 
             timestamp = pDns->ts;
             timestamp += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
+
+            parentAtom.key.process.pid = pDns->pid;
+            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            if( atoms_query( &parentAtom, timestamp ) )
+            {
+                HbsSetParentAtom( notification, parentAtom.id );
+            }
 
             rSequence_addTIMESTAMP( notification, RP_TAGS_TIMESTAMP, timestamp );
             rSequence_addSTRINGA( notification, RP_TAGS_DOMAIN_NAME, domain );
