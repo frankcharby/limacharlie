@@ -41,7 +41,7 @@ rMutex g_km_mutex = NULL;
 
 static RBOOL g_is_available = FALSE;
 
-static RBOOL g_platform_availability[ KERNEL_ACQ_OP_COUNT ] = { 
+static RBOOL g_platform_availability[ KERNEL_ACQ_NUM_OPS ] = {
 #ifdef RPAL_PLATFORM_MACOSX
     TRUE, // KERNEL_ACQ_OP_PING
     TRUE, // KERNEL_ACQ_OP_GET_NEW_PROCESSES
@@ -225,7 +225,7 @@ RU32
 
     // Check whether this particular function is available on
     // this platform via kernel.
-    if( op >= KERNEL_ACQ_OP_COUNT ||
+    if( op >= KERNEL_ACQ_NUM_OPS ||
         !g_platform_availability[ op ] )
     {
         return error;

@@ -99,12 +99,12 @@ static CollectorContext g_collectors[] = { _COLLECTOR_INIT( 1 ),
                                            _COLLECTOR_INIT( 2 ),
                                            _COLLECTOR_INIT( 3 ),
                                            _COLLECTOR_INIT( 4 ) };
-static collector_task g_tasks[ KERNEL_ACQ_OP_COUNT  ] = { task_ping,
-                                                          task_get_new_processes,
-                                                          task_get_new_files,
-                                                          task_get_new_module_loads,
-                                                          task_get_new_network,
-                                                          task_get_new_dns };
+static collector_task g_tasks[ KERNEL_ACQ_NUM_OPS  ] = { task_ping,
+                                                         task_get_new_processes,
+                                                         task_get_new_files,
+                                                         task_get_new_module_loads,
+                                                         task_get_new_network,
+                                                         task_get_new_dns };
 
 
 NTSTATUS
