@@ -35,6 +35,8 @@ RPRIVATE DnsFree_f freeCacheEntry = NULL;
 #endif
 
 #define DNS_LABEL_MAX_SIZE      254
+#define DNS_SANITY_MAX_RECORDS  50
+#define DNS_KB_PACKET_BUFFER    128
 #define DNS_A_RECORD            0x0001
 #define DNS_AAAA_RECORD         0x001C
 #define DNS_CNAME_RECORD        0x0005
@@ -136,11 +138,14 @@ DnsLabel*
 
                 tmpLabel = (DnsLabel*)( (RPU8)packetStart + offset );
 
-                dnsReadLabels( tmpLabel, humanLabel, packetStart, packetSize, copied, depth + 1 );
+                if( NULL == dnsReadLabels( tmpLabel, humanLabel, packetStart, packetSize, copied, depth + 1 ) )
+                {
+                    return NULL;
+                }
 
                 // Pointers are always terminating the label.
                 pLabel = (DnsLabel*)( (RPU8)pLabel + sizeof( RU16 ) );
-                break;
+                return pLabel;
             }
             else
             {
@@ -158,10 +163,19 @@ DnsLabel*
                 else if( NULL != humanLabel )
                 {
                     rpal_debug_warning( "error parsing dns packet" );
+                    return NULL;
                 }
 
                 pLabel = (DnsLabel*)( (RPU8)pLabel + pLabel->nChar + 1 );
             }
+        }
+
+        // We do a last sanity check. A valid label parsing should end in a 0-val nChar within
+        // the buffer, so we check it's all valid, otherwise we'll assume an error and will return an error.
+        if( !IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ), packetStart, packetSize ) ||
+            0 != pLabel->nChar )
+        {
+            return NULL;
         }
     }
 
@@ -348,11 +362,18 @@ RVOID
         pLabel = (DnsLabel*)dnsHeader->data;
 
         // We may receive DNS requests from the kernel, so we will discard packets without Answers
-        if( 0 == dnsHeader->anCount || 0 == dnsHeader->qr )
+        // or with number of records that are not sane.
+        if( 0 == dnsHeader->anCount ||
+            0 == dnsHeader->qr ||
+            DNS_SANITY_MAX_RECORDS < rpal_ntoh16( dnsHeader->qdCount ) ||
+            DNS_SANITY_MAX_RECORDS < rpal_ntoh16( dnsHeader->anCount ) )
         {
             return;
         }
 
+        // We need to walk the Questions first to get to the Answers
+        // but we don't really care to record them since they'll be repeated
+        // in the Answers.
         for( i = 0; i < rpal_ntoh16( dnsHeader->qdCount ); i++ )
         {
             DnsQuestionInfo* pQInfo = NULL;
@@ -375,10 +396,13 @@ RVOID
             return;
         }
 
+        // This is what we care about, the Answers (which also point to each Question).
+        // We will emit one event per Answer so as to keep the DNS_REQUEST event flat and atomic.
         for( i = 0; i < rpal_ntoh16( dnsHeader->anCount ); i++ )
         {
             pResponseInfo = NULL;
             
+            // This was the Question for this answer.
             rpal_memory_zero( domain, sizeof( domain ) );
             pLabel = dnsReadLabels( pLabel, domain, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
 
@@ -397,9 +421,16 @@ RVOID
                 break;
             }
 
+            // This is a timestamp coming from the kernel so it is not globally adjusted.
+            // We'll adjust it with the global offset.
             timestamp = pDns->ts;
             timestamp += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
 
+            // Try to relate the DNS request to the owner process, this only works on OSX
+            // at the moment (since the kernel does not expose the PID at the packet capture
+            // stage), and even on OSX it's the DNSResolver process. So it's not super useful
+            // but regardless we have the mechanism here as it's better than nothing and when
+            // we add better resolving in the kernel it will work transparently.
             parentAtom.key.process.pid = pDns->pid;
             parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
             if( atoms_query( &parentAtom, timestamp ) )
@@ -426,6 +457,7 @@ RVOID
             }
             else if( DNS_CNAME_RECORD == recordType )
             {
+                // CNAME records will have another label as a value and not an IP.
                 rpal_memory_zero( domain, sizeof( domain ) );
                 dnsReadLabels( (DnsLabel*)pResponseInfo->rData, domain, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
                 rSequence_addSTRINGA( notification, RP_TAGS_CNAME, domain );
@@ -452,8 +484,8 @@ RVOID
         rEvent isTimeToStop
     )
 {
-    RU8 new_from_kernel[ 128 * 1024 ] = { 0 };
-    RU8 prev_from_kernel[ 128 * 1024 ] = { 0 };
+    RU8 new_from_kernel[ DNS_KB_PACKET_BUFFER * 1024 ] = { 0 };
+    RU8 prev_from_kernel[ DNS_KB_PACKET_BUFFER * 1024 ] = { 0 };
 
     RU32 sizeInNew = 0;
     RU32 sizeInPrev = 0;
@@ -602,6 +634,147 @@ RBOOL
 //=============================================================================
 //  Collector Testing
 //=============================================================================
+HBS_DECLARE_TEST( dns_read_label )
+{
+    RCHAR tmpText[ DNS_LABEL_MAX_SIZE ] = { 0 };
+    RPU8 buffer = NULL;
+    RU32 bufferSize = 0;
+    RU32 i = 0;
+    DnsLabel* pLabel = NULL;
+
+    RU8 label_1[] = { 0x03, 'w', 'w', 'w', 
+                      0x06, 'g', 'o', 'o', 'g', 'l', 'e',
+                      0x03, 'c', 'o', 'm',
+                      0x00 };
+    RU32 offset1 = 0;
+
+    RCHAR value1[] = { "www.google.com" };
+    RU8 label_2[] = { 0xFF,
+                      0x03, 'w', 'w', 'w',
+                      0x06, 'g', 'o', 'o', 'g', 'l', 'e',
+                      0x03, 'c', 'o', 'm',
+                      0x00,
+                      0x03, 'a', 'p', 'i',
+                      0xC0, 0x05,
+                      0x04, 'n', 'o', 'p', 'e',
+                      0x00 };
+    RU32 offset2 = 17;
+    RCHAR value2[] = { "api.google.com" };
+
+    RU8 label_3[] = { 0xFF,
+                      0x03, 'w', 'w', 'w',
+                      0x06, 'g', 'o', 'o', 'g', 'l', 'e',
+                      0x03, 'c', 'o', 'm',
+                      0x00,
+                      0x02, 'l', 'c',
+                      0xC0, 0x05,
+                      0xC0, 0x14,
+                      0x04, 'n', 'o', 'p', 'e',
+                      0x00 };
+    RU32 offset3 = 22;
+    RCHAR value3[] = { "google.com" };
+
+    RU8 label_4[] = { 0xFF,
+                      0x03, 'w', 'w', 'w',
+                      0xC0, 0x01,
+                      0xC0, 0x05,
+                      0xC0, 0x07,
+                      0xC0, 0x09 };
+    RU32 offset4 = 11;
+
+    for( i = 0; i < 100; i++ )
+    {
+        bufferSize = ( rpal_rand() % ( 128 * 1024 ) ) + 1024;
+        buffer = rpal_memory_alloc( bufferSize );
+        HBS_ASSERT_TRUE( NULL != buffer );
+        HBS_ASSERT_TRUE( CryptoLib_genRandomBytes( buffer, bufferSize ) );
+
+        pLabel = (DnsLabel*)buffer;
+        
+        // Random data might contain something valid-looking so we can't assert == NULL.
+        // We just this just as a fuzz to make sure we generate no crashes.
+        rpal_memory_zero( tmpText, sizeof( tmpText ) );
+        dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 );
+
+        rpal_memory_free( buffer );
+    }
+
+    // Reading a simple single label.
+    pLabel = (DnsLabel*)( label_1 + offset1 );
+    buffer = label_1;
+    bufferSize = sizeof( label_1 );
+
+    rpal_memory_zero( tmpText, sizeof( tmpText ) );
+    HBS_ASSERT_TRUE( NULL != dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 ) );
+    HBS_ASSERT_TRUE( 0 == rpal_string_strcmpA( tmpText, value1 ) );
+
+    // Reading a label using a pointer.
+    // Also make sure that the pointer jump terminates the parsing (as per RFC).
+    pLabel = (DnsLabel*)( label_2 + offset2 );
+    buffer = label_2;
+    bufferSize = sizeof( label_2 );
+
+    rpal_memory_zero( tmpText, sizeof( tmpText ) );
+    HBS_ASSERT_TRUE( NULL != dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 ) );
+    HBS_ASSERT_TRUE( 0 == rpal_string_strcmpA( tmpText, value2 ) );
+
+    // Reading a label using a pointer to a pointer.
+    // Also make sure that the pointer jump terminates the parsing (as per RFC).
+    pLabel = (DnsLabel*)( label_3 + offset3 );
+    buffer = label_3;
+    bufferSize = sizeof( label_3 );
+
+    rpal_memory_zero( tmpText, sizeof( tmpText ) );
+    HBS_ASSERT_TRUE( NULL != dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 ) );
+    HBS_ASSERT_TRUE( 0 == rpal_string_strcmpA( tmpText, value3 ) );
+
+    // Reading a label using a pointer to a pointer to a pointer past max_depth.
+    pLabel = (DnsLabel*)( label_4 + offset4 );
+    buffer = label_4;
+    bufferSize = sizeof( label_4 );
+
+    rpal_memory_zero( tmpText, sizeof( tmpText ) );
+    HBS_ASSERT_TRUE( NULL == dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 ) );
+}
+
+HBS_DECLARE_TEST( dns_process_packet )
+{
+    RPU8 buffer = NULL;
+    RU32 bufferSize = 0;
+    RU32 i = 0;
+    KernelAcqDnsPacket* packet = NULL;
+
+    rQueue notifQueue = NULL;
+
+    HBS_ASSERT_TRUE( rQueue_create( &notifQueue, rSequence_freeWithSize, 10 ) );
+    HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_DNS_REQUEST, NULL, 0, notifQueue, NULL ) );
+
+    // We keep the test here somewhat simple since the packet is validated by the caller
+    // above and the heavy structure validation is done at the label level. So we'll just
+    // fuzz it a bit.
+    for( i = 0; i < 100; i++ )
+    {
+        bufferSize = ( rpal_rand() % ( 128 * 1024 ) ) + 1024;
+        buffer = rpal_memory_alloc( bufferSize );
+        HBS_ASSERT_TRUE( NULL != buffer );
+        HBS_ASSERT_TRUE( CryptoLib_genRandomBytes( buffer, bufferSize ) );
+
+        packet = (KernelAcqDnsPacket*)buffer;
+
+        // Random data might contain something valid-looking so we can't assert 
+        // that no event will be generated.
+        // We just this just as a fuzz to make sure we generate no crashes.
+        processDnsPacket( packet );
+
+        rpal_memory_free( buffer );
+    }
+
+    // Wipe the queue in case we generated events.
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_DNS_REQUEST, notifQueue, NULL );
+    rQueue_free( notifQueue );
+
+}
+
 HBS_TEST_SUITE( 2 )
 {
     RBOOL isSuccess = FALSE;
@@ -609,6 +782,8 @@ HBS_TEST_SUITE( 2 )
     if( NULL != hbsState &&
         NULL != testContext )
     {
+        HBS_RUN_TEST( dns_read_label );
+        HBS_RUN_TEST( dns_process_packet );
         isSuccess = TRUE;
     }
 
