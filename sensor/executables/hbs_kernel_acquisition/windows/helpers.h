@@ -27,6 +27,8 @@ RU64 rpal_time_getLocal();
 #define copyUnicodeStringToBuffer(str,buff) (_copyUnicodeStringToBuffer((str),(buff),sizeof(buff)))
 RBOOL _copyUnicodeStringToBuffer( PCUNICODE_STRING str, RPWCHAR buff, RU32 buffSize );
 
+// Copy paste from rpal.h since importing it is not an option at the moment.
+// At some point it would be nice to make rpal.h compatible KM/UM on all platforms.
 #define IS_WITHIN_BOUNDS(elem,elemSize,container,containerSize) (((RU64)(elem) >= (RU64)(container)) &&\
                                                                  ((RU64)(elem) < ((RU64)(container) + (RU64)(containerSize))) &&\
                                                                  ((((RU64)(container) + (RU64)(containerSize)) - (RU64)(elem)) >= (RU64)(elemSize)))

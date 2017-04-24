@@ -34,6 +34,8 @@
 
 #define ARRAY_N_ELEM(arr)               (sizeof(arr) / sizeof((arr)[0]))
 
+// Copy paste from rpal.h since importing it is not an option at the moment.
+// At some point it would be nice to make rpal.h compatible KM/UM on all platforms.
 #define IS_WITHIN_BOUNDS(elem,elemSize,container,containerSize) (((RU64)(elem) >= (RU64)(container)) &&\
                                                                  ((RU64)(elem) < ((RU64)(container) + (RU64)(containerSize))) &&\
                                                                  ((((RU64)(container) + (RU64)(containerSize)) - (RU64)(elem)) >= (RU64)(elemSize)))
