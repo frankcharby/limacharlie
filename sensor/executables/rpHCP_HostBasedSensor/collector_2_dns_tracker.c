@@ -256,9 +256,14 @@ RVOID
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.timeoutIncrementPerSec = 1;
 
-    while( !rEvent_wait( isTimeToStop, 0 ) &&
-           !kAcq_isAvailable() )
+    while( !rEvent_wait( isTimeToStop, 0 ) )
     {
+        if( kAcq_isAvailable() )
+        {
+            // If kernel acquisition becomes available, try kernel again.
+            return;
+        }
+
         libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
         if( NULL != ( snapCur = rpal_blob_create( 0, 10 * sizeof( rec ) ) ) )
@@ -287,6 +292,8 @@ RVOID
                                  sizeof( rec ), 
                                  _cmpDns );
             }
+#elif defined( RPAL_PLATFORM_MACOSX )
+            rpal_thread_sleep( MSEC_FROM_SEC( 2 ) )
 #endif
 
             // Do a general diff of the snapshots to find new entries.
@@ -356,124 +363,127 @@ RVOID
     RU64 timestamp = 0;
     Atom parentAtom = { 0 };
 
-    if( NULL != pDns )
+    if( NULL == pDns )
     {
-        dnsHeader = (DnsHeader*)( (RPU8)pDns + sizeof( *pDns ) );
-        pLabel = (DnsLabel*)dnsHeader->data;
+        return;
+    }
 
-        // We may receive DNS requests from the kernel, so we will discard packets without Answers
-        // or with number of records that are not sane.
-        if( 0 == dnsHeader->anCount ||
-            0 == dnsHeader->qr ||
-            DNS_SANITY_MAX_RECORDS < rpal_ntoh16( dnsHeader->qdCount ) ||
-            DNS_SANITY_MAX_RECORDS < rpal_ntoh16( dnsHeader->anCount ) )
-        {
-            return;
-        }
+    dnsHeader = (DnsHeader*)( (RPU8)pDns + sizeof( *pDns ) );
+    pLabel = (DnsLabel*)dnsHeader->data;
 
-        // We need to walk the Questions first to get to the Answers
-        // but we don't really care to record them since they'll be repeated
-        // in the Answers.
-        for( i = 0; i < rpal_ntoh16( dnsHeader->qdCount ); i++ )
-        {
-            DnsQuestionInfo* pQInfo = NULL;
+    // We are parsing DNS packets coming from the kernel. They may:
+    // 1- Be requests and not responses, check there are Answers.
+    // 2- Be maliciously crafter packets so we need extra checking for sanity.
+    if( 0 == dnsHeader->anCount ||
+        0 == dnsHeader->qr ||
+        DNS_SANITY_MAX_RECORDS < rpal_ntoh16( dnsHeader->qdCount ) ||
+        DNS_SANITY_MAX_RECORDS < rpal_ntoh16( dnsHeader->anCount ) )
+    {
+        return;
+    }
 
-            pLabel = dnsReadLabels( pLabel, NULL, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
+    // We need to walk the Questions first to get to the Answers
+    // but we don't really care to record them since they'll be repeated
+    // in the Answers.
+    for( i = 0; i < rpal_ntoh16( dnsHeader->qdCount ); i++ )
+    {
+        DnsQuestionInfo* pQInfo = NULL;
 
-            pQInfo = (DnsQuestionInfo*)( (RPU8)pLabel + 1 );
-            if( !IS_WITHIN_BOUNDS( pQInfo, sizeof( *pQInfo ), dnsHeader, pDns->packetSize ) )
-            {
-                rpal_debug_warning( "error parsing dns packet" );
-                break;
-            }
+        pLabel = dnsReadLabels( pLabel, NULL, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
 
-            pLabel = (DnsLabel*)( (RPU8)pQInfo + sizeof( *pQInfo ) );
-        }
-
-        if( !IS_WITHIN_BOUNDS( pLabel, sizeof( RU16 ), dnsHeader, pDns->packetSize ) )
+        pQInfo = (DnsQuestionInfo*)( (RPU8)pLabel + 1 );
+        if( !IS_WITHIN_BOUNDS( pQInfo, sizeof( *pQInfo ), dnsHeader, pDns->packetSize ) )
         {
             rpal_debug_warning( "error parsing dns packet" );
-            return;
+            break;
         }
 
-        // This is what we care about, the Answers (which also point to each Question).
-        // We will emit one event per Answer so as to keep the DNS_REQUEST event flat and atomic.
-        for( i = 0; i < rpal_ntoh16( dnsHeader->anCount ); i++ )
-        {
-            pResponseInfo = NULL;
+        pLabel = (DnsLabel*)( (RPU8)pQInfo + sizeof( *pQInfo ) );
+    }
+
+    if( !IS_WITHIN_BOUNDS( pLabel, sizeof( RU16 ), dnsHeader, pDns->packetSize ) )
+    {
+        rpal_debug_warning( "error parsing dns packet" );
+        return;
+    }
+
+    // This is what we care about, the Answers (which also point to each Question).
+    // We will emit one event per Answer so as to keep the DNS_REQUEST event flat and atomic.
+    for( i = 0; i < rpal_ntoh16( dnsHeader->anCount ); i++ )
+    {
+        pResponseInfo = NULL;
             
-            // This was the Question for this answer.
+        // This was the Question for this answer.
+        rpal_memory_zero( domain, sizeof( domain ) );
+        pLabel = dnsReadLabels( pLabel, domain, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
+
+        pResponseInfo = (DnsResponseInfo*)pLabel;
+        pLabel = (DnsLabel*)( (RPU8)pResponseInfo + sizeof( *pResponseInfo ) + rpal_ntoh16( pResponseInfo->rDataLength ) );
+
+        if( !IS_WITHIN_BOUNDS( pResponseInfo, sizeof( *pResponseInfo ), dnsHeader, pDns->packetSize ) )
+        {
+            rpal_debug_warning( "error parsing dns packet" );
+            break;
+        }
+
+        if( NULL == ( notification = rSequence_new() ) )
+        {
+            rpal_debug_warning( "error parsing dns packet" );
+            break;
+        }
+
+        // This is a timestamp coming from the kernel so it is not globally adjusted.
+        // We'll adjust it with the global offset.
+        timestamp = pDns->ts;
+        timestamp += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
+
+        // Try to relate the DNS request to the owner process, this only works on OSX
+        // at the moment (since the kernel does not expose the PID at the packet capture
+        // stage), and even on OSX it's the DNSResolver process. So it's not super useful
+        // but regardless we have the mechanism here as it's better than nothing and when
+        // we add better resolving in the kernel it will work transparently.
+        parentAtom.key.process.pid = pDns->pid;
+        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        if( atoms_query( &parentAtom, timestamp ) )
+        {
+            HbsSetParentAtom( notification, parentAtom.id );
+        }
+
+        rSequence_addTIMESTAMP( notification, RP_TAGS_TIMESTAMP, timestamp );
+        rSequence_addSTRINGA( notification, RP_TAGS_DOMAIN_NAME, domain );
+        rSequence_addRU32( notification, RP_TAGS_PROCESS_ID, pDns->pid );
+
+        recordType = rpal_ntoh16( pResponseInfo->recordType );
+
+        rSequence_addRU16( notification, RP_TAGS_MESSAGE_ID, rpal_ntoh16( dnsHeader->msgId ) );
+        rSequence_addRU16( notification, RP_TAGS_DNS_TYPE, recordType );
+
+        if( DNS_A_RECORD == recordType )
+        {
+            rSequence_addIPV4( notification, RP_TAGS_IP_ADDRESS, *(RU32*)pResponseInfo->rData );
+        }
+        else if( DNS_AAAA_RECORD == recordType )
+        {
+            rSequence_addIPV6( notification, RP_TAGS_IP_ADDRESS, pResponseInfo->rData );
+        }
+        else if( DNS_CNAME_RECORD == recordType )
+        {
+            // CNAME records will have another label as a value and not an IP.
             rpal_memory_zero( domain, sizeof( domain ) );
-            pLabel = dnsReadLabels( pLabel, domain, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
-
-            pResponseInfo = (DnsResponseInfo*)pLabel;
-            pLabel = (DnsLabel*)( (RPU8)pResponseInfo + sizeof( *pResponseInfo ) + rpal_ntoh16( pResponseInfo->rDataLength ) );
-
-            if( !IS_WITHIN_BOUNDS( pResponseInfo, sizeof( *pResponseInfo ), dnsHeader, pDns->packetSize ) )
-            {
-                rpal_debug_warning( "error parsing dns packet" );
-                break;
-            }
-
-            if( NULL == ( notification = rSequence_new() ) )
-            {
-                rpal_debug_warning( "error parsing dns packet" );
-                break;
-            }
-
-            // This is a timestamp coming from the kernel so it is not globally adjusted.
-            // We'll adjust it with the global offset.
-            timestamp = pDns->ts;
-            timestamp += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
-
-            // Try to relate the DNS request to the owner process, this only works on OSX
-            // at the moment (since the kernel does not expose the PID at the packet capture
-            // stage), and even on OSX it's the DNSResolver process. So it's not super useful
-            // but regardless we have the mechanism here as it's better than nothing and when
-            // we add better resolving in the kernel it will work transparently.
-            parentAtom.key.process.pid = pDns->pid;
-            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
-            if( atoms_query( &parentAtom, timestamp ) )
-            {
-                HbsSetParentAtom( notification, parentAtom.id );
-            }
-
-            rSequence_addTIMESTAMP( notification, RP_TAGS_TIMESTAMP, timestamp );
-            rSequence_addSTRINGA( notification, RP_TAGS_DOMAIN_NAME, domain );
-            rSequence_addRU32( notification, RP_TAGS_PROCESS_ID, pDns->pid );
-
-            recordType = rpal_ntoh16( pResponseInfo->recordType );
-
-            rSequence_addRU16( notification, RP_TAGS_MESSAGE_ID, rpal_ntoh16( dnsHeader->msgId ) );
-            rSequence_addRU16( notification, RP_TAGS_DNS_TYPE, recordType );
-
-            if( DNS_A_RECORD == recordType )
-            {
-                rSequence_addIPV4( notification, RP_TAGS_IP_ADDRESS, *(RU32*)pResponseInfo->rData );
-            }
-            else if( DNS_AAAA_RECORD == recordType )
-            {
-                rSequence_addIPV6( notification, RP_TAGS_IP_ADDRESS, pResponseInfo->rData );
-            }
-            else if( DNS_CNAME_RECORD == recordType )
-            {
-                // CNAME records will have another label as a value and not an IP.
-                rpal_memory_zero( domain, sizeof( domain ) );
-                dnsReadLabels( (DnsLabel*)pResponseInfo->rData, domain, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
-                rSequence_addSTRINGA( notification, RP_TAGS_CNAME, domain );
-            }
-            else
-            {
-                // Right now we only care for A, CNAME and AAAA records.
-                rSequence_free( notification );
-                notification = NULL;
-                continue;
-            }
-
-            hbs_publish( RP_TAGS_NOTIFICATION_DNS_REQUEST, notification );
+            dnsReadLabels( (DnsLabel*)pResponseInfo->rData, domain, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
+            rSequence_addSTRINGA( notification, RP_TAGS_CNAME, domain );
+        }
+        else
+        {
+            // Right now we only care for A, CNAME and AAAA records.
             rSequence_free( notification );
             notification = NULL;
+            continue;
         }
+
+        hbs_publish( RP_TAGS_NOTIFICATION_DNS_REQUEST, notification );
+        rSequence_free( notification );
+        notification = NULL;
     }
 }
 
@@ -490,7 +500,7 @@ RVOID
     RU32 sizeInNew = 0;
     RU32 sizeInPrev = 0;
 
-    KernelAcqDnsPacket* pDns = NULL;
+    KernelAcqDnsPacket* pPacket = NULL;
 
     while( !rEvent_wait( isTimeToStop, 1000 ) )
     {
@@ -503,14 +513,14 @@ RVOID
             break;
         }
 
-        pDns = (KernelAcqDnsPacket*)prev_from_kernel;
-        while( IS_WITHIN_BOUNDS( pDns, sizeof( *pDns ), prev_from_kernel, sizeInPrev ) &&
-               0 != pDns->ts &&
-               IS_WITHIN_BOUNDS( pDns, sizeof( *pDns ) + pDns->packetSize, prev_from_kernel, sizeInPrev ) )
+        pPacket = (KernelAcqDnsPacket*)prev_from_kernel;
+        while( IS_WITHIN_BOUNDS( pPacket, sizeof( *pPacket ), prev_from_kernel, sizeInPrev ) &&
+               0 != pPacket->ts &&
+               IS_WITHIN_BOUNDS( pPacket, sizeof( *pPacket ) + pPacket->packetSize, prev_from_kernel, sizeInPrev ) )
         {
-            processDnsPacket( pDns );
+            processDnsPacket( pPacket );
 
-            pDns = (KernelAcqDnsPacket*)( (RPU8)pDns + sizeof( *pDns ) + pDns->packetSize );
+            pPacket = (KernelAcqDnsPacket*)( (RPU8)pPacket + sizeof( *pPacket ) + pPacket->packetSize );
         }
 
         rpal_memory_memcpy( prev_from_kernel, new_from_kernel, sizeInNew );

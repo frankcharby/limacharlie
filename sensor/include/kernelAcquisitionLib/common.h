@@ -128,6 +128,8 @@ typedef struct
     RIpAddress dstIp;
     RU16 dstPort;
     RU32 packetSize;
+    // Beware of kernel struct padding, use sizeof() to get 
+    // start of packet data buffer after this point.
 } KernelAcqDnsPacket;
 
 #endif
