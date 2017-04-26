@@ -41,6 +41,12 @@ RPRIVATE DnsFree_f freeCacheEntry = NULL;
 #define DNS_AAAA_RECORD         0x001C
 #define DNS_CNAME_RECORD        0x0005
 
+// Labels in DNS can be literals or relative offsets.
+// http://www.zytrax.com/books/dns/ch15/
+#define DNS_LABEL_POINTER_INDICATOR 0xC0
+#define DNS_LABEL_IS_OFFSET( pLabel ) ((pLabel)->nChar >= DNS_LABEL_POINTER_INDICATOR)
+#define DNS_LABEL_POINTER_BASE      0xC000
+#define DNS_LABEL_OFFSET( pLabel ) (rpal_ntoh16( *(RU16*)(pLabel) ) - DNS_LABEL_POINTER_BASE)
 
 typedef struct
 {
@@ -97,6 +103,10 @@ typedef struct
 } DnsResponseInfo;
 #pragma pack(pop)
 
+// Parses a label from a DNS packet and returns a pointer to the next byte after the label
+// or label chain to be used to continue parsing the packet.
+// If a human label is specified, will also assemble a human readable version of the labels
+// in the buffer.
 RPRIVATE
 DnsLabel*
     dnsReadLabels
@@ -106,77 +116,80 @@ DnsLabel*
         RPU8 packetStart,
         RSIZET packetSize,
         RU32 labelOffset,
-        RU32 depth
+        RU32 recursiveDepth
     )
 {
     RU32 copied = labelOffset;
 
-    if( 3 < depth )
+    if( 3 < recursiveDepth )
     {
         return NULL;
     }
 
     if( NULL != pLabel )
     {
-        while( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ), packetStart, packetSize ) &&
-               ( 0xC0 <= pLabel->nChar ||
-                 ( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ) + pLabel->nChar, packetStart, packetSize ) &&
-                   0 != pLabel->nChar ) ) )
+        return NULL;
+    }
+
+    while( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ), packetStart, packetSize ) &&
+            ( DNS_LABEL_IS_OFFSET( pLabel ) ||
+                ( IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ) + pLabel->nChar, packetStart, packetSize ) &&
+                0 != pLabel->nChar ) ) )
+    {
+        // It's possible for a pointer to be terminating a traditional label
+        if( DNS_LABEL_IS_OFFSET( pLabel ) )
         {
-            // It's possible for a pointer to be terminating a traditional label
-            if( 0xC0 <= pLabel->nChar )
+            // Pointer to a label
+            DnsLabel* tmpLabel = NULL;
+            RU16 offset = DNS_LABEL_OFFSET( pLabel );
+
+            if( !IS_WITHIN_BOUNDS( (RPU8)packetStart + offset, sizeof( RU16 ), packetStart, packetSize ) )
             {
-                // Pointer to a label
-                DnsLabel* tmpLabel = NULL;
-                RU16 offset = rpal_ntoh16( *(RU16*)pLabel ) - 0xC000;
-
-                if( !IS_WITHIN_BOUNDS( (RPU8)packetStart + offset, sizeof( RU16 ), packetStart, packetSize ) )
-                {
-                    rpal_debug_warning( "error parsing dns packet" );
-                    return NULL;
-                }
-
-                tmpLabel = (DnsLabel*)( (RPU8)packetStart + offset );
-
-                if( NULL == dnsReadLabels( tmpLabel, humanLabel, packetStart, packetSize, copied, depth + 1 ) )
-                {
-                    return NULL;
-                }
-
-                // Pointers are always terminating the label.
-                pLabel = (DnsLabel*)( (RPU8)pLabel + sizeof( RU16 ) );
-                return pLabel;
+                rpal_debug_warning( "error parsing dns packet" );
+                return NULL;
             }
-            else
+
+            tmpLabel = (DnsLabel*)( (RPU8)packetStart + offset );
+
+            if( NULL == dnsReadLabels( tmpLabel, humanLabel, packetStart, packetSize, copied, recursiveDepth + 1 ) )
             {
-                if( NULL != humanLabel &&
-                    DNS_LABEL_MAX_SIZE >= copied + 1 + pLabel->nChar )
-                {
-                    if( 0 != copied )
-                    {
-                        humanLabel[ copied ] = '.';
-                        copied++;
-                    }
-                    rpal_memory_memcpy( (RPU8)humanLabel + copied, pLabel->label, pLabel->nChar );
-                    copied += pLabel->nChar;
-                }
-                else if( NULL != humanLabel )
-                {
-                    rpal_debug_warning( "error parsing dns packet" );
-                    return NULL;
-                }
-
-                pLabel = (DnsLabel*)( (RPU8)pLabel + pLabel->nChar + 1 );
+                return NULL;
             }
+
+            // Pointers are always terminating the label.
+            pLabel = (DnsLabel*)( (RPU8)pLabel + sizeof( RU16 ) );
+            return pLabel;
         }
-
-        // We do a last sanity check. A valid label parsing should end in a 0-val nChar within
-        // the buffer, so we check it's all valid, otherwise we'll assume an error and will return an error.
-        if( !IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ), packetStart, packetSize ) ||
-            0 != pLabel->nChar )
+        else
         {
-            return NULL;
+            if( DNS_LABEL_MAX_SIZE < copied + 1 + pLabel->nChar )
+            {
+                rpal_debug_warning( "error parsing dns packet" );
+                return NULL;
+            }
+
+            if( NULL != humanLabel )
+            {
+                if( 0 != copied )
+                {
+                    humanLabel[ copied ] = '.';
+                    copied++;
+                }
+                rpal_memory_memcpy( (RPU8)humanLabel + copied, pLabel->label, pLabel->nChar );
+                copied += pLabel->nChar;
+            }
+
+            pLabel = (DnsLabel*)( (RPU8)pLabel + pLabel->nChar + 1 );
         }
+    }
+
+    // We do a last sanity check. A valid label parsing should end in a 0-val nChar within
+    // the buffer, so we check it's all valid, otherwise we'll assume an error and will return an error.
+    if( !IS_WITHIN_BOUNDS( pLabel, sizeof( *pLabel ), packetStart, packetSize ) ||
+        0 != pLabel->nChar )
+    {
+        rpal_debug_warning( "error parsing dns packet" );
+        return NULL;
     }
 
     return pLabel;
@@ -293,7 +306,7 @@ RVOID
                                  _cmpDns );
             }
 #elif defined( RPAL_PLATFORM_MACOSX )
-            rpal_thread_sleep( MSEC_FROM_SEC( 2 ) )
+            rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
 #endif
 
             // Do a general diff of the snapshots to find new entries.
@@ -657,19 +670,21 @@ HBS_DECLARE_TEST( dns_read_label )
                       0x03, 'c', 'o', 'm',
                       0x00 };
     RU32 offset1 = 0;
-
     RCHAR value1[] = { "www.google.com" };
+    DnsLabel* nextLabel1 = (DnsLabel*)( label_1 + sizeof( label_1 ) - 1 );
+
     RU8 label_2[] = { 0xFF,
                       0x03, 'w', 'w', 'w',
                       0x06, 'g', 'o', 'o', 'g', 'l', 'e',
                       0x03, 'c', 'o', 'm',
                       0x00,
                       0x03, 'a', 'p', 'i',
-                      0xC0, 0x05,
+                      DNS_LABEL_POINTER_INDICATOR, 0x05,
                       0x04, 'n', 'o', 'p', 'e',
                       0x00 };
     RU32 offset2 = 17;
     RCHAR value2[] = { "api.google.com" };
+    DnsLabel* nextLabel2 = (DnsLabel*)( label_2 + 23 );
 
     RU8 label_3[] = { 0xFF,
                       0x03, 'w', 'w', 'w',
@@ -677,21 +692,23 @@ HBS_DECLARE_TEST( dns_read_label )
                       0x03, 'c', 'o', 'm',
                       0x00,
                       0x02, 'l', 'c',
-                      0xC0, 0x05,
-                      0xC0, 0x14,
+                      DNS_LABEL_POINTER_INDICATOR, 0x05,
+                      DNS_LABEL_POINTER_INDICATOR, 0x14,
                       0x04, 'n', 'o', 'p', 'e',
                       0x00 };
     RU32 offset3 = 22;
     RCHAR value3[] = { "google.com" };
+    DnsLabel* nextLabel3 = (DnsLabel*)( label_3 + 24 );
 
     RU8 label_4[] = { 0xFF,
                       0x03, 'w', 'w', 'w',
-                      0xC0, 0x01,
-                      0xC0, 0x05,
-                      0xC0, 0x07,
-                      0xC0, 0x09 };
+                      DNS_LABEL_POINTER_INDICATOR, 0x01,
+                      DNS_LABEL_POINTER_INDICATOR, 0x05,
+                      DNS_LABEL_POINTER_INDICATOR, 0x07,
+                      DNS_LABEL_POINTER_INDICATOR, 0x09 };
     RU32 offset4 = 11;
 
+    // Small fuzzing of the function.
     for( i = 0; i < 100; i++ )
     {
         bufferSize = ( rpal_rand() % ( 128 * 1024 ) ) + 1024;
@@ -715,7 +732,7 @@ HBS_DECLARE_TEST( dns_read_label )
     bufferSize = sizeof( label_1 );
 
     rpal_memory_zero( tmpText, sizeof( tmpText ) );
-    HBS_ASSERT_TRUE( NULL != dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 ) );
+    HBS_ASSERT_TRUE( nextLabel1 == dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 ) );
     HBS_ASSERT_TRUE( 0 == rpal_string_strcmpA( tmpText, value1 ) );
 
     // Reading a label using a pointer.
@@ -725,7 +742,7 @@ HBS_DECLARE_TEST( dns_read_label )
     bufferSize = sizeof( label_2 );
 
     rpal_memory_zero( tmpText, sizeof( tmpText ) );
-    HBS_ASSERT_TRUE( NULL != dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 ) );
+    HBS_ASSERT_TRUE( nextLabel2 == dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 ) );
     HBS_ASSERT_TRUE( 0 == rpal_string_strcmpA( tmpText, value2 ) );
 
     // Reading a label using a pointer to a pointer.
@@ -735,10 +752,11 @@ HBS_DECLARE_TEST( dns_read_label )
     bufferSize = sizeof( label_3 );
 
     rpal_memory_zero( tmpText, sizeof( tmpText ) );
-    HBS_ASSERT_TRUE( NULL != dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 ) );
+    HBS_ASSERT_TRUE( nextLabel3 == dnsReadLabels( pLabel, tmpText, buffer, bufferSize, 0, 0 ) );
     HBS_ASSERT_TRUE( 0 == rpal_string_strcmpA( tmpText, value3 ) );
 
-    // Reading a label using a pointer to a pointer to a pointer past max_depth.
+    // Reading a label using a pointer to a pointer to a pointer past max_depth. In this case we
+    // should not return a valid label.
     pLabel = (DnsLabel*)( label_4 + offset4 );
     buffer = label_4;
     bufferSize = sizeof( label_4 );
