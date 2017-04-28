@@ -126,7 +126,7 @@ DnsLabel*
         return NULL;
     }
 
-    if( NULL != pLabel )
+    if( NULL == pLabel )
     {
         return NULL;
     }
@@ -156,7 +156,9 @@ DnsLabel*
                 return NULL;
             }
 
-            // Pointers are always terminating the label.
+            // Pointers are always terminating the label. So since there is
+            // no 0 terminated label we don't need to skip an extra byte, we
+            // just skip the current label pointer value.
             pLabel = (DnsLabel*)( (RPU8)pLabel + sizeof( RU16 ) );
             return pLabel;
         }
@@ -191,6 +193,9 @@ DnsLabel*
         rpal_debug_warning( "error parsing dns packet" );
         return NULL;
     }
+
+    // Get to the next valid byte, so we skip the 0-termination.
+    pLabel = (DnsLabel*)( (RPU8)pLabel + 1 );
 
     return pLabel;
 }
@@ -404,7 +409,7 @@ RVOID
 
         pLabel = dnsReadLabels( pLabel, NULL, (RPU8)dnsHeader, pDns->packetSize, 0, 0 );
 
-        pQInfo = (DnsQuestionInfo*)( (RPU8)pLabel + 1 );
+        pQInfo = (DnsQuestionInfo*)( pLabel );
         if( !IS_WITHIN_BOUNDS( pQInfo, sizeof( *pQInfo ), dnsHeader, pDns->packetSize ) )
         {
             rpal_debug_warning( "error parsing dns packet" );
