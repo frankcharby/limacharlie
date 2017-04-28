@@ -341,6 +341,11 @@ RBOOL
                 isSuccess = TRUE;
             }
         }
+        else
+        {
+            // If no file type list was provided we're still good to go.
+            isSuccess = TRUE;
+        }
     }
 
     if( !isSuccess )

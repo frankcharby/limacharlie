@@ -676,7 +676,7 @@ HBS_DECLARE_TEST( dns_read_label )
                       0x00 };
     RU32 offset1 = 0;
     RCHAR value1[] = { "www.google.com" };
-    DnsLabel* nextLabel1 = (DnsLabel*)( label_1 + sizeof( label_1 ) - 1 );
+    DnsLabel* nextLabel1 = (DnsLabel*)( label_1 + sizeof( label_1 ) );
 
     RU8 label_2[] = { 0xFF,
                       0x03, 'w', 'w', 'w',
@@ -776,6 +776,23 @@ HBS_DECLARE_TEST( dns_process_packet )
     RU32 bufferSize = 0;
     RU32 i = 0;
     KernelAcqDnsPacket* packet = NULL;
+    RU32 nEvents = 0;
+    rSequence event = NULL;
+    RPCHAR domain = NULL;
+    RU32 ip4 = 0;
+
+    RU8 test_packet1[] = {
+        0x2c, 0xe5, 0xca, 0xb5, 0x5b, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x00, 0xb2, 0xdf, 0x10, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x00, 0x3b, 0xe5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xdf, 0x10, 0xac, 
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x35, 0x00, 0x00, 0x00, 
+        0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4d, 0x8f, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 
+        0x00, 0x00, 0x00, 0x00, 0x03, 0x73, 0x73, 0x6c, 0x07, 0x67, 0x73, 0x74, 0x61, 0x74, 0x69, 0x63, 
+        0x03, 0x63, 0x6f, 0x6d, 0x00, 0x00, 0x01, 0x00, 0x01, 0xc0, 0x0c, 0x00, 0x01, 0x00, 0x01, 0x00, 
+        0x00, 0x00, 0x05, 0x00, 0x04, 0xac, 0xd9, 0x05, 0x63
+    };
+    RCHAR test_domain1[] = "ssl.gstatic.com";
+    RU32 test_ip1 = 0x6305d9ac;
 
     rQueue notifQueue = NULL;
 
@@ -806,6 +823,26 @@ HBS_DECLARE_TEST( dns_process_packet )
     notifications_unsubscribe( RP_TAGS_NOTIFICATION_DNS_REQUEST, notifQueue, NULL );
     rQueue_free( notifQueue );
 
+    // Try parsing sample packet 1
+    HBS_ASSERT_TRUE( rQueue_create( &notifQueue, rSequence_freeWithSize, 10 ) );
+    HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_DNS_REQUEST, NULL, 0, notifQueue, NULL ) );
+
+    processDnsPacket( (KernelAcqDnsPacket*)test_packet1 );
+
+    // Make sure we generate one event as expected.
+    HBS_ASSERT_TRUE( rQueue_getSize( notifQueue, &nEvents ) );
+    HBS_ASSERT_TRUE( 1 == nEvents );
+    if( HBS_ASSERT_TRUE( rQueue_remove( notifQueue, &event, NULL, 0 ) ) )
+    {
+        HBS_ASSERT_TRUE( rSequence_getSTRINGA( event, RP_TAGS_DOMAIN_NAME, &domain ) );
+        HBS_ASSERT_TRUE( 0 == rpal_string_strcmpA( domain, test_domain1 ) );
+        HBS_ASSERT_TRUE( rSequence_getIPV4( event, RP_TAGS_IP_ADDRESS, &ip4 ) );
+        HBS_ASSERT_TRUE( ip4 == test_ip1 );
+        rSequence_free( event );
+    }
+
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_DNS_REQUEST, notifQueue, NULL );
+    rQueue_free( notifQueue );
 }
 
 HBS_TEST_SUITE( 2 )
