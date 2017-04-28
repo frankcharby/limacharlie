@@ -41,21 +41,23 @@ rMutex g_km_mutex = NULL;
 
 static RBOOL g_is_available = FALSE;
 
-static RBOOL g_platform_availability[ KERNEL_ACQ_OP_COUNT ] = { 
+static RBOOL g_platform_availability[ KERNEL_ACQ_NUM_OPS ] = {
 #ifdef RPAL_PLATFORM_MACOSX
     TRUE, // KERNEL_ACQ_OP_PING
     TRUE, // KERNEL_ACQ_OP_GET_NEW_PROCESSES
     TRUE, // KERNEL_ACQ_OP_GET_NEW_FILE_IO
     FALSE, // KERNEL_ACQ_OP_NEW_MODULE
     TRUE, // KERNEL_ACQ_OP_NEW_NETWORK
+    TRUE, // KERNEL_ACQ_OP_DNS
 #elif defined( RPAL_PLATFORM_WINDOWS )
     TRUE, // KERNEL_ACQ_OP_PING
     TRUE, // KERNEL_ACQ_OP_GET_NEW_PROCESSES
     TRUE, // KERNEL_ACQ_OP_GET_NEW_FILE_IO
     TRUE, // KERNEL_ACQ_OP_NEW_MODULE
     TRUE, // KERNEL_ACQ_OP_NEW_NETWORK
+    TRUE, // KERNEL_ACQ_OP_DNS
 #endif
-                                                              };
+};
 
 RPRIVATE
 RBOOL
@@ -223,7 +225,7 @@ RU32
 
     // Check whether this particular function is available on
     // this platform via kernel.
-    if( op >= KERNEL_ACQ_OP_COUNT ||
+    if( op >= KERNEL_ACQ_NUM_OPS ||
         !g_platform_availability[ op ] )
     {
         return error;
@@ -496,3 +498,33 @@ RBOOL
     return isSuccess;
 }
 
+RBOOL
+    kAcq_getNewDnsPackets
+    (
+        KernelAcqDnsPacket* packets,
+        RU32* totalSize
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    RU32 error = 0;
+    RU32 respSize = 0;
+
+    if( NULL != packets &&
+        NULL != totalSize &&
+        0 != *totalSize )
+    {
+        if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_DNS,
+                                             NULL,
+                                             0,
+                                             (RPU8)packets,
+                                             *totalSize,
+                                             &respSize ) ) )
+        {
+            *totalSize = respSize;
+            isSuccess = TRUE;
+        }
+    }
+
+    return isSuccess;
+}

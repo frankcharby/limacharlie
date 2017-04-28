@@ -22,12 +22,16 @@
 #include <sys/types.h>
 
 #define _NUM_BUFFERED_CONNECTIONS   200
+#define _NUM_BUFFERED_DNS           (128 * 1024)
 #define _FLT_HANDLE_BASE            0x52484350// RHCP
 #define _FLT_NAME                   "com.refractionpoint.hbs.acq.net"
 
 static rMutex g_collector_4_mutex = NULL;
 static KernelAcqNetwork g_connections[ _NUM_BUFFERED_CONNECTIONS ] = { 0 };
 static uint32_t g_nextConnection = 0;
+static rMutex g_collector_4_mutex_dns = NULL;
+static RU8 g_dns[ _NUM_BUFFERED_DNS ] = { 0 };
+static uint32_t g_nextDns = 0;
 static uint32_t g_socketsPending = 0;
 static RBOOL g_shuttingDown = FALSE;
 
@@ -53,8 +57,55 @@ static void
     if( g_nextConnection == _NUM_BUFFERED_CONNECTIONS )
     {
         g_nextConnection = 0;
-        rpal_debug_warning( "overflow of the network conenction buffer" );
+        rpal_debug_warning( "overflow of the network connection buffer" );
     }
+}
+
+static
+RBOOL
+    getPacket
+    (
+        mbuf_t* mbuf,
+        RPU8* pPacket,
+        RSIZET* pPacketSize
+    )
+{
+    mbuf_t data = NULL;
+    RPU8 packet = NULL;
+    RSIZET packetLength = 0;
+    
+    if( NULL == mbuf ||
+        NULL == pPacket ||
+        NULL == pPacketSize )
+    {
+        return FALSE;
+    }
+    
+    data = *mbuf;
+    while( NULL != data && MBUF_TYPE_DATA != mbuf_type( data ) )
+    {
+        data = mbuf_next( data );
+    }
+    
+    if( NULL == data )
+    {
+        return FALSE;
+    }
+    
+    if( NULL == ( packet = mbuf_data( data ) ) )
+    {
+        return FALSE;
+    }
+    
+    if( 0 == (packetLength = mbuf_len( data ) ) )
+    {
+        return FALSE;
+    }
+    
+    *pPacket = packet;
+    *pPacketSize = packetLength;
+    
+    return TRUE;
 }
 
 static
@@ -295,28 +346,75 @@ errno_t
     )
 {
     SockCookie* sc = (SockCookie*)cookie;
+    RPU8 packet = NULL;
+    RSIZET packetSize = 0;
     
     UNREFERENCED_PARAMETER( data );
     UNREFERENCED_PARAMETER( control );
     UNREFERENCED_PARAMETER( flags );
     
-    if( NULL != cookie &&
-        !sc->isReported )
+    if( NULL != cookie )
     {
-        if( !sc->isConnected )
+        // Report on the connection event
+        if( !sc->isReported )
         {
-            sc->netEvent.isIncoming = TRUE;
+            if( !sc->isConnected )
+            {
+                sc->netEvent.isIncoming = TRUE;
+            }
+            
+            populateCookie( sc, so, from );
+            
+            rpal_mutex_lock( g_collector_4_mutex );
+        
+            sc->isReported = TRUE;
+            g_connections[ g_nextConnection ] = sc->netEvent;
+            next_connection();
+            
+            rpal_mutex_unlock( g_collector_4_mutex );
         }
         
-        populateCookie( sc, so, from );
-        
-        rpal_mutex_lock( g_collector_4_mutex );
-    
-        sc->isReported = TRUE;
-        g_connections[ g_nextConnection ] = sc->netEvent;
-        next_connection();
-        
-        rpal_mutex_unlock( g_collector_4_mutex );
+        // See if we need to report on any content based parsing
+        // Looking for DNS responses
+        if( ( 53 == sc->netEvent.dstPort ||
+              53 == sc->netEvent.srcPort )&&
+            ( IPPROTO_TCP == sc->netEvent.proto ||
+              IPPROTO_UDP == sc->netEvent.proto ) &&
+            getPacket( data, &packet, &packetSize ) &&
+            0 != packetSize )
+        {
+            KernelAcqDnsPacket dnsRecord = {0};
+            RU32 requiredSize = 0;
+            
+            dnsRecord.ts = sc->netEvent.ts;
+            dnsRecord.dstIp = sc->netEvent.dstIp;
+            dnsRecord.dstPort = sc->netEvent.dstPort;
+            dnsRecord.srcIp = sc->netEvent.srcIp;
+            dnsRecord.srcPort = sc->netEvent.srcPort;
+            dnsRecord.pid = sc->netEvent.pid;
+            dnsRecord.proto = sc->netEvent.proto;
+            dnsRecord.packetSize = (RU32)packetSize;
+            
+            requiredSize = (RU32)sizeof( KernelAcqDnsPacket ) + (RU32)packetSize;
+            
+            rpal_mutex_lock( g_collector_4_mutex_dns );
+            
+            if( sizeof( g_dns ) - g_nextDns < requiredSize )
+            {
+                // Buffer overflow, reset to the beginning.
+                g_nextDns = 0;
+                rpal_debug_info( "DNS packet buffer overflow" );
+            }
+            
+            if( sizeof( g_dns ) - g_nextDns >= requiredSize )
+            {
+                memcpy( g_dns + g_nextDns, &dnsRecord, sizeof( KernelAcqDnsPacket ) );
+                memcpy( g_dns + g_nextDns + sizeof( KernelAcqDnsPacket ), packet, packetSize );
+                g_nextDns += requiredSize;
+            }
+            
+            rpal_mutex_unlock( g_collector_4_mutex_dns );
+        }
     }
     
     return KERN_SUCCESS;
@@ -503,10 +601,79 @@ int
             memcpy( pResult, g_connections, *resultSize );
             
             g_nextConnection -= toCopy;
-            memmove( g_connections, g_connections + toCopy, g_nextConnection );
+            if( 0 != g_nextConnection )
+            {
+                memmove( g_connections,
+                         &g_connections[ toCopy ],
+                         g_nextConnection * sizeof( KernelAcqNetwork ) );
+            }
+        }
+        else
+        {
+            *resultSize = 0;
         }
         
         rpal_mutex_unlock( g_collector_4_mutex );
+    }
+    else
+    {
+        ret = EINVAL;
+    }
+    
+    return ret;
+}
+
+int
+    task_get_new_dns
+    (
+        void* pArgs,
+        int argsSize,
+        void* pResult,
+        uint32_t* resultSize
+    )
+{
+    int ret = 0;
+    KernelAcqDnsPacket* pDns = NULL;
+    
+    RU32 currentFrameSize = 0;
+    RU32 toCopy = 0;
+    
+    if( NULL != pResult &&
+        NULL != resultSize &&
+        0 != *resultSize )
+    {
+        rpal_mutex_lock( g_collector_4_mutex_dns );
+        
+        // Unlike other kernel sources, these are variable size so
+        // we have to crawl them until we've filled the buffer.
+        pDns = (KernelAcqDnsPacket*)g_dns;
+        
+        while( IS_WITHIN_BOUNDS( pDns, sizeof( *pDns ), g_dns, g_nextDns ) &&
+               0 != ( currentFrameSize = sizeof( *pDns ) + pDns->packetSize ) &&
+               IS_WITHIN_BOUNDS( pDns, currentFrameSize, g_dns, g_nextDns ) &&
+               ( toCopy + currentFrameSize ) <= *resultSize )
+        {
+            // Current pDns fits in buffer, add the size and move to the next packet.
+            // We accumulate the buffer size so we do a single memcpy/memmove.
+            toCopy += currentFrameSize;
+            pDns = (KernelAcqDnsPacket*)( (RPU8)pDns + currentFrameSize );
+        }
+        
+        
+        // We now have the total size of buffer to copy.
+        if( 0 != toCopy )
+        {
+            memcpy( pResult, g_dns, toCopy );
+            g_nextDns -= toCopy;
+            if( 0 != g_nextDns )
+            {
+                memmove( g_dns, g_dns + toCopy, g_nextDns );
+            }
+        }
+        
+        *resultSize = toCopy;
+        
+        rpal_mutex_unlock( g_collector_4_mutex_dns );
     }
     else
     {
@@ -524,7 +691,8 @@ int
 {
     int isSuccess = 0;
     
-    if( NULL != ( g_collector_4_mutex = rpal_mutex_create() ) )
+    if( NULL != ( g_collector_4_mutex = rpal_mutex_create() ) &&
+        NULL != ( g_collector_4_mutex_dns = rpal_mutex_create() ) )
     {
         if( register_filter( 0, AF_INET, SOCK_STREAM, IPPROTO_TCP ) &&
             register_filter( 1, AF_INET6, SOCK_STREAM, IPPROTO_TCP ) &&
@@ -544,6 +712,7 @@ int
         if( !isSuccess )
         {
             rpal_mutex_free( g_collector_4_mutex );
+            rpal_mutex_free( g_collector_4_mutex_dns );
         }
     }
     
@@ -583,6 +752,7 @@ int
     }
     
     rpal_mutex_free( g_collector_4_mutex );
+    rpal_mutex_free( g_collector_4_mutex_dns );
     
     return 1;
 }
