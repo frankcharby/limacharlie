@@ -154,8 +154,12 @@ void
     CU_ASSERT_PTR_NOT_EQUAL( proc, NULL );
 
     CU_ASSERT_TRUE( rSequence_getSTRINGN( proc, RP_TAGS_FILE_PATH, &path ) );
+
+#ifdef RPAL_PLATFORM_LINUX
+    // Only Linux can report UID info from processLib.
     CU_ASSERT_TRUE( rSequence_getRU32( proc, RP_TAGS_USER_ID, &uid ) );
     CU_ASSERT_TRUE( rSequence_getSTRINGA( proc, RP_TAGS_USER_NAME, &userName ) );
+#endif
 
     CU_ASSERT_PTR_NOT_EQUAL( path, NULL );
     CU_ASSERT_NOT_EQUAL( rpal_string_strlen( path ), 0 );
