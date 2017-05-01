@@ -860,7 +860,7 @@ HBS_DECLARE_TEST( um_diff_thread )
     rQueue notifQueue = NULL;
 #ifdef RPAL_PLATFORM_WINDOWS
     //RPNCHAR spawnCmd[] = { _NC( "ping 1.1.1.1 -n 5 -w 1000" ) };
-    RCHAR spawnCmd[] = "c:\\windows\\system32\\ping.exe 1.1.1.1 -n 1 -w 1000";
+    RCHAR spawnCmd[] = "c:\\windows\\system32\\ping.exe 1.1.1.1 -n 2 -w 1000";
     RNCHAR cmdMarker[] = _NC( "ping" );
     RU32 expectedRet = 1;
 #else
@@ -891,7 +891,7 @@ HBS_DECLARE_TEST( um_diff_thread )
     // Spawn a process
     HBS_ASSERT_TRUE( expectedRet == ( ret = system( (RPCHAR)spawnCmd ) ) );
 
-    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 10 ) );
     rEvent_set( dummyStop );
     rpal_thread_wait( hThread, RINFINITE );
     rEvent_free( dummyStop );
