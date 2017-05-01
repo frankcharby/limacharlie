@@ -205,6 +205,11 @@ RBOOL
         {
             rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
         }
+        // Do the same with the UID, kernel (param) takes precedence.
+        if( KERNEL_ACQ_NO_USER_ID != optUserId )
+        {
+            rSequence_addRU32( info, RP_TAGS_USER_ID, optUserId );
+        }
     }
 
     // We only ever have priming information on new processes
@@ -276,12 +281,6 @@ RBOOL
 
         if( isStarting )
         {
-            if( KERNEL_ACQ_NO_USER_ID != optUserId &&
-                !rSequence_getRU32( info, RP_TAGS_USER_ID, &tmpUid ) )
-            {
-                rSequence_addRU32( info, RP_TAGS_USER_ID, optUserId );
-            }
-
             if( hbs_publish( RP_TAGS_NOTIFICATION_NEW_PROCESS, info ) )
             {
                 isSuccess = TRUE;
@@ -692,9 +691,15 @@ HBS_DECLARE_TEST( notify_process )
         HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PARENT_PROCESS_ID, &outPpid ) ) &&
         HBS_ASSERT_TRUE( rSequence_getTIMESTAMP( notif, RP_TAGS_TIMESTAMP, &outTs ) ) &&
         HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
-        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
-        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) )
+        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) )
     {
+#if defined(RPAL_PLATFORM_WINDOWS) || defined( RPAL_PLATFORM_MACOSX )
+        // On Windows and OSX we don't have access to UID unless provided by the kernel.
+        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) );
+#else
+        // On Linux we get UID even from user mode.
+        HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) );
+#endif
         HBS_ASSERT_TRUE( pid == outPid );
         HBS_ASSERT_TRUE( ppid == outPpid );
         HBS_ASSERT_TRUE( ts == outTs );
@@ -749,9 +754,15 @@ HBS_DECLARE_TEST( notify_process )
         HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PARENT_PROCESS_ID, &outPpid ) ) &&
         HBS_ASSERT_TRUE( rSequence_getTIMESTAMP( notif, RP_TAGS_TIMESTAMP, &outTs ) ) &&
         HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
-        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
-        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) )
+        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) )
     {
+#if defined(RPAL_PLATFORM_WINDOWS) || defined( RPAL_PLATFORM_MACOSX )
+        // On Windows and OSX we don't have access to UID unless provided by the kernel.
+        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) );
+#else
+        // On Linux we get UID even from user mode.
+        HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) );
+#endif
         HBS_ASSERT_TRUE( pid == outPid );
         HBS_ASSERT_TRUE( ppid != outPpid );
         HBS_ASSERT_TRUE( ts == outTs );
