@@ -175,7 +175,6 @@ RBOOL
     RBOOL isSuccess = FALSE;
     rSequence info = NULL;
     rSequence parentInfo = NULL;
-    RU32 tmpUid = 0;
     RPNCHAR cleanPath = NULL;
     Atom atom = { 0 };
     Atom parentAtom = { 0 };
