@@ -25,6 +25,38 @@ limitations under the License.
 
 RPRIVATE
 RBOOL
+    _getAsNativeString
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RPNCHAR* pStr
+    )
+{
+    RBOOL isFound = FALSE;
+    RPCHAR tmpA = NULL;
+    RPWCHAR tmpW = NULL;
+
+    if( NULL != seq &&
+        RPCM_INVALID_TAG != tag &&
+        NULL != pStr )
+    {
+        if( rSequence_getSTRINGA( seq, tag, &tmpA ) )
+        {
+            *pStr = rpal_string_aton( tmpA );
+            isFound = TRUE;
+        }
+        else if( rSequence_getSTRINGW( seq, tag, &tmpW ) )
+        {
+            *pStr = rpal_string_wton( tmpW );
+            isFound = TRUE;
+        }
+    }
+
+    return isFound;
+}
+
+RPRIVATE
+RBOOL
     enhanceFileInfo
     (
         rSequence info
@@ -37,7 +69,7 @@ RBOOL
 
     if( NULL != info )
     {
-        if( rSequence_getSTRINGN( info, RP_TAGS_FILE_PATH, &filePath ) )
+        if( _getAsNativeString( info, RP_TAGS_FILE_PATH, &filePath ) )
         {
             if( rpal_file_getInfo( filePath, &finfo ) )
             {
@@ -55,6 +87,8 @@ RBOOL
             {
                 rSequence_addRU32( info, RP_TAGS_ERROR, rpal_error_getLast() );
             }
+
+            rpal_memory_free( filePath );
         }
         else
         {
@@ -84,7 +118,7 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &filePath ) )
+        if( _getAsNativeString( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
             rSequence_unTaintRead( event );
 
@@ -115,6 +149,8 @@ RVOID
                     rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
                 }
             }
+
+            rpal_memory_free( filePath );
         }
         else
         {
@@ -141,7 +177,7 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &filePath ) )
+        if( _getAsNativeString( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
             rSequence_unTaintRead( event );
 
@@ -154,6 +190,8 @@ RVOID
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
+
+            rpal_memory_free( filePath );
         }
 
         hbs_timestampEvent( event, 0 );
@@ -175,8 +213,8 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGN( event, RP_TAGS_SOURCE, &filePathFrom ) &&
-            rSequence_getSTRINGN( event, RP_TAGS_DESTINATION, &filePathTo ) )
+        if( _getAsNativeString( event, RP_TAGS_SOURCE, &filePathFrom ) &&
+            _getAsNativeString( event, RP_TAGS_DESTINATION, &filePathTo ) )
         {
             if( !rpal_file_move( filePathFrom, filePathTo ) )
             {
@@ -184,6 +222,9 @@ RVOID
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
         }
+
+        rpal_memory_free( filePathFrom );
+        rpal_memory_free( filePathTo );
 
         rSequence_unTaintRead( event );
         hbs_timestampEvent( event, 0 );
@@ -207,7 +248,7 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &filePath ) )
+        if( _getAsNativeString( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
             if( rSequence_getRU8( event, RP_TAGS_AVOID_TIMESTAMPS, &flag ) )
             {
@@ -224,7 +265,11 @@ RVOID
             {
                 rSequence_addBUFFER( event, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
             }
+            
+            rpal_memory_free( filePath );
         }
+
+        
 
         rSequence_unTaintRead( event );
         hbs_timestampEvent( event, 0 );
@@ -270,8 +315,8 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGN( event, RP_TAGS_DIRECTORY_PATH, &filePath ) &&
-            rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &fileSpec[ 0 ] ) )
+        if( _getAsNativeString( event, RP_TAGS_DIRECTORY_PATH, &filePath ) &&
+            _getAsNativeString( event, RP_TAGS_FILE_PATH, &fileSpec[ 0 ] ) )
         {
             rSequence_unTaintRead( event );
 
@@ -317,6 +362,9 @@ RVOID
         {
             rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_INVALID_NAME );
         }
+
+        rpal_memory_free( filePath );
+        rpal_memory_free( fileSpec[ 0 ] );
 
         rSequence_unTaintRead( event );
         hbs_timestampEvent( event, 0 );
