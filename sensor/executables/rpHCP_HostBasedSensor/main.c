@@ -485,6 +485,9 @@ RPAL_THREAD_FUNC
                     // Is kernel acquisition currently available?
                     rSequence_addRU8( message, RP_TAGS_HCP_KERNEL_ACQ_AVAILABLE, (RU8)kAcq_isAvailable() );
 
+                    // What is the global time offset?
+                    rSequence_addTIMEDELTA( message, RP_TAGS_TIMEDELTA, rpal_time_getGlobalFromLocal( 0 ) );
+
                     // Add some timing context on running tasks.
                     if( rThreadPool_getRunning( g_hbs_state.hThreadPool, &tasks, &nTasks ) )
                     {
