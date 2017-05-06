@@ -143,7 +143,7 @@ void
     RU32 tmpPid = 0;
     rSequence proc = NULL;
     RPNCHAR path = NULL;
-
+    
     tmpPid = processLib_getCurrentPid();
     CU_ASSERT_NOT_EQUAL_FATAL( tmpPid, 0 );
 
@@ -152,6 +152,17 @@ void
     CU_ASSERT_PTR_NOT_EQUAL( proc, NULL );
 
     CU_ASSERT_TRUE( rSequence_getSTRINGN( proc, RP_TAGS_FILE_PATH, &path ) );
+
+#ifdef RPAL_PLATFORM_LINUX
+    // Only Linux can report UID info from processLib.
+    {
+        RU32 uid = 0;
+        RPCHAR userName = NULL;
+
+        CU_ASSERT_TRUE( rSequence_getRU32( proc, RP_TAGS_USER_ID, &uid ) );
+        CU_ASSERT_TRUE( rSequence_getSTRINGA( proc, RP_TAGS_USER_NAME, &userName ) );
+    }
+#endif
 
     CU_ASSERT_PTR_NOT_EQUAL( path, NULL );
     CU_ASSERT_NOT_EQUAL( rpal_string_strlen( path ), 0 );

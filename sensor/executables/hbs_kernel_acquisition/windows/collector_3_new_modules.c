@@ -18,7 +18,9 @@ limitations under the License.
 #include "helpers.h"
 #include <kernelAcquisitionLib/common.h>
 
-#define _NUM_BUFFERED_MODULES 200
+#ifndef _NUM_BUFFERED_MODULES
+    #define _NUM_BUFFERED_MODULES 200
+#endif
 
 static KSPIN_LOCK g_collector_3_mutex = { 0 };
 static KernelAcqModule g_modules[ _NUM_BUFFERED_MODULES ] = { 0 };
@@ -118,6 +120,7 @@ RBOOL
     UNREFERENCED_PARAMETER( driverObject );
     UNREFERENCED_PARAMETER( deviceObject );
 
+#ifndef _DISABLE_COLLECTOR_3
     KeInitializeSpinLock( &g_collector_3_mutex );
 
     status = PsSetLoadImageNotifyRoutine( LoadImageNotify );
@@ -130,6 +133,9 @@ RBOOL
     {
         rpal_debug_kernel( "Failed to initialize: 0x%08X", status );
     }
+#else
+    isSuccess = TRUE;
+#endif
 
     return isSuccess;
 }
@@ -142,7 +148,8 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
     NTSTATUS status = STATUS_SUCCESS;
-    
+   
+#ifndef _DISABLE_COLLECTOR_3
     status = PsRemoveLoadImageNotifyRoutine( LoadImageNotify );
 
     if( NT_SUCCESS( status ) )
@@ -153,6 +160,9 @@ RBOOL
     {
         rpal_debug_kernel( "Failed to deinitialize: 0x%08X", status );
     }
+#else
+    isSuccess = TRUE;
+#endif
 
     return isSuccess;
 }

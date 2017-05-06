@@ -1090,10 +1090,12 @@ RVOID
     )
 {
     RU32 len = 0;
-    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_W;
+    RNCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_N;
 
     if( NULL != pInfo )
     {
+        pInfo->fileName = NULL;
+
         len = rpal_string_strlen( pInfo->filePath );
 
         if( 0 != len )
@@ -1109,6 +1111,11 @@ RVOID
                 }
 
                 len--;
+            }
+
+            if( NULL == pInfo->fileName )
+            {
+                pInfo->fileName = (RPNCHAR)&(pInfo->filePath);
             }
         }
     }

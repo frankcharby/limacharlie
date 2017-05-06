@@ -33,9 +33,9 @@ DRIVER_DISPATCH DispatchControl;
 
 
 #ifdef RPAL_PLATFORM_DEBUG
-#define ACCESS_SDDL     SDDL_DEVOBJ_SYS_ALL_ADM_ALL
+    #define ACCESS_SDDL     SDDL_DEVOBJ_SYS_ALL_ADM_ALL
 #else
-#define ACCESS_SDDL     SDDL_DEVOBJ_SYS_ALL
+    #define ACCESS_SDDL     SDDL_DEVOBJ_SYS_ALL
 #endif
 
 #define DEVICE_NAME         _WCH("\\Device\\") ## ACQUISITION_COMMS_NAME
@@ -99,11 +99,12 @@ static CollectorContext g_collectors[] = { _COLLECTOR_INIT( 1 ),
                                            _COLLECTOR_INIT( 2 ),
                                            _COLLECTOR_INIT( 3 ),
                                            _COLLECTOR_INIT( 4 ) };
-static collector_task g_tasks[ KERNEL_ACQ_OP_COUNT  ] = { task_ping,
-                                                          task_get_new_processes,
-                                                          task_get_new_files,
-                                                          task_get_new_module_loads,
-                                                          task_get_new_network};
+static collector_task g_tasks[ KERNEL_ACQ_NUM_OPS  ] = { task_ping,
+                                                         task_get_new_processes,
+                                                         task_get_new_files,
+                                                         task_get_new_module_loads,
+                                                         task_get_new_network,
+                                                         task_get_new_dns };
 
 
 NTSTATUS

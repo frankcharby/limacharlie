@@ -475,6 +475,53 @@ RBOOL
 //=============================================================================
 //  Collector Testing
 //=============================================================================
+HBS_DECLARE_TEST( os_processes )
+{
+    rQueue notifQueue = NULL;
+    rSequence event = NULL;
+    rList processes = NULL;
+    RU32 size = 0;
+    processLibProcEntry* entries = NULL;
+
+    // Test the sub components of doing a process listing.
+    entries = processLib_getProcessEntries( TRUE );
+    if( HBS_ASSERT_TRUE( NULL != entries ) )
+    {
+        size = 0;
+        while( NULL != entries && 0 != entries[ size ].pid )
+        {
+            size++;
+        }
+
+        HBS_ASSERT_TRUE( 0 != size );
+        rpal_memory_free( entries );
+    }
+
+    // Do a wholistic test of the process listing.
+    HBS_ASSERT_TRUE( rQueue_create( &notifQueue, rSequence_freeWithSize, 10 ) );
+
+    // Register to the notifications we expect.
+    HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REP, NULL, 0, notifQueue, NULL ) );
+
+    event = rSequence_new();
+    if( HBS_ASSERT_TRUE( NULL != event ) )
+    {
+        os_processes( RP_TAGS_NOTIFICATION_OS_PROCESSES_REQ, event );
+        rSequence_free( event );
+
+        HBS_ASSERT_TRUE( rQueue_getSize( notifQueue, &size ) );
+        HBS_ASSERT_TRUE( 1 == size );
+        HBS_ASSERT_TRUE( rQueue_remove( notifQueue, &event, NULL, 0 ) );
+
+        HBS_ASSERT_TRUE( rSequence_getLIST( event, RP_TAGS_PROCESSES, &processes ) );
+
+        rSequence_free( event );
+    }
+
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REP, notifQueue, NULL );
+    rQueue_free( notifQueue );
+}
+
 HBS_TEST_SUITE( 11 )
 {
     RBOOL isSuccess = FALSE;
@@ -482,6 +529,7 @@ HBS_TEST_SUITE( 11 )
     if( NULL != hbsState &&
         NULL != testContext )
     {
+        HBS_RUN_TEST( os_processes );
         isSuccess = TRUE;
     }
 

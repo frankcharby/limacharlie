@@ -67,7 +67,7 @@ HbsState g_hbs_state = { NULL,
                          NULL,
                          { ENABLED_COLLECTOR( 0 ),
                            ENABLED_COLLECTOR( 1 ),
-                           ENABLED_WINDOWS_COLLECTOR( 2 ),
+                           DISABLED_LINUX_COLLECTOR( 2 ),
                            ENABLED_COLLECTOR( 3 ),
                            DISABLED_LINUX_COLLECTOR( 4 ),
                            DISABLED_COLLECTOR( 5 ),
@@ -484,6 +484,9 @@ RPAL_THREAD_FUNC
 
                     // Is kernel acquisition currently available?
                     rSequence_addRU8( message, RP_TAGS_HCP_KERNEL_ACQ_AVAILABLE, (RU8)kAcq_isAvailable() );
+
+                    // What is the global time offset?
+                    rSequence_addTIMEDELTA( message, RP_TAGS_TIMEDELTA, rpal_time_getGlobalFromLocal( 0 ) );
 
                     // Add some timing context on running tasks.
                     if( rThreadPool_getRunning( g_hbs_state.hThreadPool, &tasks, &nTasks ) )

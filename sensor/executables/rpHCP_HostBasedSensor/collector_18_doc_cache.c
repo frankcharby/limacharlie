@@ -419,6 +419,11 @@ RBOOL
                 g_cacheMutex = NULL;
             }
         }
+        else
+        {
+            // No config provided, it's ok.
+            isSuccess = TRUE;
+        }
     }
 
     return isSuccess;

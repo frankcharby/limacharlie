@@ -18,7 +18,9 @@ limitations under the License.
 #include "helpers.h"
 #include <kernelAcquisitionLib/common.h>
 
-#define _NUM_BUFFERED_PROCESSES 200
+#ifndef _NUM_BUFFERED_PROCESSES
+    #define _NUM_BUFFERED_PROCESSES 200
+#endif
 
 static KSPIN_LOCK g_collector_1_mutex = { 0 };
 static KernelAcqProcess g_processes[ _NUM_BUFFERED_PROCESSES ] = { 0 };
@@ -120,6 +122,7 @@ RBOOL
     UNREFERENCED_PARAMETER( driverObject );
     UNREFERENCED_PARAMETER( deviceObject );
 
+#ifndef _DISABLE_COLLECTOR_1
     KeInitializeSpinLock( &g_collector_1_mutex );
 
     status = PsSetCreateProcessNotifyRoutineEx( CreateProcessNotifyEx, FALSE );
@@ -132,6 +135,9 @@ RBOOL
     {
         rpal_debug_kernel( "Failed to initialize: 0x%08X", status );
     }
+#else
+    isSuccess = TRUE;
+#endif
 
     return isSuccess;
 }
@@ -145,6 +151,7 @@ RBOOL
     RBOOL isSuccess = FALSE;
     NTSTATUS status = STATUS_SUCCESS;
 
+#ifndef _DISABLE_COLLECTOR_1
     status = PsSetCreateProcessNotifyRoutineEx( CreateProcessNotifyEx, TRUE );
 
     if( NT_SUCCESS( status ) )
@@ -155,6 +162,9 @@ RBOOL
     {
         rpal_debug_kernel( "Failed to deinitialize: 0x%08X", status );
     }
+#else
+    isSuccess = TRUE;
+#endif
 
     return isSuccess;
 }

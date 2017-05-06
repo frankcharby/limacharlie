@@ -27,6 +27,9 @@ common_env[ 'HOST' ] = dict(
         arch   = platform.machine().lower()
         )
 
+additionalDefines = ARGUMENTS.get( 'defines', '' ).split( ',' )
+common_env.Append( CPPDEFINES = additionalDefines )
+
 # Platform characterization.
 if 'android' in ARGUMENTS:
     platform_name = "android"

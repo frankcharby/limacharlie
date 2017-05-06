@@ -175,7 +175,6 @@ RBOOL
     RBOOL isSuccess = FALSE;
     rSequence info = NULL;
     rSequence parentInfo = NULL;
-    RU32 tmpUid = 0;
     RPNCHAR cleanPath = NULL;
     Atom atom = { 0 };
     Atom parentAtom = { 0 };
@@ -204,6 +203,11 @@ RBOOL
         if( NO_PARENT_PID != ppid )
         {
             rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
+        }
+        // Do the same with the UID, kernel (param) takes precedence.
+        if( KERNEL_ACQ_NO_USER_ID != optUserId )
+        {
+            rSequence_addRU32( info, RP_TAGS_USER_ID, optUserId );
         }
     }
 
@@ -276,12 +280,6 @@ RBOOL
 
         if( isStarting )
         {
-            if( KERNEL_ACQ_NO_USER_ID != optUserId &&
-                !rSequence_getRU32( info, RP_TAGS_USER_ID, &tmpUid ) )
-            {
-                rSequence_addRU32( info, RP_TAGS_USER_ID, optUserId );
-            }
-
             if( hbs_publish( RP_TAGS_NOTIFICATION_NEW_PROCESS, info ) )
             {
                 isSuccess = TRUE;
@@ -692,9 +690,15 @@ HBS_DECLARE_TEST( notify_process )
         HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PARENT_PROCESS_ID, &outPpid ) ) &&
         HBS_ASSERT_TRUE( rSequence_getTIMESTAMP( notif, RP_TAGS_TIMESTAMP, &outTs ) ) &&
         HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
-        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
-        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) )
+        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) )
     {
+#if defined(RPAL_PLATFORM_WINDOWS) || defined( RPAL_PLATFORM_MACOSX )
+        // On Windows and OSX we don't have access to UID unless provided by the kernel.
+        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) );
+#else
+        // On Linux we get UID even from user mode.
+        HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) );
+#endif
         HBS_ASSERT_TRUE( pid == outPid );
         HBS_ASSERT_TRUE( ppid == outPpid );
         HBS_ASSERT_TRUE( ts == outTs );
@@ -749,9 +753,15 @@ HBS_DECLARE_TEST( notify_process )
         HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PARENT_PROCESS_ID, &outPpid ) ) &&
         HBS_ASSERT_TRUE( rSequence_getTIMESTAMP( notif, RP_TAGS_TIMESTAMP, &outTs ) ) &&
         HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &outPath ) ) &&
-        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) &&
-        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) ) )
+        HBS_ASSERT_TRUE( rSequence_getSTRINGN( notif, RP_TAGS_COMMAND_LINE, &outCmdLine ) ) )
     {
+#if defined(RPAL_PLATFORM_WINDOWS) || defined( RPAL_PLATFORM_MACOSX )
+        // On Windows and OSX we don't have access to UID unless provided by the kernel.
+        HBS_ASSERT_TRUE( !rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) );
+#else
+        // On Linux we get UID even from user mode.
+        HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_USER_ID, &outUserId ) );
+#endif
         HBS_ASSERT_TRUE( pid == outPid );
         HBS_ASSERT_TRUE( ppid != outPpid );
         HBS_ASSERT_TRUE( ts == outTs );
@@ -849,7 +859,7 @@ HBS_DECLARE_TEST( um_diff_thread )
     rQueue notifQueue = NULL;
 #ifdef RPAL_PLATFORM_WINDOWS
     //RPNCHAR spawnCmd[] = { _NC( "ping 1.1.1.1 -n 5 -w 1000" ) };
-    RCHAR spawnCmd[] = "c:\\windows\\system32\\ping.exe 1.1.1.1 -n 1 -w 1000";
+    RCHAR spawnCmd[] = "c:\\windows\\system32\\ping.exe 1.1.1.1 -n 2 -w 1000";
     RNCHAR cmdMarker[] = _NC( "ping" );
     RU32 expectedRet = 1;
 #else
@@ -880,7 +890,7 @@ HBS_DECLARE_TEST( um_diff_thread )
     // Spawn a process
     HBS_ASSERT_TRUE( expectedRet == ( ret = system( (RPCHAR)spawnCmd ) ) );
 
-    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 10 ) );
     rEvent_set( dummyStop );
     rpal_thread_wait( hThread, RINFINITE );
     rEvent_free( dummyStop );
