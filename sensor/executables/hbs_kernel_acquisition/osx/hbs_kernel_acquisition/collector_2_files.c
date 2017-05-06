@@ -16,8 +16,9 @@
 
 #include "collectors.h"
 
-
-#define _NUM_BUFFERED_FILES 200
+#ifndef _NUM_BUFFERED_FILES
+    #define _NUM_BUFFERED_FILES 200
+#endif
 
 static rMutex g_collector_2_mutex = NULL;
 static KernelAcqFileIo g_files[ _NUM_BUFFERED_FILES ] = { 0 };
@@ -213,6 +214,7 @@ int
 {
     int isSuccess = 0;
     
+#ifndef _DISABLE_COLLECTOR_2
     if( NULL != ( g_collector_2_mutex = rpal_mutex_create() ) )
     {
         g_listener_file = kauth_listen_scope( KAUTH_SCOPE_FILEOP, new_file_listener, NULL );
@@ -226,6 +228,10 @@ int
             rpal_mutex_free( g_collector_2_mutex );
         }
     }
+#else
+    UNREFERENCED_PARAMETER( d );
+    isSuccess = 1;
+#endif
     
     return isSuccess;
 }
@@ -236,8 +242,10 @@ int
 
     )
 {
+#ifndef _DISABLE_COLLECTOR_2
     rpal_mutex_lock( g_collector_2_mutex );
     kauth_unlisten_scope( g_listener_file );
     rpal_mutex_free( g_collector_2_mutex );
+#endif
     return 1;
 }

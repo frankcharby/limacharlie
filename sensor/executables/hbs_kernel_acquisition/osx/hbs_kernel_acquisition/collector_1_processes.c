@@ -16,9 +16,9 @@
 
 #include "collectors.h"
 
-
-#define _NUM_BUFFERED_PROCESSES 200
-
+#ifndef _NUM_BUFFERED_PROCESSES
+    #define _NUM_BUFFERED_PROCESSES 200
+#endif
 
 //==============================================================================
 //  Enable the following flag to revert to the KAUTH method of process
@@ -198,7 +198,8 @@ int
     )
 {
     int isSuccess = 0;
-    
+
+#ifndef _DISABLE_COLLECTOR_1
     if( NULL != ( g_collector_1_mutex = rpal_mutex_create() ) )
     {
 #ifdef _USE_KAUTH
@@ -233,6 +234,10 @@ int
             rpal_mutex_free( g_collector_1_mutex );
         }
     }
+#else
+    UNREFERENCED_PARAMETER( d );
+    isSuccess = 1;
+#endif
     
     return isSuccess;
 }
@@ -243,6 +248,7 @@ int
 
     )
 {
+#ifndef _DISABLE_COLLECTOR_1
     rpal_mutex_lock( g_collector_1_mutex );
 #ifdef _USE_KAUTH
     kauth_unlisten_scope( g_listener );
@@ -250,5 +256,6 @@ int
     mac_policy_unregister( g_policy );
 #endif
     rpal_mutex_free( g_collector_1_mutex );
+#endif
     return 1;
 }

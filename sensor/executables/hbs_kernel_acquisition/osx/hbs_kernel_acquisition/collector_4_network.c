@@ -21,8 +21,13 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#define _NUM_BUFFERED_CONNECTIONS   200
-#define _NUM_BUFFERED_DNS           (128 * 1024)
+#ifndef _NUM_BUFFERED_CONNECTIONS
+    #define _NUM_BUFFERED_CONNECTIONS   200
+#endif
+#ifndef _NUM_BUFFERED_DNS
+    #define _NUM_BUFFERED_DNS           (128 * 1024)
+#endif
+
 #define _FLT_HANDLE_BASE            0x52484350// RHCP
 #define _FLT_NAME                   "com.refractionpoint.hbs.acq.net"
 
@@ -690,7 +695,8 @@ int
     )
 {
     int isSuccess = 0;
-    
+
+#ifndef _DISABLE_COLLECTOR_4
     if( NULL != ( g_collector_4_mutex = rpal_mutex_create() ) &&
         NULL != ( g_collector_4_mutex_dns = rpal_mutex_create() ) )
     {
@@ -715,6 +721,10 @@ int
             rpal_mutex_free( g_collector_4_mutex_dns );
         }
     }
+#else
+    UNREFERENCED_PARAMETER( d );
+    isSuccess = 1;
+#endif
     
     return isSuccess;
 }
@@ -725,6 +735,7 @@ int
 
     )
 {
+#ifndef _DISABLE_COLLECTOR_4
     RBOOL isDone = FALSE;
     
     rpal_mutex_lock( g_collector_4_mutex );
@@ -753,6 +764,6 @@ int
     
     rpal_mutex_free( g_collector_4_mutex );
     rpal_mutex_free( g_collector_4_mutex_dns );
-    
+#endif
     return 1;
 }
