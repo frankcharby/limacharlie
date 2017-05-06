@@ -20,8 +20,12 @@ limitations under the License.
 
 #pragma warning(disable:4127)       // constant expressions
 
-#define _NUM_BUFFERED_CONNECTIONS   200
-#define _NUM_BUFFERED_DNS_BYTES     (128 * 1024)
+#ifndef _NUM_BUFFERED_CONNECTIONS
+    #define _NUM_BUFFERED_CONNECTIONS   200
+#endif
+#ifndef _NUM_BUFFERED_DNS_BYTES
+    #define _NUM_BUFFERED_DNS_BYTES     (128 * 1024)
+#endif
 
 typedef struct
 {
@@ -927,6 +931,7 @@ RBOOL
 
     UNREFERENCED_PARAMETER( driverObject );
 
+#ifndef _DISABLE_COLLECTOR_4
     KeInitializeSpinLock( &g_collector_4_mutex );
     KeInitializeSpinLock( &g_collector_4_mutex_dns );
 
@@ -940,6 +945,10 @@ RBOOL
     {
         rpal_debug_kernel( "Failed to initialize: 0x%08X", status );
     }
+#else
+    UNREFERENCED_PARAMETER( deviceObject );
+    isSuccess = TRUE;
+#endif
 
     return isSuccess;
 }
@@ -953,6 +962,7 @@ RBOOL
     RBOOL isSuccess = FALSE;
     NTSTATUS status = STATUS_SUCCESS;
 
+#ifndef _DISABLE_COLLECTOR_4
     uninstallWfp();
 
     if( NT_SUCCESS( status ) )
@@ -963,6 +973,9 @@ RBOOL
     {
         rpal_debug_kernel( "Failed to deinitialize: 0x%08X", status );
     }
+#else
+    isSuccess = TRUE;
+#endif
 
     return isSuccess;
 }

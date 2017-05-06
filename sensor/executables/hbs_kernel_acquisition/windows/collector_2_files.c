@@ -19,7 +19,9 @@ limitations under the License.
 #include <kernelAcquisitionLib/common.h>
 #include <fltKernel.h>
 
-#define _NUM_BUFFERED_FILES 200
+#ifndef _NUM_BUFFERED_FILES
+    #define _NUM_BUFFERED_FILES 200
+#endif
 
 // Missing from older versions of the DDK
 #define FileDispositionInformationEx 64
@@ -881,6 +883,7 @@ RBOOL
 
     UNREFERENCED_PARAMETER( deviceObject );
 
+#ifndef _DISABLE_COLLECTOR_2
     KeInitializeSpinLock( &g_collector_2_mutex );
 
     status = FltRegisterFilter( driverObject, &g_filterRegistration, &g_filter );
@@ -902,6 +905,10 @@ RBOOL
     {
         rpal_debug_kernel( "Failed to initialize: 0x%08X", status );
     }
+#else
+    UNREFERENCED_PARAMETER( driverObject );
+    isSuccess = TRUE;
+#endif
 
     return isSuccess;
 }
@@ -915,6 +922,7 @@ RBOOL
     RBOOL isSuccess = FALSE;
     NTSTATUS status = STATUS_SUCCESS;
 
+#ifndef _DISABLE_COLLECTOR_2
     if( NT_SUCCESS( status ) )
     {
         isSuccess = TRUE;
@@ -923,6 +931,9 @@ RBOOL
     {
         rpal_debug_kernel( "Failed to deinitialize: 0x%08X", status );
     }
+#else
+    isSuccess = TRUE;
+#endif
 
     return isSuccess;
 }
