@@ -54,6 +54,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hbs_kernel_acquisition", ".
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpHCP_KernelAcquisition", "..\executables\rpHCP_KernelAcquisition\rpHCP_KernelAcquisition.vcxproj", "{BF08E3B3-99AF-4E11-BB8E-FEDABB7BA668}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpHCP_BulkCollector", "..\executables\rpHCP_BulkCollector\rpHCP_BulkCollector.vcxproj", "{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -238,6 +240,14 @@ Global
 		{BF08E3B3-99AF-4E11-BB8E-FEDABB7BA668}.Release|Win32.Build.0 = Release|Win32
 		{BF08E3B3-99AF-4E11-BB8E-FEDABB7BA668}.Release|x64.ActiveCfg = Release|x64
 		{BF08E3B3-99AF-4E11-BB8E-FEDABB7BA668}.Release|x64.Build.0 = Release|x64
+		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Debug|Win32.Build.0 = Debug|Win32
+		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Debug|x64.ActiveCfg = Debug|x64
+		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Debug|x64.Build.0 = Debug|x64
+		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Release|Win32.ActiveCfg = Release|Win32
+		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Release|Win32.Build.0 = Release|Win32
+		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Release|x64.ActiveCfg = Release|x64
+		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
