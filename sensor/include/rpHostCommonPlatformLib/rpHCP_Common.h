@@ -84,6 +84,7 @@ typedef RU8 RpHcp_ModuleId;
 #define RP_HCP_MODULE_ID_TEST               3
 #define RP_HCP_MODULE_ID_AAD                4
 #define RP_HCP_MODULE_ID_KERNEL_ACQ         5
+#define RP_HCP_MODULE_ID_BULK_COLLECTOR     6
 
 typedef struct
 {

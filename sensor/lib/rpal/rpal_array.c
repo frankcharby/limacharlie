@@ -739,9 +739,9 @@ RBOOL
     {
         if( index < vector->nElements - 1 )
         {
-            rpal_memory_memcpy( &( vector->elements[ index ] ), 
-                                &( vector->elements[ index + 1 ] ), 
-                                sizeof( RPVOID ) * ( vector->nElements - index - 1 ) );
+            rpal_memory_memmove( &( vector->elements[ index ] ), 
+                                 &( vector->elements[ index + 1 ] ), 
+                                 sizeof( RPVOID ) * ( vector->nElements - index - 1 ) );
         }
         vector->nElements--;
         vector->elements[ vector->nElements ] = NULL;
