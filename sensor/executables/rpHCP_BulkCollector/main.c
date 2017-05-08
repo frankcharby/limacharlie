@@ -74,6 +74,7 @@ Slab*
 
 RPRIVATE
 RU32
+RPAL_THREAD_FUNC
     exfilThread
     (
         rEvent isTimeToStop
@@ -86,6 +87,8 @@ RU32
 
         }
     }
+
+    return 0;
 }
 
 RPRIVATE
@@ -105,7 +108,7 @@ RVOID
         {
             pCurrentSlab->bytesInSlab = sizeof( pCurrentSlab->data );
 
-            if( kAcq_getNewDnsPackets( pCurrentSlab->data, &pCurrentSlab->bytesInSlab ) )
+            if( kAcq_getNewDnsPackets( (KernelAcqDnsPacket*)pCurrentSlab->data, &pCurrentSlab->bytesInSlab ) )
             {
                 if( 0 == pCurrentSlab->bytesInSlab )
                 {
@@ -207,7 +210,7 @@ RPAL_THREAD_FUNC
             if( kAcq_init() )
             {
                 // Start the thread that will do the exfil.
-                if( NULL != ( hExfilThread = rpal_thread_new( exfilThread, NULL ) ) )
+                if( NULL != ( hExfilThread = rpal_thread_new( exfilThread, isTimeToStop ) ) )
                 {
                     ret = 0;
 
