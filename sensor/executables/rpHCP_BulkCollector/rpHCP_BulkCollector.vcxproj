@@ -82,6 +82,7 @@
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</IntDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Configuration)\</IntDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <NuGetPackageImportStamp>adbd89a9</NuGetPackageImportStamp>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
@@ -118,7 +119,19 @@
       <Project>{b0349999-458d-4831-a9f7-0568156c9534}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\..\solutions\packages\grpc.cpp.redist.1.0.1\build\native\grpc.cpp.redist.targets" Condition="Exists('..\..\solutions\packages\grpc.cpp.redist.1.0.1\build\native\grpc.cpp.redist.targets')" />
+    <Import Project="..\..\solutions\packages\grpc.cpp.1.0.1\build\native\grpc.cpp.targets" Condition="Exists('..\..\solutions\packages\grpc.cpp.1.0.1\build\native\grpc.cpp.targets')" />
   </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\..\solutions\packages\grpc.cpp.redist.1.0.1\build\native\grpc.cpp.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\solutions\packages\grpc.cpp.redist.1.0.1\build\native\grpc.cpp.redist.targets'))" />
+    <Error Condition="!Exists('..\..\solutions\packages\grpc.cpp.1.0.1\build\native\grpc.cpp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\solutions\packages\grpc.cpp.1.0.1\build\native\grpc.cpp.targets'))" />
+  </Target>
 </Project>

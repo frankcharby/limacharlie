@@ -18,6 +18,7 @@ limitations under the License.
 #include <rpHostCommonPlatformIFaceLib/rpHostCommonPlatformIFaceLib.h>
 #include <kernelAcquisitionLib/kernelAcquisitionLib.h>
 #include <librpcm/librpcm.h>
+#include <grpc/grpc.h>
 //=============================================================================
 //  RP HCP Module Requirements
 //=============================================================================
