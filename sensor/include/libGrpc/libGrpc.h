@@ -19,6 +19,21 @@ limitations under the License.
 
 #include <rpal/rpal.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif  
+    
 
+RU32
+    grpc_Dummy
+    (
+        RU32 dummy
+    );
+
+
+
+#ifdef __cplusplus  
+} // extern "C"  
+#endif
 
 #endif

@@ -18,7 +18,7 @@ limitations under the License.
 #include <rpHostCommonPlatformIFaceLib/rpHostCommonPlatformIFaceLib.h>
 #include <kernelAcquisitionLib/kernelAcquisitionLib.h>
 #include <librpcm/librpcm.h>
-#include <grpc/grpc.h>
+#include <libGrpc/libGrpc.h>
 //=============================================================================
 //  RP HCP Module Requirements
 //=============================================================================
@@ -100,7 +100,7 @@ RVOID
     )
 {
     Slab* pCurrentSlab = NULL;
-    
+    grpc_Dummy( 42 );
     // Initialize the first Slab.
     if( NULL != ( pCurrentSlab = _newSlab() ) )
     {

@@ -15,8 +15,14 @@ limitations under the License.
 */
 
 #include <libGrpc/libGrpc.h>
-#include <grp
-
-#define RPAL_FILE_ID    112
+#include <grpc++/grpc++.h>
 
 
+RU32
+    grpc_Dummy
+    (
+        RU32 dummy
+    )
+{
+    return 42;
+}

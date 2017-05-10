@@ -109,6 +109,9 @@
     <ProjectReference Include="..\..\lib\kernelAcquisitionLib\kernelAcquisitionLib.vcxproj">
       <Project>{4e46a8ae-af86-48b7-a444-2b69fbb83d18}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\..\lib\libGrpc\libGrpc.vcxproj">
+      <Project>{3dbac043-42d8-4085-87c8-432d0eb9ba2a}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\lib\librpcm\librpcm.vcxproj">
       <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>
     </ProjectReference>

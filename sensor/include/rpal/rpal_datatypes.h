@@ -39,7 +39,9 @@ limitations under the License.
         #define WIN32_LEAN_AND_MEAN
         #include <windows.h>
         #include <winsock2.h>
+#ifndef RPAL_NO_WINDOWS_UNDOCUMENTED
         #include <windows_undocumented.h>
+#endif
         #include <winioctl.h>
     #endif
     #include <string.h>

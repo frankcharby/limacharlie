@@ -32,6 +32,9 @@ typedef RVOID (*collection_free_func)( RPVOID buffer, RU32 bufferSize );
 typedef RPVOID rCircularBuffer;
 typedef RVOID( *circularbuffer_free_func )( RPVOID elem );
 
+#pragma warning(push)
+#pragma warning(disable:4200)       // Zero-sized array
+
 typedef struct
 {
     RU32 nElements;
@@ -39,6 +42,8 @@ typedef struct
     RPVOID elements[0];
 
 } _rVector, *rVector;
+
+#pragma warning(pop)
 
 //=============================================================================
 //  PUBLIC API
