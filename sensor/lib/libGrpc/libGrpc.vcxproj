@@ -19,25 +19,25 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}</ProjectGuid>
-    <RootNamespace>rpHCP_BulkCollector</RootNamespace>
+    <ProjectGuid>{3DBAC043-42D8-4085-87C8-432D0EB9BA2A}</ProjectGuid>
+    <RootNamespace>libGrpc</RootNamespace>
     <Keyword>Win32Proj</Keyword>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -49,7 +49,6 @@
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_release.props" />
     <Import Project="..\..\property_sheets\windows_x86.props" />
-    <Import Project="..\..\property_sheets\obfuscation.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -57,7 +56,6 @@
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_debug.props" />
     <Import Project="..\..\property_sheets\windows_x86.props" />
-    <Import Project="..\..\property_sheets\obfuscation.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -65,7 +63,6 @@
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_release.props" />
     <Import Project="..\..\property_sheets\windows_x64.props" />
-    <Import Project="..\..\property_sheets\obfuscation.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -73,52 +70,48 @@
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_debug.props" />
     <Import Project="..\..\property_sheets\windows_x64.props" />
-    <Import Project="..\..\property_sheets\obfuscation.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(Configuration)\</IntDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</IntDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Configuration)\</IntDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\</IntDir>
-    <NuGetPackageImportStamp>aa9110f0</NuGetPackageImportStamp>
+    <NuGetPackageImportStamp>57dae863</NuGetPackageImportStamp>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
-    <ClCompile />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
-    <ClCompile />
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile />
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile />
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.c" />
+    <ProjectReference Include="..\rpal\rpal.vcxproj">
+      <Project>{c8461925-62d7-49ff-a7c7-6cb5f73fa441}</Project>
+      <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\lib\kernelAcquisitionLib\kernelAcquisitionLib.vcxproj">
-      <Project>{4e46a8ae-af86-48b7-a444-2b69fbb83d18}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\lib\librpcm\librpcm.vcxproj">
-      <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\lib\rpal\rpal.vcxproj">
-      <Project>{c8461925-62d7-49ff-a7c7-6cb5f73fa441}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\lib\rpHostCommonPlatformIFaceLib\rpHostCommonPlatformIFaceLib.vcxproj">
-      <Project>{b0349999-458d-4831-a9f7-0568156c9534}</Project>
-    </ProjectReference>
+    <ClCompile Include="libGrpc.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\include\libGrpc\libGrpc.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\..\solutions\packages\grpc.cpp.redist.1.0.1\build\native\grpc.cpp.redist.targets" Condition="Exists('..\..\solutions\packages\grpc.cpp.redist.1.0.1\build\native\grpc.cpp.redist.targets')" />
+    <Import Project="..\..\solutions\packages\grpc.cpp.1.0.1\build\native\grpc.cpp.targets" Condition="Exists('..\..\solutions\packages\grpc.cpp.1.0.1\build\native\grpc.cpp.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\..\solutions\packages\grpc.cpp.redist.1.0.1\build\native\grpc.cpp.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\solutions\packages\grpc.cpp.redist.1.0.1\build\native\grpc.cpp.redist.targets'))" />
+    <Error Condition="!Exists('..\..\solutions\packages\grpc.cpp.1.0.1\build\native\grpc.cpp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\solutions\packages\grpc.cpp.1.0.1\build\native\grpc.cpp.targets'))" />
+  </Target>
 </Project>
