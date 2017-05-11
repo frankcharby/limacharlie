@@ -42,7 +42,10 @@ limitations under the License.
 #ifndef RPAL_NO_WINDOWS_UNDOCUMENTED
         #include <windows_undocumented.h>
 #endif
+        #pragma warning(push)
+        #pragma warning(disable:4201)       // unnamed struct/union
         #include <winioctl.h>
+        #pragma warning(pop)
     #endif
     #include <string.h>
     #include <stdlib.h>
