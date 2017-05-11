@@ -27,18 +27,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -48,7 +52,6 @@
     <Import Project="..\..\property_sheets\rpal.props" />
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_release.props" />
-    <Import Project="..\..\property_sheets\windows_x86.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
@@ -56,7 +59,6 @@
     <Import Project="..\..\property_sheets\rpal.props" />
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_debug.props" />
-    <Import Project="..\..\property_sheets\windows_x86.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
@@ -64,7 +66,6 @@
     <Import Project="..\..\property_sheets\rpal.props" />
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_release.props" />
-    <Import Project="..\..\property_sheets\windows_x64.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
@@ -72,7 +73,6 @@
     <Import Project="..\..\property_sheets\rpal.props" />
     <Import Project="..\..\property_sheets\windows_general.props" />
     <Import Project="..\..\property_sheets\windows_debug.props" />
-    <Import Project="..\..\property_sheets\windows_x64.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -89,18 +89,30 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>WIN64;_WIN64;RPAL_NO_WINDOWS_UNDOCUMENTED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>WIN64;_WIN64;RPAL_NO_WINDOWS_UNDOCUMENTED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>RPAL_NO_WINDOWS_UNDOCUMENTED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>RPAL_NO_WINDOWS_UNDOCUMENTED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.c" />
