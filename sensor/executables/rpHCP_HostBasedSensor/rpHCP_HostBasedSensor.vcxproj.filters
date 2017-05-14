@@ -45,9 +45,6 @@
     <ClCompile Include="collector_13_exec_oob.c">
       <Filter>collectors</Filter>
     </ClCompile>
-    <ClCompile Include="collector_14_operations_man.c">
-      <Filter>collectors</Filter>
-    </ClCompile>
     <ClCompile Include="collector_15_process_hollowing.c">
       <Filter>collectors</Filter>
     </ClCompile>
@@ -82,6 +79,9 @@
       <Filter>collectors</Filter>
     </ClCompile>
     <ClCompile Include="collector_22_file_type_tracker.c">
+      <Filter>collectors</Filter>
+    </ClCompile>
+    <ClCompile Include="collector_14_deny_tree.c">
       <Filter>collectors</Filter>
     </ClCompile>
   </ItemGroup>
