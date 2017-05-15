@@ -27,6 +27,7 @@ limitations under the License.
 RPRIVATE rBlob g_denied = NULL;
 RPRIVATE rMutex g_deniedMutex = NULL;
 
+// Provides a lexicographic ordering of atoms.
 RPRIVATE
 RS32
     cmpAtoms
@@ -38,6 +39,8 @@ RS32
     return (RS32)rpal_memory_memcmp( atomId1, atomId2, HBS_ATOM_ID_SIZE );
 }
 
+// Add an atom to the deny list, which is just a sortled list
+// on which we do binary searches.
 RPRIVATE
 RVOID
     addAtomToDeny
@@ -51,12 +54,13 @@ RVOID
         rpal_sort_array( rpal_blob_getBuffer( g_denied ), 
                          rpal_blob_getSize( g_denied ) / HBS_ATOM_ID_SIZE, 
                          HBS_ATOM_ID_SIZE, 
-                         cmpAtoms );
+                         (rpal_ordering_func)cmpAtoms );
 
         rMutex_unlock( g_deniedMutex );
     }
 }
 
+// Given an atom, check if it's on the deny list.
 RPRIVATE
 RBOOL
     isAtomDenied
@@ -72,7 +76,7 @@ RBOOL
                                             rpal_blob_getSize( g_denied ) / HBS_ATOM_ID_SIZE,
                                             HBS_ATOM_ID_SIZE,
                                             atomId,
-                                            cmpAtoms ) )
+                                            (rpal_ordering_func)cmpAtoms ) )
         {
             isDenied = TRUE;
         }
@@ -83,6 +87,48 @@ RBOOL
     return isDenied;
 }
 
+// Given an atom, find all already executing children, add them to the deny
+// list and terminate their execution.
+// This is not the most optimized algorithm but it's simple and only executes
+// once per new deny tasking.
+RPRIVATE
+RVOID
+    denyExistingTree
+    (
+        RU8 atomId[ HBS_ATOM_ID_SIZE ]
+    )
+{
+    RU32 pid = 0;
+    rBlob parents = NULL;
+    RPU8 tmpAtom = NULL;
+    RU32 i = 0;
+
+    if( NULL != atomId )
+    {
+        addAtomToDeny( atomId );
+
+        if( NULL != ( parents = atoms_getAtomsWithParent( atomId ) ) )
+        {
+            for( i = 0; i < rpal_blob_getSize( parents ) / HBS_ATOM_ID_SIZE; i++ )
+            {
+                if( NULL != ( tmpAtom = rpal_blob_arrElem( parents, HBS_ATOM_ID_SIZE, i ) ) )
+                {
+                    denyExistingTree( tmpAtom );
+                }
+            }
+
+            rpal_blob_free( parents );
+        }
+
+        if( 0 != ( pid = atoms_getPid( atomId ) ) )
+        {
+            processLib_killProcess( pid );
+        }
+    }
+}
+
+// Receives a task to start denying a tree at a given root.
+// Can be a single atom or a list of atoms.
 RPRIVATE
 RVOID
     denyNewTree
@@ -101,18 +147,20 @@ RVOID
     if( rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &atomId, &size ) &&
         HBS_ATOM_ID_SIZE == size )
     {
-        addAtomToDeny( atomId );
+        denyExistingTree( atomId );
     }
     else if( rSequence_getLIST( event, RP_TAGS_HBS_THIS_ATOM, &atomList ) )
     {
         while( rList_getBUFFER( atomList, RP_TAGS_HBS_THIS_ATOM, &atomId, &size ) &&
                HBS_ATOM_ID_SIZE == size )
         {
-            addAtomToDeny( atomId );
+            denyExistingTree( atomId );
         }
     }
 }
 
+// Receives new process notifications and check if they're on our
+// deny list, if so, kill.
 RPRIVATE
 RVOID
     denyNewProcesses
