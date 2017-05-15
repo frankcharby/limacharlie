@@ -24,8 +24,11 @@ limitations under the License.
 #include <rpHostCommonPlatformLib/rTags.h>
 #include <processLib/processLib.h>
 
+#define DENY_TREE_CLEANUP_TIMEOUT   (600)
+
 RPRIVATE rBlob g_denied = NULL;
 RPRIVATE rMutex g_deniedMutex = NULL;
+RPRIVATE RTIME g_lastDenyActivity = 0;
 
 // Provides a lexicographic ordering of atoms.
 RPRIVATE
@@ -55,6 +58,8 @@ RVOID
                          rpal_blob_getSize( g_denied ) / HBS_ATOM_ID_SIZE, 
                          HBS_ATOM_ID_SIZE, 
                          (rpal_ordering_func)cmpAtoms );
+
+        g_lastDenyActivity = rpal_time_getGlobal();
 
         rMutex_unlock( g_deniedMutex );
     }
@@ -174,7 +179,10 @@ RVOID
 
     UNREFERENCED_PARAMETER( notifType );
     
-    if( HbsGetParentAtom( event, &atomId ) &&
+    // We use the lastActivity check here as a cheap way of seeing if there is
+    // anything at all in the denied tree.
+    if( 0 != g_lastDenyActivity &&
+        HbsGetParentAtom( event, &atomId ) &&
         isAtomDenied( atomId ) )
     {
         // This atom is part of a tree that needs to be denied, so we do two things:
@@ -195,6 +203,20 @@ RVOID
             {
                 rpal_debug_warning( "failed to deny process id " RF_U32, pid );
             }
+        }
+    }
+    else if( 0 != g_lastDenyActivity &&
+             g_lastDenyActivity + DENY_TREE_CLEANUP_TIMEOUT < rpal_time_getGlobal() )
+    {
+        // There has not been any positive activity on any denied trees, for the sake
+        // of performance we'll reset the denied trees.
+        if( rMutex_lock( g_deniedMutex ) )
+        {
+            g_lastDenyActivity = 0;
+            rpal_blob_free( g_denied );
+            g_denied = rpal_blob_create( 0, HBS_ATOM_ID_SIZE * 10 );
+
+            rMutex_unlock( g_deniedMutex );
         }
     }
 }
@@ -220,8 +242,9 @@ RBOOL
     if( notifications_subscribe( RP_TAGS_NOTIFICATION_DENY_TREE_REQ, NULL, 0, NULL, denyNewTree ) &&
         notifications_subscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, 0, NULL, denyNewProcesses ) &&
         NULL != ( g_deniedMutex = rMutex_create() ) &&
-        NULL != ( g_denied = rpal_blob_create( 0, 0 ) ) )
+        NULL != ( g_denied = rpal_blob_create( 0, HBS_ATOM_ID_SIZE * 10 ) ) )
     {
+        g_lastDenyActivity = 0;
         isSuccess = TRUE;
     }
 
