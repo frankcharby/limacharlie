@@ -761,7 +761,13 @@ RU32
         }
         else
         {
+#ifdef RPAL_PLATFORM_DEBUG
+            RCHAR tmpError[ 1024 ] = { 0 };
+            mbedtls_strerror( mbedRet, tmpError, sizeof( tmpError ) );
+            rpal_debug_warning( "failed to handshake: " RF_STR_A, tmpError );
+#else
             rpal_debug_warning( "failed to handshake" );
+#endif
         }
 
         if( !isHeadersSent )

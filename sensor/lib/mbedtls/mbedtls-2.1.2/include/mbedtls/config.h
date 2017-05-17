@@ -1741,7 +1741,9 @@
  *
  * This module enables mbedtls_strerror().
  */
-//#define MBEDTLS_ERROR_C
+#ifdef RPAL_PLATFORM_DEBUG
+#define MBEDTLS_ERROR_C
+#endif
 
 /**
  * \def MBEDTLS_GCM_C

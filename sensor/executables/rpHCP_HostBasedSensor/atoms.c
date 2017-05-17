@@ -17,6 +17,8 @@ limitations under the License.
 #include "atoms.h"
 #include <cryptoLib/cryptoLib.h>
 
+#define RPAL_FILE_ID            111
+
 #define _CLEANUP_EVERY          50
 #define _ATOM_GRACE_MS          10000
 #define _PROCESS_UNCERTAINTY_MS 1000
@@ -108,6 +110,22 @@ RBOOL
         {
             rpal_debug_error( "could not register atom" );
         }
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    atoms_update
+    (
+        Atom* pAtom
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != pAtom )
+    {
+        isSuccess = rpal_btree_update( g_atoms, pAtom, pAtom, FALSE );
     }
 
     return isSuccess;
@@ -237,4 +255,44 @@ RU32
     }
 
     return pid;
+}
+
+rBlob
+    atoms_getAtomsWithParent
+    (
+        RU8 parentAtom[ HBS_ATOM_ID_SIZE ]
+    )
+{
+    rBlob matches = NULL;
+
+    Atom tmpAtom = { 0 };
+
+    if( NULL != parentAtom )
+    {
+        if( rpal_btree_minimum( g_atoms, &tmpAtom, FALSE ) )
+        {
+            do
+            {
+                if( 0 == rpal_memory_memcmp( tmpAtom.parentId,
+                                             parentAtom,
+                                             sizeof( tmpAtom.id ) ) )
+                {
+                    if( NULL == matches &&
+                        NULL == ( matches = rpal_blob_create( 0, 0 ) ) )
+                    {
+                        break;
+                    }
+
+                    if( !rpal_blob_add( matches, tmpAtom.id, sizeof( tmpAtom.id ) ) )
+                    {
+                        rpal_blob_free( matches );
+                        matches = NULL;
+                        break;
+                    }
+                }
+            } while( rpal_btree_next( g_atoms, &tmpAtom, &tmpAtom, FALSE ) );
+        }
+    }
+
+    return matches;
 }

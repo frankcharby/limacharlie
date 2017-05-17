@@ -124,8 +124,8 @@
     <ClCompile Include="collector_10_memory_forensics.c" />
     <ClCompile Include="collector_11_os_forensics.c" />
     <ClCompile Include="collector_13_exec_oob.c" />
-    <ClCompile Include="collector_14_operations_man.c" />
     <ClCompile Include="collector_12_profiler.c" />
+    <ClCompile Include="collector_14_deny_tree.c" />
     <ClCompile Include="collector_15_process_hollowing.c" />
     <ClCompile Include="collector_16_yara.c" />
     <ClCompile Include="collector_17_os_trackers.c" />

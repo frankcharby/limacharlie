@@ -255,6 +255,10 @@ RBOOL
             parentAtom.key.process.pid = ppid;
             if( atoms_query( &parentAtom, optTs ) )
             {
+                // Update the main process with the parent.
+                rpal_memory_memcpy( atom.parentId, parentAtom.id, HBS_ATOM_ID_SIZE );
+                atoms_update( &atom );
+
                 HbsSetParentAtom( info, parentAtom.id );
             }
         }

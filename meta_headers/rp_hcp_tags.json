@@ -283,7 +283,7 @@
              { "name" : "SYNC", "value" : 826 },
              { "name" : "NEW_TCP6_CONNECTION", "value" : 827 },
              { "name" : "NEW_UDP6_CONNECTION", "value" : 828 },
-             { "name" : "TODO_REPLACE_ME_2", "value" : 829 },
+             { "name" : "DENY_TREE_REQ", "value" : 829 },
              { "name" : "MODULE_MEM_DISK_MISMATCH", "value" : 830 },
              { "name" : "MODULE_MEM_DISK_MISMATCH_REQ", "value" : 831 },
              { "name" : "YARA_RULES_UPDATE", "value" : 832 },
