@@ -24,6 +24,7 @@ limitations under the License.
 typedef struct
 {
     RU8 id[ HBS_ATOM_ID_SIZE ];
+    RU8 parentId[ HBS_ATOM_ID_SIZE ];
     struct
     {
         union
@@ -62,6 +63,12 @@ RBOOL
     );
 
 RBOOL
+    atoms_update
+    (
+        Atom* pAtom
+    );
+
+RBOOL
     atoms_query_from
     (
         Atom* pAtom,
@@ -88,6 +95,12 @@ RU32
     atoms_getPid
     (
         RU8 pAtomId[ HBS_ATOM_ID_SIZE ]
+    );
+
+rBlob
+    atoms_getAtomsWithParent
+    (
+        RU8 parentAtom[ HBS_ATOM_ID_SIZE ]
     );
 
 #endif

@@ -446,7 +446,7 @@ RBOOL
     (
         rList list,
         rpcm_tag tag,
-        RU8* pVal,
+        RPU8* pVal,
         RU32* pValSize
     )
 {
