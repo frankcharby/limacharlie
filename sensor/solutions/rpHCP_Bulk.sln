@@ -42,8 +42,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpHCP_KernelAcquisition", "
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpHCP_BulkCollector", "..\executables\rpHCP_BulkCollector\rpHCP_BulkCollector.vcxproj", "{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libGrpc", "..\lib\libGrpc\libGrpc.vcxproj", "{3DBAC043-42D8-4085-87C8-432D0EB9BA2A}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -196,14 +194,6 @@ Global
 		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Release|Win32.Build.0 = Release|Win32
 		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Release|x64.ActiveCfg = Release|x64
 		{C338B165-B84B-4A3C-AB6E-D68E16C4D04B}.Release|x64.Build.0 = Release|x64
-		{3DBAC043-42D8-4085-87C8-432D0EB9BA2A}.Debug|Win32.ActiveCfg = Debug|Win32
-		{3DBAC043-42D8-4085-87C8-432D0EB9BA2A}.Debug|Win32.Build.0 = Debug|Win32
-		{3DBAC043-42D8-4085-87C8-432D0EB9BA2A}.Debug|x64.ActiveCfg = Debug|x64
-		{3DBAC043-42D8-4085-87C8-432D0EB9BA2A}.Debug|x64.Build.0 = Debug|x64
-		{3DBAC043-42D8-4085-87C8-432D0EB9BA2A}.Release|Win32.ActiveCfg = Release|Win32
-		{3DBAC043-42D8-4085-87C8-432D0EB9BA2A}.Release|Win32.Build.0 = Release|Win32
-		{3DBAC043-42D8-4085-87C8-432D0EB9BA2A}.Release|x64.ActiveCfg = Release|x64
-		{3DBAC043-42D8-4085-87C8-432D0EB9BA2A}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
