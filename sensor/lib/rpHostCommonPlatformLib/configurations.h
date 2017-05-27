@@ -21,9 +21,6 @@ limitations under the License.
 #include <obfuscationLib/obfuscationLib.h>
 #include "deployments.h"
 
-#define RP_HCP_CONFIG_DEFAULT_BEACON_TIMEOUT        (1*60*60) // In seconds
-#define RP_HCP_CONFIG_DEFAULT_BEACON_TIMEOUT_INIT   (1*10) // In seconds
-
 // Undefine this for release since it allows the local and manual load of modules
 // bypassing the crypto.
 #ifdef RPAL_PLATFORM_DEBUG
@@ -31,9 +28,6 @@ limitations under the License.
 #define RP_HCP_LOCAL_LOAD
 #endif
 #endif
-
-#define DEFAULT_AGENT_ID_ORG        1
-#define DEFAULT_AGENT_ID_SUBNET     1
 
 #endif
 
