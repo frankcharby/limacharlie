@@ -19,5 +19,43 @@ limitations under the License.
 
 #include <rpal/rpal.h>
 
+typedef RPVOID restOutputContext;
+
+typedef struct
+{
+    RPCHAR key;
+
+    RBOOL isStringVal;
+    RPCHAR stringVal;
+
+    RBOOL isIntVal;
+    RU64 intVal;
+
+    RBOOL isBoolVal;
+    RBOOL boolVal;
+
+} JsonElem;
+
+restOutputContext
+    restOutput_newContext
+    (
+        RPCHAR destUrl,
+        RPCHAR apiKey
+    );
+
+RVOID
+    restOutput_freeContext
+    (
+        restOutputContext pContext
+    );
+
+RBOOL
+    restOutput_send
+    (
+        restOutputContext pContext,
+        JsonElem dataElements[],
+        RU32 nDataElements
+    );
+
 
 #endif

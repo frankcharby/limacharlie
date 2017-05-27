@@ -693,6 +693,48 @@ RPNCHAR
     return out;
 }
 
+RPCHAR
+    rpal_string_strstrA
+    (
+        RPCHAR haystack,
+        RPCHAR needle
+    )
+{
+    RPCHAR out = NULL;
+
+    if( NULL != haystack &&
+        NULL != needle )
+    {
+#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+        RPAL_PLATFORM_TODO( Confirm GLIBC doesnt break this with optimizations );
+#endif
+        out = strstr( haystack, needle );
+    }
+
+    return out;
+}
+
+RPWCHAR
+    rpal_string_strstrW
+    (
+        RPWCHAR haystack,
+        RPWCHAR needle
+    )
+{
+    RPWCHAR out = NULL;
+
+    if( NULL != haystack &&
+        NULL != needle )
+    {
+#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+        RPAL_PLATFORM_TODO( Confirm GLIBC doesnt break this with optimizations );
+#endif
+        out = wcsstr( haystack, needle );
+    }
+
+    return out;
+}
+
 RPNCHAR
     rpal_string_stristr
     (
@@ -1385,6 +1427,60 @@ RPNCHAR
     return res;
 }
 
+RPCHAR
+    rpal_string_strcpyA
+    (
+        RPCHAR dst,
+        RPCHAR src
+    )
+{
+    RPCHAR res = NULL;
+
+    if( NULL != dst &&
+        NULL != src )
+    {
+        res = dst;
+
+        while( 0 != *src )
+        {
+            *dst = *src;
+            src++;
+            dst++;
+        }
+
+        *dst = 0;
+    }
+
+    return res;
+}
+
+RPWCHAR
+    rpal_string_strcpyW
+    (
+        RPWCHAR dst,
+        RPWCHAR src
+    )
+{
+    RPWCHAR res = NULL;
+
+    if( NULL != dst &&
+        NULL != src )
+    {
+        res = dst;
+
+        while( 0 != *src )
+        {
+            *dst = *src;
+            src++;
+            dst++;
+        }
+
+        *dst = 0;
+    }
+
+    return res;
+}
+
 RBOOL
     rpal_string_stoi
     (
@@ -1405,6 +1501,64 @@ RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
         *pNum = (RU32)strtol( str, &tmp, 10 );
 #endif
         
+        if( NULL != tmp &&
+            0 == *tmp )
+        {
+            isSuccess = TRUE;
+        }
+    }
+
+    return isSuccess;
+}
+
+
+RBOOL
+    rpal_string_stoiA
+    (
+        RPCHAR str,
+        RU32* pNum
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RPCHAR tmp = 0;
+
+    if( NULL != str &&
+        NULL != pNum )
+    {
+#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+        RPAL_PLATFORM_TODO( Confirm GLIBC doesnt break this with optimizations )
+#endif
+        *pNum = (RU32)strtol( str, &tmp, 10 );
+
+        if( NULL != tmp &&
+            0 == *tmp )
+        {
+            isSuccess = TRUE;
+        }
+    }
+
+    return isSuccess;
+}
+
+
+RBOOL
+    rpal_string_stoiW
+    (
+        RPWCHAR str,
+        RU32* pNum
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RPWCHAR tmp = 0;
+
+    if( NULL != str &&
+        NULL != pNum )
+    {
+#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+        RPAL_PLATFORM_TODO( Confirm GLIBC doesnt break this with optimizations )
+#endif
+        *pNum = (RU32)wcstol( str, &tmp, 10 );
+
         if( NULL != tmp &&
             0 == *tmp )
         {

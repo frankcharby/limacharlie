@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid></ProjectGuid>
+    <ProjectGuid>{6744925B-CEB4-4A9C-85E5-70E5CAE2A64C}</ProjectGuid>
     <RootNamespace>libRestOutput</RootNamespace>
     <Keyword>Win32Proj</Keyword>
   </PropertyGroup>

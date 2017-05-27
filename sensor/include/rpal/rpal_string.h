@@ -158,6 +158,20 @@ RPNCHAR
         RPNCHAR needle
     );
 
+RPCHAR
+    rpal_string_strstrA
+    (
+        RPCHAR haystack,
+        RPCHAR needle
+    );
+
+RPWCHAR
+    rpal_string_strstrW
+    (
+        RPWCHAR haystack,
+        RPWCHAR needle
+    );
+
 RPNCHAR
     rpal_string_stristr
     (
@@ -305,10 +319,38 @@ RPNCHAR
         RPNCHAR src
     );
 
+RPCHAR
+    rpal_string_strcpyA
+    (
+        RPCHAR dst,
+        RPCHAR src
+    );
+
+RPWCHAR
+    rpal_string_strcpyW
+    (
+        RPWCHAR dst,
+        RPWCHAR src
+    );
+
 RBOOL
     rpal_string_stoi
     (
         RPNCHAR str,
+        RU32* pNum
+    );
+
+RBOOL
+    rpal_string_stoiA
+    (
+        RPCHAR str,
+        RU32* pNum
+    );
+
+RBOOL
+    rpal_string_stoiW
+    (
+        RPWCHAR str,
         RU32* pNum
     );
     
