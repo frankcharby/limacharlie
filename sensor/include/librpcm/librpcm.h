@@ -36,6 +36,12 @@ typedef struct
     RPVOID value;
 } rpcm_elem_record;
 
+typedef struct
+{
+    RU32 dictLen;
+    RPCHAR tags[];
+} rpcm_jsonMapping;
+
 //=============================================================================
 //  Types
 //=============================================================================
@@ -798,6 +804,14 @@ RBOOL
     );
 
 RBOOL
+    rSequence_toJson
+    (
+        rSequence seq,
+        rpcm_jsonMapping* map,
+        rString outString
+    );
+
+RBOOL
     rList_serialise
     (
         rList list,
@@ -815,6 +829,13 @@ RBOOL
         RU32 from
     );
 
+RBOOL
+    rList_toJson
+    (
+        rList list,
+        rpcm_jsonMapping* map,
+        rString outString
+    );
 
 // OTHER
 //-----------------------------------------------------------------------------

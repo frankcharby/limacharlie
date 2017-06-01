@@ -59,6 +59,8 @@ restOutputContext
 {
     _restOutputContext* ctx = NULL;
 
+    UNREFERENCED_PARAMETER( apiKey );
+
     if( NULL != ( ctx = rpal_memory_alloc( sizeof( _restOutputContext ) ) ) )
     {
 #ifdef RPAL_PLATFORM_WINDOWS
@@ -80,9 +82,8 @@ restOutputContext
         RCHAR pPass[ 1024 ] = { 0 };
         RCHAR pUrl[ 1024 ] = { 0 };
         RCHAR pPage[ 1024 ] = { 0 };
-        INTERNET_PORT port = 0;
         RPCHAR pPortDelim = NULL;
-        RU32 tmpPort = 0;
+        RU64 tmpPort = 0;
         RU32 timeout = MSEC_FROM_SEC( 10 );
 
         if( NULL == ( ctx->hWininet = LoadLibraryW( wininet ) ) ||
@@ -142,7 +143,7 @@ restOutputContext
 
             ctx->port = components.nPort;
             ctx->server = rpal_string_strdupA( pUrl );
-            ctx->page = rpal_string_StrdupA( pPage );
+            ctx->page = rpal_string_strdupA( pPage );
 
             if( INTERNET_SCHEME_HTTPS == components.nScheme )
             {
@@ -261,7 +262,7 @@ RBOOL
                                                          NULL, 
                                                          NULL, 
                                                          ctx->flags, 
-                                                         NULL ) ) )
+                                                         (DWORD_PTR)NULL ) ) )
             {
 
             }

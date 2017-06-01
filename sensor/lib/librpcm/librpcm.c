@@ -1121,7 +1121,8 @@ RBOOL
             {
                 isSuccess = TRUE;
 
-                while( NULL != ( header = iteratorNext( ite ) ) )
+                while( isSuccess &&
+                       NULL != ( header = iteratorNext( ite ) ) )
                 {
                     tmp32_1 = rpal_hton32( header->tag );
                     
@@ -1224,6 +1225,295 @@ RBOOL
                         isSuccess = FALSE;
                         break;
                     }
+                }
+            }
+
+            freeIterator( ite );
+        }
+    }
+
+    return isSuccess;
+}
+
+RPRIVATE
+RBOOL
+    _addJsonString
+    (
+        rString outString,
+        RPCHAR inString
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RU32 inLen = 0;
+    RU32 i = 0;
+    RCHAR tmpChar[ 3 ] = { 0, 0, 0 };
+
+    if( NULL != outString &&
+        NULL != inString &&
+        0 != ( inLen = rpal_string_strlenA( inString ) ) )
+    {
+        isSuccess = TRUE;
+
+        for( i = 0; 
+             i < inLen && isSuccess; 
+             i++ )
+        {
+            tmpChar[ 0 ] = inString[ i ];
+            tmpChar[ 1 ] = 0;
+
+            switch( tmpChar[ 0 ] )
+            {
+                case '"':
+                    tmpChar[ 0 ] = '\\';
+                    tmpChar[ 1 ] = '"';
+                    isSuccess = rpal_stringbuffer_addA( outString, tmpChar );
+                    break;
+                // Although / seems to be a special character in the standard, it also
+                // seems to be ignored in general, so we will ignore it (so we don't need
+                // to escape base64 strings).
+                //case '/':
+                //    tmpChar[ 0 ] = '\\';
+                //    tmpChar[ 1 ] = '/';
+                //    isSuccess = rpal_stringbuffer_addA( outString, tmpChar );
+                //    break;
+                case '\b':
+                    tmpChar[ 0 ] = '\\';
+                    tmpChar[ 1 ] = 'b';
+                    isSuccess = rpal_stringbuffer_addA( outString, tmpChar );
+                    break;
+                case '\n':
+                    tmpChar[ 0 ] = '\\';
+                    tmpChar[ 1 ] = 'n';
+                    isSuccess = rpal_stringbuffer_addA( outString, tmpChar );
+                    break;
+                case '\f':
+                    tmpChar[ 0 ] = '\\';
+                    tmpChar[ 1 ] = 'f';
+                    isSuccess = rpal_stringbuffer_addA( outString, tmpChar );
+                    break;
+                case '\r':
+                    tmpChar[ 0 ] = '\\';
+                    tmpChar[ 1 ] = 'r';
+                    isSuccess = rpal_stringbuffer_addA( outString, tmpChar );
+                    break;
+                case '\t':
+                    tmpChar[ 0 ] = '\\';
+                    tmpChar[ 1 ] = 't';
+                    isSuccess = rpal_stringbuffer_addA( outString, tmpChar );
+                    break;
+                case '\\':
+                    tmpChar[ 1 ] = '\\';
+                    isSuccess = rpal_stringbuffer_addA( outString, tmpChar );
+                    break;
+                default:
+                    isSuccess = rpal_stringbuffer_addA( outString, tmpChar );
+                    break;
+            }
+        }
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    set_toJson
+    (
+        _PElementSet set,
+        rpcm_jsonMapping* map,
+        rString outString,
+        RBOOL isList
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    _PElemHeader header = NULL;
+    _PElemSimpleHeader simpleHeader = NULL;
+    _PElemVarHeader varHeader = NULL;
+    _PElemComplexHeader complexHeader = NULL;
+    _rIterator* ite = NULL;
+
+    RBOOL isFirstElement = TRUE;
+
+    RU8 tmpRU8 = 0;
+    RU16 tmpRU16 = 0;
+    RU32 tmpRU32 = 0;
+    RU64 tmpRU64 = 0;
+
+    RPCHAR tmpStr = NULL;
+
+    RPCHAR tagString = NULL;
+    RCHAR numStr[ 20 + 1 ] = { 0 }; // Big enough for an unsigned 64 bit number.
+
+    if( NULL != set &&
+        NULL != map &&
+        NULL != outString )
+    {
+        ite = newIterator( set );
+
+        if( rpal_memory_isValid( ite ) )
+        {
+            isSuccess = TRUE;
+
+            while( isSuccess &&
+                   NULL != ( header = iteratorNext( ite ) ) )
+            {
+                // Do we have a string version of this tag?
+                if( map->dictLen <= header->tag ||
+                    NULL == ( tagString = map->tags[ header->tag ] ) )
+                {
+                    isSuccess = FALSE;
+                    break;
+                }
+
+                // If this is not the first element add the separator.
+                if( isFirstElement )
+                {
+                    isFirstElement = FALSE;
+                }
+                else if( !rpal_stringbuffer_addA( outString, _JSON_SEPARATOR ) )
+                {
+                    isSuccess = FALSE;
+                    break;
+                }
+
+                // If this is not a list, add the key.
+                if( !isList &&
+                    ( !rpal_stringbuffer_addA( outString, _JSON_QUOTE ) ||
+                      !_addJsonString( outString, tagString ) ||
+                      !rpal_stringbuffer_addA( outString, _JSON_QUOTE ) ||
+                      !rpal_stringbuffer_addA( outString, _JSON_KEY_SEPARATOR ) ) )
+                {
+                    isSuccess = FALSE;
+                    break;
+                }
+
+                if( isElemSimple( header ) )
+                {
+                    rpal_memory_zero( numStr, sizeof( numStr ) );
+
+                    simpleHeader = (_PElemSimpleHeader)header;
+
+                    switch( header->type )
+                    {
+                        case RPCM_RU8:
+                            tmpRU8 = *(RU8*)simpleHeader->data;
+                            if( NULL == rpal_string_itosA( tmpRU8, numStr, 10 ) ||
+                                !rpal_stringbuffer_addA( outString, numStr ) )
+                            {
+                                isSuccess = FALSE;
+                            }
+                            break;
+                        case RPCM_RU16:
+                            tmpRU16 = *(RU16*)simpleHeader->data;
+                            if( NULL == rpal_string_itosA( tmpRU16, numStr, 10 ) ||
+                                !rpal_stringbuffer_addA( outString, numStr ) )
+                            {
+                                isSuccess = FALSE;
+                            }
+                            break;
+                        case RPCM_RU32:
+                        case RPCM_IPV4:
+                        case RPCM_POINTER_32:
+                            tmpRU32 = *(RU32*)simpleHeader->data;
+                            if( NULL == rpal_string_itosA( tmpRU32, numStr, 10 ) ||
+                                !rpal_stringbuffer_addA( outString, numStr ) )
+                            {
+                                isSuccess = FALSE;
+                            }
+                            break;
+                        case RPCM_RU64:
+                        case RPCM_TIMESTAMP:
+                        case RPCM_POINTER_64:
+                        case RPCM_TIMEDELTA:
+                            tmpRU64 = *(RU64*)simpleHeader->data;
+                            if( NULL == rpal_string_itosA( tmpRU64, numStr, 10 ) ||
+                                !rpal_stringbuffer_addA( outString, numStr ) )
+                            {
+                                isSuccess = FALSE;
+                            }
+                            break;
+                        case RPCM_IPV6:
+                            if( !rpal_stringbuffer_addA( outString, _JSON_QUOTE) ||
+                                !rpal_stringbuffer_addB64A( outString, simpleHeader->data, RPCM_IPV6_SIZE ) ||
+                                !rpal_stringbuffer_addA( outString, _JSON_QUOTE ) )
+                            {
+                                isSuccess = FALSE;
+                            }
+                            break;
+                    }
+                }
+                else if( isElemVariable( header ) )
+                {
+                    varHeader = (_PElemVarHeader)header;
+
+                    if( RPCM_STRINGW == varHeader->commonHeader.type )
+                    {
+                        // Wide strings are a special case. They internally get formatted to 
+                        // utf-8 to simplify cross-platform compatibility, no need to worry
+                        // about endianness.
+                        tmpStr = rpal_string_wtoa( (RPWCHAR)varHeader->data );
+
+                        if( NULL != tmpStr )
+                        {
+                            if( !rpal_stringbuffer_addA( outString, _JSON_QUOTE ) ||
+                                !_addJsonString( outString, tmpStr ) ||
+                                !rpal_stringbuffer_addA( outString, _JSON_QUOTE ) )
+                            {
+                                isSuccess = FALSE;
+                                break;
+                            }
+
+                            rpal_memory_free( tmpStr );
+                        }
+                        else
+                        {
+                            isSuccess = FALSE;
+                            break;
+                        }
+                    }
+                    else if( RPCM_STRINGA == varHeader->commonHeader.type )
+                    {
+                        if( !rpal_stringbuffer_addA( outString, _JSON_QUOTE ) ||
+                            !_addJsonString( outString, (RPCHAR)varHeader->data ) ||
+                            !rpal_stringbuffer_addA( outString, _JSON_QUOTE ) )
+                        {
+                            isSuccess = FALSE;
+                            break;
+                        }
+                    }
+                    else if( RPCM_BUFFER == varHeader->commonHeader.type )
+                    {
+                        if( !rpal_stringbuffer_addA( outString, _JSON_QUOTE ) ||
+                            !rpal_stringbuffer_addB64A( outString, (RPU8)varHeader->data, varHeader->size ) ||
+                            !rpal_stringbuffer_addA( outString, _JSON_QUOTE ) )
+                        {
+                            isSuccess = FALSE;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        isSuccess = FALSE;
+                        break;
+                    }
+                }
+                else if( isElemComplex( header ) )
+                {
+                    complexHeader = (_PElemComplexHeader)header;
+
+                    if( ( RPCM_SEQUENCE == header->type &&
+                          !rSequence_toJson( complexHeader->pComplexElement, map, outString ) ) ||
+                        ( RPCM_LIST == header->type &&
+                          !rList_toJson( complexHeader->pComplexElement, map, outString ) ) )
+                    {
+                        isSuccess = FALSE;
+                        break;
+                    }
+                }
+                else
+                {
+                    isSuccess = FALSE;
+                    break;
                 }
             }
 

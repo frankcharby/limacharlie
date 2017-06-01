@@ -47,8 +47,50 @@ RBOOL
         RPNCHAR pString
     );
 
+RBOOL
+    rpal_stringbuffer_addA
+    (
+        rString pStringBuffer,
+        RPCHAR pString
+    );
+
+RBOOL
+    rpal_stringbuffer_addW
+    (
+        rString pStringBuffer,
+        RPWCHAR pString
+    );
+
+RBOOL
+    rpal_stringbuffer_addB64A
+    (
+        rString pStringBuffer,
+        RPU8 pBuffer,
+        RU32 bufferSize
+    );
+
+RBOOL
+    rpal_stringbuffer_addB64W
+    (
+        rString pStringBuffer,
+        RPU8 pBuffer,
+        RU32 bufferSize
+    );
+
 RPNCHAR
     rpal_stringbuffer_getString
+    (
+        rString pStringBuffer
+    );
+
+RPCHAR
+    rpal_stringbuffer_getStringA
+    (
+        rString pStringBuffer
+    );
+
+RPWCHAR
+    rpal_stringbuffer_getStringW
     (
         rString pStringBuffer
     );

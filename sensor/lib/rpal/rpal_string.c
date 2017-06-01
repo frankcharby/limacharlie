@@ -783,7 +783,7 @@ RPNCHAR
 RPNCHAR
     rpal_string_itos
     (
-        RU32 num,
+        RU64 num,
         RPNCHAR outBuff,
         RU32 radix
     )
@@ -798,21 +798,21 @@ RPNCHAR
 RPCHAR
     rpal_string_itosA
     (
-        RU32 num,
+        RU64 num,
         RPCHAR outBuff,
         RU32 radix
     )
 {
     if( 10 == radix )
     {
-        if( 0 < sprintf( outBuff, "%d", num ) )
+        if( 0 < sprintf( outBuff, RF_U64, num ) )
         {
             return outBuff;
         }
     }
     else if( 16 == radix )
     {
-        if( 0 < sprintf( outBuff, "%X", num ) )
+        if( 0 < sprintf( outBuff, RF_X64, num ) )
         {
             return outBuff;
         }
@@ -824,13 +824,13 @@ RPCHAR
 RPWCHAR
     rpal_string_itosW
     (
-        RU32 num,
+        RU64 num,
         RPWCHAR outBuff,
         RU32 radix
     )
 {
 #ifdef RPAL_PLATFORM_WINDOWS
-    return _itow( num, outBuff, radix );
+    return _i64tow( num, outBuff, radix );
 #else
     rpal_debug_not_implemented();
     return NULL;
@@ -1485,7 +1485,7 @@ RBOOL
     rpal_string_stoi
     (
         RPNCHAR str,
-        RU32* pNum
+        RU64* pNum
     )
 {
     RBOOL isSuccess = FALSE;
@@ -1495,10 +1495,10 @@ RBOOL
         NULL != pNum )
     {
 #ifdef RPAL_PLATFORM_WINDOWS
-        *pNum = (RU32)wcstol( str, &tmp, 10 );
+        *pNum = (RU64)_wcstoui64( str, &tmp, 10 );
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
-        *pNum = (RU32)strtol( str, &tmp, 10 );
+        *pNum = (RU64)strtoll( str, &tmp, 10 );
 #endif
         
         if( NULL != tmp &&
@@ -1516,7 +1516,7 @@ RBOOL
     rpal_string_stoiA
     (
         RPCHAR str,
-        RU32* pNum
+        RU64* pNum
     )
 {
     RBOOL isSuccess = FALSE;
@@ -1528,8 +1528,12 @@ RBOOL
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
         RPAL_PLATFORM_TODO( Confirm GLIBC doesnt break this with optimizations )
 #endif
-        *pNum = (RU32)strtol( str, &tmp, 10 );
 
+#ifdef RPAL_PLATFORM_WINDOWS
+        *pNum = (RU64)_strtoi64( str, &tmp, 10 );
+#else
+        *pNum = (RU64)strtoll( str, &tmp, 10 );
+#endif
         if( NULL != tmp &&
             0 == *tmp )
         {
@@ -1545,7 +1549,7 @@ RBOOL
     rpal_string_stoiW
     (
         RPWCHAR str,
-        RU32* pNum
+        RU64* pNum
     )
 {
     RBOOL isSuccess = FALSE;
@@ -1557,8 +1561,12 @@ RBOOL
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
         RPAL_PLATFORM_TODO( Confirm GLIBC doesnt break this with optimizations )
 #endif
-        *pNum = (RU32)wcstol( str, &tmp, 10 );
 
+#ifdef RPAL_PLATFORM_WINDOWS
+        *pNum = (RU64)_wcstoui64( str, &tmp, 10 );
+#else
+        *pNum = (RU64)wcstoll( str, &tmp, 10 );
+#endif
         if( NULL != tmp &&
             0 == *tmp )
         {

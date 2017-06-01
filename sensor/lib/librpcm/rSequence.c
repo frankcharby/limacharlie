@@ -230,7 +230,7 @@ RBOOL
         RU8 val[ 16 ]
     )
 {
-    return rSequence_addElement( seq, tag, RPCM_IPV6, &val, sizeof( RU8 ) * 16 );
+    return rSequence_addElement( seq, tag, RPCM_IPV6, val, sizeof( RU8 ) * 16 );
 }
 
 RBOOL
@@ -668,6 +668,33 @@ RBOOL
                 rSequence_free( *pSeq );
                 *pSeq = NULL;
             }
+        }
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    rSequence_toJson
+    (
+        rSequence seq,
+        rpcm_jsonMapping* map,
+        rString outString
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    _rSequence* tmpSeq = NULL;
+
+    if( rpal_memory_isValid( seq ) &&
+        NULL != map &&
+        NULL != outString )
+    {
+        if( rpal_stringbuffer_addA( outString, _JSON_DICT_START ) )
+        {
+            tmpSeq = (_rSequence*)seq;
+            isSuccess = set_toJson( &tmpSeq->set, map, outString, FALSE );
+            isSuccess = isSuccess && rpal_stringbuffer_addA( outString, _JSON_DICT_STOP );
         }
     }
 

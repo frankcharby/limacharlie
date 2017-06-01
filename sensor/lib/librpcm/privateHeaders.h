@@ -25,6 +25,14 @@ limitations under the License.
 #pragma pack(push)
 #pragma pack(1)
 
+// JSON Tokens
+#define _JSON_DICT_START            "{"
+#define _JSON_DICT_STOP             "}"
+#define _JSON_LIST_START            "["
+#define _JSON_LIST_STOP             "]"
+#define _JSON_SEPARATOR             ","
+#define _JSON_QUOTE                 "\""
+#define _JSON_KEY_SEPARATOR         ":"
 
 typedef struct
 {
@@ -225,6 +233,15 @@ RBOOL
     (
         _PElementSet set,
         rBlob blob
+    );
+
+RBOOL
+    set_toJson
+    (
+        _PElementSet set,
+        rpcm_jsonMapping* map,
+        rString outString,
+        RBOOL isList
     );
 
 RBOOL

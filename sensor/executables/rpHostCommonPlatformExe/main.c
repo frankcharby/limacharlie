@@ -577,7 +577,7 @@ RPAL_NATIVE_MAIN
     RPNCHAR primary = NULL;
     RPNCHAR secondary = NULL;
     RPNCHAR tmpMod = NULL;
-    RU32 tmpModId = 0;
+    RU64 tmpModId = 0;
     RU32 memUsed = 0;
     RBOOL asService = FALSE;
     RBOOL isArgumentsSpecified = FALSE;
@@ -688,7 +688,7 @@ RPAL_NATIVE_MAIN
             g_svc_primary = primary;
             g_svc_secondary = secondary;
             g_svc_mod = tmpMod;
-            g_svc_mod_id = tmpModId;
+            g_svc_mod_id = (RU32)tmpModId;
             if( !StartServiceCtrlDispatcherW( DispatchTable ) )
             {
                 return GetLastError();
@@ -767,7 +767,7 @@ RPAL_NATIVE_MAIN
         if( NULL != tmpMod )
         {
 #ifdef HCP_EXE_ENABLE_MANUAL_LOAD
-            rpHostCommonPlatformLib_load( tmpMod, tmpModId );
+            rpHostCommonPlatformLib_load( tmpMod, (RU32)tmpModId );
 #endif
             rpal_memory_free( tmpMod );
         }

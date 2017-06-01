@@ -220,7 +220,7 @@ RBOOL
         RU8 val[ 16 ]
     )
 {
-    return rList_addElement( list, RPCM_IPV6, &val, sizeof( RU8 ) * 16 );
+    return rList_addElement( list, RPCM_IPV6, val, sizeof( RU8 ) * 16 );
 }
 
 RBOOL
@@ -641,6 +641,33 @@ RBOOL
                 rList_free( *pList );
                 *pList = NULL;
             }
+        }
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    rList_toJson
+    (
+        rList list,
+        rpcm_jsonMapping* map,
+        rString outString
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    _rList* tmpList = NULL;
+
+    if( rpal_memory_isValid( list ) &&
+        NULL != map &&
+        NULL != outString )
+    {
+        if( rpal_stringbuffer_addA( outString, _JSON_LIST_START ) )
+        {
+            tmpList = (_rList*)list;
+            isSuccess = set_toJson( &tmpList->set, map, outString, TRUE );
+            isSuccess = isSuccess && rpal_stringbuffer_addA( outString, _JSON_LIST_STOP );
         }
     }
 

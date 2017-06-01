@@ -182,7 +182,7 @@ RPNCHAR
 RPNCHAR
     rpal_string_itos
     (
-        RU32 num,
+        RU64 num,
         RPNCHAR outBuff,
         RU32 radix
     );
@@ -190,7 +190,7 @@ RPNCHAR
 RPCHAR
     rpal_string_itosA
     (
-        RU32 num,
+        RU64 num,
         RPCHAR outBuff,
         RU32 radix
     );
@@ -198,7 +198,7 @@ RPCHAR
 RPWCHAR
     rpal_string_itosW
     (
-        RU32 num,
+        RU64 num,
         RPWCHAR outBuff,
         RU32 radix
     );
@@ -337,21 +337,21 @@ RBOOL
     rpal_string_stoi
     (
         RPNCHAR str,
-        RU32* pNum
+        RU64* pNum
     );
 
 RBOOL
     rpal_string_stoiA
     (
         RPCHAR str,
-        RU32* pNum
+        RU64* pNum
     );
 
 RBOOL
     rpal_string_stoiW
     (
         RPWCHAR str,
-        RU32* pNum
+        RU64* pNum
     );
     
 RBOOL

@@ -249,9 +249,58 @@ void test_SerialiseAndDeserialise(void)
     }
 }
 
+void test_json( void )
+{
+    rSequence seq = NULL;
+    rSequence seq2 = NULL;
+    rList list = NULL;
+    rString outString = NULL;
 
+    rpcm_jsonMapping map = { 9, 
+                             "tag0", // 0
+                             "tag1", // 1
+                             "tag2", // 2
+                             "tag3", // 3
+                             "tag4", // 4
+                             "tag5", // 5
+                             "tag6", // 6
+                             "tag7", // 7
+                             "tag8", // 8
+                           };
 
+    RU8 testBuffer[] = { 0x01, 0x02, 0x43, 0x0f };
+    RPCHAR testStr = "thisis/atest\\withspecial\tstuff";
+    RU8 testIpv6[ 16 ] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F };
 
+    CU_ASSERT_FATAL( NULL != ( seq = rSequence_new() ) );
+    CU_ASSERT_FATAL( NULL != ( seq2 = rSequence_new() ) );
+    CU_ASSERT_FATAL( NULL != ( list = rList_new( 1, RPCM_RU16 ) ) );
+    CU_ASSERT_FATAL( NULL != ( outString = rpal_stringbuffer_new( 0, 30 ) ) );
+
+    CU_ASSERT_TRUE( rSequence_addRU32( seq, 2, 42 ) );
+    CU_ASSERT_TRUE( rSequence_addRU32( seq, 3, 24 ) );
+    CU_ASSERT_TRUE( rSequence_addBUFFER( seq, 0, (RPU8)testBuffer, sizeof( testBuffer ) ) );
+
+    CU_ASSERT_TRUE( rSequence_addRU8( seq2, 4, 66 ) );
+    CU_ASSERT_TRUE( rSequence_addSEQUENCE( seq, 5, seq2 ) );
+    CU_ASSERT_TRUE( rSequence_addSTRINGA( seq, 7, testStr ) );
+    CU_ASSERT_TRUE( rSequence_addIPV6( seq, 8, testIpv6 ) );
+
+    CU_ASSERT_TRUE( rList_addRU16( list, 0x12FF ) );
+    CU_ASSERT_TRUE( rList_addRU16( list, 0x13FF ) );
+    CU_ASSERT_TRUE( rList_addRU16( list, 0x14FF ) );
+    CU_ASSERT_TRUE( rList_addRU16( list, 0x15FF ) );
+    CU_ASSERT_TRUE( rSequence_addLIST( seq, 6, list ) );
+
+    CU_ASSERT_TRUE( rSequence_toJson( seq, &map, outString ) );
+
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmpA( "{\"tag2\":42,\"tag3\":24,\"tag0\":\"AQJDDw==\",\"tag5\":{\"tag4\":66},\"tag7\":\"thisis/atest\\\\withspecial\\tstuff\",\"tag8\":\"AQIDBAUGBwgJCgsMDQ4PAA==\",\"tag6\":[4863,5119,5375,5631]}",
+                                              rpal_stringbuffer_getStringA( outString ) ) );
+    // rpal_debug_info( "%s", rpal_stringbuffer_getStringA( outString ) );
+
+    rSequence_free( seq );
+    rpal_stringbuffer_free( outString );
+}
 
 void test_duplicate(void)
 {
@@ -498,6 +547,7 @@ int
                 if( NULL == CU_add_test( suite, "createAndDestroy", test_CreateAndDestroy ) ||
                     NULL == CU_add_test( suite, "addAndRemove", test_AddAndRemove ) ||
                     NULL == CU_add_test( suite, "serializeAndDeserialize", test_SerialiseAndDeserialise ) ||
+                    NULL == CU_add_test( suite, "json", test_json ) ||
                     NULL == CU_add_test( suite, "duplicate", test_duplicate ) ||
                     NULL == CU_add_test( suite, "isEqual", test_isEqual ) ||
                     NULL == CU_add_test( suite, "complex", test_complex ) ||
