@@ -651,7 +651,8 @@ RBOOL
     rList_toJson
     (
         rList list,
-        rpcm_jsonMapping* map,
+        RPCHAR map[],
+        RU32 nMap,
         rString outString
     )
 {
@@ -666,7 +667,7 @@ RBOOL
         if( rpal_stringbuffer_addA( outString, _JSON_LIST_START ) )
         {
             tmpList = (_rList*)list;
-            isSuccess = set_toJson( &tmpList->set, map, outString, TRUE );
+            isSuccess = set_toJson( &tmpList->set, map, nMap, outString, TRUE );
             isSuccess = isSuccess && rpal_stringbuffer_addA( outString, _JSON_LIST_STOP );
         }
     }

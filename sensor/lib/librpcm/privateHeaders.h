@@ -239,7 +239,8 @@ RBOOL
     set_toJson
     (
         _PElementSet set,
-        rpcm_jsonMapping* map,
+        RPCHAR map[],
+        RU32 nMap,
         rString outString,
         RBOOL isList
     );

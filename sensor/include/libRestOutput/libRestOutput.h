@@ -21,21 +21,6 @@ limitations under the License.
 
 typedef RPVOID restOutputContext;
 
-typedef struct
-{
-    RPCHAR key;
-
-    RBOOL isStringVal;
-    RPCHAR stringVal;
-
-    RBOOL isIntVal;
-    RU64 intVal;
-
-    RBOOL isBoolVal;
-    RBOOL boolVal;
-
-} JsonElem;
-
 restOutputContext
     restOutput_newContext
     (
@@ -53,8 +38,8 @@ RBOOL
     restOutput_send
     (
         restOutputContext pContext,
-        JsonElem dataElements[],
-        RU32 nDataElements
+        RPCHAR payload,
+        RU32* pStatusCode
     );
 
 

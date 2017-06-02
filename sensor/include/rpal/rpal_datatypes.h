@@ -215,6 +215,7 @@ limitations under the License.
 #define RINFINITE ((RU32)(-1))
 
 #define RPAL_MAX_PATH   (260)
+#define RPAL_UUID_SIZE  (16)
 
 #define _WCH(str) L ## str
 

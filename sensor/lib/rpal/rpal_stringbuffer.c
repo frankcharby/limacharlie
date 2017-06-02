@@ -380,3 +380,21 @@ RPWCHAR
 {
     return (RPWCHAR)rpal_stringbuffer_getString( pStringBuffer );
 }
+
+
+RBOOL
+    rpal_stringbuffer_reset
+    (
+        rString pStringBuffer
+    )
+{
+    RBOOL isSuccess = FALSE;
+    _rString* pStr = (_rString*)pStringBuffer;
+
+    if( rpal_memory_isValid( pStringBuffer ) )
+    {
+        isSuccess = rpal_blob_reset( pStr->blob );
+    }
+
+    return isSuccess;
+}

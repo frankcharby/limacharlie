@@ -86,7 +86,7 @@ RPAL_NATIVE_MAIN
 
     // Execution Environment
     RPNCHAR target = NULL;
-    RU32 method = 0;
+    RU64 method = 0;
 
     // Method-specific variables.
     RPU8 loadedBuffer = NULL;

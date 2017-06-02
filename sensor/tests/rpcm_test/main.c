@@ -256,17 +256,17 @@ void test_json( void )
     rList list = NULL;
     rString outString = NULL;
 
-    rpcm_jsonMapping map = { 9, 
-                             "tag0", // 0
-                             "tag1", // 1
-                             "tag2", // 2
-                             "tag3", // 3
-                             "tag4", // 4
-                             "tag5", // 5
-                             "tag6", // 6
-                             "tag7", // 7
-                             "tag8", // 8
-                           };
+    RPCHAR map[] = {
+                     "tag0", // 0
+                     "tag1", // 1
+                     "tag2", // 2
+                     "tag3", // 3
+                     "tag4", // 4
+                     "tag5", // 5
+                     "tag6", // 6
+                     "tag7", // 7
+                     "tag8", // 8
+                   };
 
     RU8 testBuffer[] = { 0x01, 0x02, 0x43, 0x0f };
     RPCHAR testStr = "thisis/atest\\withspecial\tstuff";
@@ -292,7 +292,7 @@ void test_json( void )
     CU_ASSERT_TRUE( rList_addRU16( list, 0x15FF ) );
     CU_ASSERT_TRUE( rSequence_addLIST( seq, 6, list ) );
 
-    CU_ASSERT_TRUE( rSequence_toJson( seq, &map, outString ) );
+    CU_ASSERT_TRUE( rSequence_toJson( seq, map, ARRAY_N_ELEM( map ), outString ) );
 
     CU_ASSERT_TRUE( 0 == rpal_string_strcmpA( "{\"tag2\":42,\"tag3\":24,\"tag0\":\"AQJDDw==\",\"tag5\":{\"tag4\":66},\"tag7\":\"thisis/atest\\\\withspecial\\tstuff\",\"tag8\":\"AQIDBAUGBwgJCgsMDQ4PAA==\",\"tag6\":[4863,5119,5375,5631]}",
                                               rpal_stringbuffer_getStringA( outString ) ) );

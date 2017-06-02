@@ -518,3 +518,23 @@ RBOOL
 
     return isSet;
 }
+
+RBOOL
+    rpal_blob_reset
+    (
+        rBlob blob
+    )
+{
+    RBOOL isSuccess = FALSE;
+    _prBlob pBlob = (_prBlob)blob;
+
+    if( rpal_memory_isValid( blob ) )
+    {
+        pBlob->sizeUsed = 0;
+        pBlob->readOffset = 0;
+
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}

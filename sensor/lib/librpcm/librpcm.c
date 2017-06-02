@@ -1319,7 +1319,8 @@ RBOOL
     set_toJson
     (
         _PElementSet set,
-        rpcm_jsonMapping* map,
+        RPCHAR map[],
+        RU32 nMap,
         rString outString,
         RBOOL isList
     )
@@ -1358,8 +1359,8 @@ RBOOL
                    NULL != ( header = iteratorNext( ite ) ) )
             {
                 // Do we have a string version of this tag?
-                if( map->dictLen <= header->tag ||
-                    NULL == ( tagString = map->tags[ header->tag ] ) )
+                if( nMap <= header->tag ||
+                    NULL == ( tagString = map[ header->tag ] ) )
                 {
                     isSuccess = FALSE;
                     break;
@@ -1502,9 +1503,9 @@ RBOOL
                     complexHeader = (_PElemComplexHeader)header;
 
                     if( ( RPCM_SEQUENCE == header->type &&
-                          !rSequence_toJson( complexHeader->pComplexElement, map, outString ) ) ||
+                          !rSequence_toJson( complexHeader->pComplexElement, map, nMap, outString ) ) ||
                         ( RPCM_LIST == header->type &&
-                          !rList_toJson( complexHeader->pComplexElement, map, outString ) ) )
+                          !rList_toJson( complexHeader->pComplexElement, map, nMap, outString ) ) )
                     {
                         isSuccess = FALSE;
                         break;

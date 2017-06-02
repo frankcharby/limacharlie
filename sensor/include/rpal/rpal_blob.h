@@ -131,4 +131,10 @@ RBOOL
         RU32 bufferSize
     );
 
+RBOOL 
+    rpal_blob_reset
+    (
+        rBlob blob
+    );
+
 #endif

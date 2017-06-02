@@ -33,6 +33,7 @@ typedef struct
     InternetQueryDataAvailable_f pInternetQueryDataAvailable;
     InternetReadFile_f pInternetReadFile;
     InternetSetOption_f pInternetSetOption;
+    HttpQueryInfo_f pHttpQueryInfo;
 
     INTERNET_SCHEME scheme;
     RU32 flags;
@@ -74,6 +75,7 @@ restOutputContext
         RCHAR import7[] = "InternetQueryDataAvailable";
         RCHAR import8[] = "InternetReadFile";
         RCHAR import9[] = "InternetSetOptionA";
+        RCHAR import10[] = "HttpQueryInfo";
         RCHAR userAgent[] = "rpHCP";
 
         URL_COMPONENTSA components;
@@ -95,7 +97,8 @@ restOutputContext
             NULL == ( ctx->pHttpSendRequest = (HttpSendRequest_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import6 ) ) ||
             NULL == ( ctx->pInternetQueryDataAvailable = (InternetQueryDataAvailable_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import7 ) ) ||
             NULL == ( ctx->pInternetReadFile = (InternetReadFile_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import8 ) ) ||
-            NULL == ( ctx->pInternetSetOption = (InternetSetOption_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import9 ) ) )
+            NULL == ( ctx->pInternetSetOption = (InternetSetOption_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import9 ) ) ||
+            NULL == ( ctx->pHttpQueryInfo = (HttpQueryInfo_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import10 ) ) )
         {
             rpal_debug_error( "Failed to wininet imports: %x", GetLastError() );
 
@@ -239,8 +242,8 @@ RBOOL
     restOutput_send
     (
         restOutputContext pContext,
-        JsonElem dataElements[],
-        RU32 nDataElements
+        RPCHAR payload,
+        RU32* pStatusCode
     )
 {
     RBOOL isSuccess = FALSE;
@@ -251,20 +254,39 @@ RBOOL
 #ifdef RPAL_PLATFORM_WINDOWS
         HINTERNET hHttp = NULL;
         RCHAR verb[] = "POST";
-        rString payload = NULL;
+        RU32 statusCode = 0;
+        RU32 headerIndex = 0;
+        RU32 headerSize = sizeof( statusCode );
 
         if( NULL != ctx->hConnect &&
             NULL != ctx->pHttpOpenRequest )
         {
-            if( NULL != ( hHttp = ctx->pHttpOpenRequest( ctx->hConnect, 
-                                                         verb, ctx->page ? ctx->page : "", 
-                                                         NULL, 
-                                                         NULL, 
-                                                         NULL, 
-                                                         ctx->flags, 
+            if( NULL != ( hHttp = ctx->pHttpOpenRequest( ctx->hConnect,
+                                                         verb, ctx->page ? ctx->page : "",
+                                                         NULL,
+                                                         NULL,
+                                                         NULL,
+                                                         ctx->flags,
                                                          (DWORD_PTR)NULL ) ) )
             {
+                if( ctx->pHttpSendRequest( hHttp, 
+                                           "Content-Type: application/json", 
+                                           (RU32)-1, 
+                                           payload, 
+                                           rpal_string_strlenA( payload ) ) )
+                {
+                    if( ctx->pHttpQueryInfo( hHttp, HTTP_QUERY_STATUS_CODE, &statusCode, (LPDWORD)&headerSize, (LPDWORD)&headerIndex ) )
+                    {
+                        isSuccess = TRUE;
 
+                        if( NULL != pStatusCode )
+                        {
+                            *pStatusCode = statusCode;
+                        }
+                    }
+                }
+
+                ctx->pInternetCloseHandle( hHttp );
             }
         }
 #else

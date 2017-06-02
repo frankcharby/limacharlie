@@ -678,7 +678,8 @@ RBOOL
     rSequence_toJson
     (
         rSequence seq,
-        rpcm_jsonMapping* map,
+        RPCHAR map[],
+        RU32 nMap,
         rString outString
     )
 {
@@ -693,7 +694,7 @@ RBOOL
         if( rpal_stringbuffer_addA( outString, _JSON_DICT_START ) )
         {
             tmpSeq = (_rSequence*)seq;
-            isSuccess = set_toJson( &tmpSeq->set, map, outString, FALSE );
+            isSuccess = set_toJson( &tmpSeq->set, map, nMap, outString, FALSE );
             isSuccess = isSuccess && rpal_stringbuffer_addA( outString, _JSON_DICT_STOP );
         }
     }

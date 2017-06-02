@@ -856,6 +856,18 @@ typedef BOOL (WINAPI *HttpSendRequest_f)(
   __in  DWORD dwOptionalLength
 );
 
+#ifndef HTTP_QUERY_STATUS_CODE
+#define HTTP_QUERY_STATUS_CODE 19
+#endif
+
+typedef BOOL (WINAPI *HttpQueryInfo_f)(
+__in    HINTERNET hRequest,
+__in    DWORD     dwInfoLevel,
+__inout LPVOID    lpvBuffer,
+__inout LPDWORD   lpdwBufferLength,
+__inout LPDWORD   lpdwIndex
+);
+
 typedef BOOL (WINAPI *InternetCrackUrl_f)(
   __in     LPCTSTR lpszUrl,
   __in     DWORD dwUrlLength,

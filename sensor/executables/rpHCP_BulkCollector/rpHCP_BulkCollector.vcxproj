@@ -107,8 +107,14 @@
     <ClCompile Include="main.c" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\lib\cryptoLib\cryptoLib.vcxproj">
+      <Project>{533b36b9-e781-4132-baa7-33bf68de7013}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\lib\kernelAcquisitionLib\kernelAcquisitionLib.vcxproj">
       <Project>{4e46a8ae-af86-48b7-a444-2b69fbb83d18}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\lib\libRestOutput\libRestOutput.vcxproj">
+      <Project>{6744925b-ceb4-4a9c-85e5-70e5cae2a64c}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\lib\librpcm\librpcm.vcxproj">
       <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>

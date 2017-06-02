@@ -95,4 +95,10 @@ RPWCHAR
         rString pStringBuffer
     );
 
+RBOOL
+    rpal_stringbuffer_reset
+    (
+        rString pStringBuffer
+    );
+
 #endif
