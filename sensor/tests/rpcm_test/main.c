@@ -465,7 +465,11 @@ void test_EstimateSize( void )
     CU_ASSERT_TRUE( rSequence_addLIST( seq, 66, list ) );
 
 #ifdef RPAL_PLATFORM_WINDOWS
+#ifdef RPAL_PLATFORM_32_BIT
+    CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 100 );
+#else
     CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 112 );
+#endif
 #else
     CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 120 );
 #endif

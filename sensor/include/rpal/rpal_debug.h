@@ -41,22 +41,22 @@ RVOID
 #ifdef RPAL_PLATFORM_WINDOWS
 
 #if defined( RPAL_PLATFORM_DEBUG_LOG ) || defined( RPAL_PLATFORM_DEBUG_LOG_CRIT )
-#define rpal_debug_critical(format,...)   rpal_debug_print( "CRITICAL !!!!! %s: %d %s() %llu - " ##format##"\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), __VA_ARGS__ )
+#define rpal_debug_critical(format,...)   rpal_debug_print( "CRITICAL !!!!! %s: %d %s() " RF_U64 " - " ##format##"\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), __VA_ARGS__ )
 #else
 #define rpal_debug_critical(format,...)
 #endif
 #if defined( RPAL_PLATFORM_DEBUG_LOG ) || defined( RPAL_PLATFORM_DEBUG_LOG_ERR )
-#define rpal_debug_error(format,...)      rpal_debug_print( "ERROR ++++++++ %s: %d %s() %llu - " ##format##"\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), __VA_ARGS__ )
+#define rpal_debug_error(format,...)      rpal_debug_print( "ERROR ++++++++ %s: %d %s() " RF_U64 " - " ##format##"\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), __VA_ARGS__ )
 #else
 #define rpal_debug_error(format,...)
 #endif
 #if defined( RPAL_PLATFORM_DEBUG_LOG ) || defined( RPAL_PLATFORM_DEBUG_LOG_WARN )
-#define rpal_debug_warning(format,...)    rpal_debug_print( "WARNING ====== %s: %d %s() %llu - " ##format##"\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), __VA_ARGS__ )
+#define rpal_debug_warning(format,...)    rpal_debug_print( "WARNING ====== %s: %d %s() " RF_U64 " - " ##format##"\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), __VA_ARGS__ )
 #else
 #define rpal_debug_warning(format,...)
 #endif
 #if defined( RPAL_PLATFORM_DEBUG_LOG ) || defined( RPAL_PLATFORM_DEBUG_LOG_INFO )
-#define rpal_debug_info(format,...)       rpal_debug_print( "INFO --------- %s: %d %s() %llu - " ##format##"\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), __VA_ARGS__ )
+#define rpal_debug_info(format,...)       rpal_debug_print( "INFO --------- %s: %d %s() " RF_U64 " - " ##format##"\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), __VA_ARGS__ )
 #else
 #define rpal_debug_info(format,...)
 #endif
@@ -64,22 +64,22 @@ RVOID
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <stdarg.h>
 #if defined( RPAL_PLATFORM_DEBUG_LOG ) || defined( RPAL_PLATFORM_DEBUG_LOG_CRIT )
-#define rpal_debug_critical(format,...)   rpal_debug_print( "CRITICAL !!!!! %s: %d %s() %llu - " format "\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), ##__VA_ARGS__ )
+#define rpal_debug_critical(format,...)   rpal_debug_print( "CRITICAL !!!!! %s: %d %s() " RF_U64 " - " format "\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), ##__VA_ARGS__ )
 #else
 #define rpal_debug_critical(format,...)
 #endif
 #if defined( RPAL_PLATFORM_DEBUG_LOG ) || defined( RPAL_PLATFORM_DEBUG_LOG_ERR )
-#define rpal_debug_error(format,...)      rpal_debug_print( "ERROR ++++++++ %s: %d %s() %llu - " format "\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), ##__VA_ARGS__ )
+#define rpal_debug_error(format,...)      rpal_debug_print( "ERROR ++++++++ %s: %d %s() " RF_U64 " - " format "\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), ##__VA_ARGS__ )
 #else
 #define rpal_debug_error(format,...)
 #endif
 #if defined( RPAL_PLATFORM_DEBUG_LOG ) || defined( RPAL_PLATFORM_DEBUG_LOG_WARN )
-#define rpal_debug_warning(format,...)    rpal_debug_print( "WARNING ====== %s: %d %s() %llu - " format "\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), ##__VA_ARGS__ )
+#define rpal_debug_warning(format,...)    rpal_debug_print( "WARNING ====== %s: %d %s() " RF_U64 " - " format "\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), ##__VA_ARGS__ )
 #else
 #define rpal_debug_warning(format,...)
 #endif
 #if defined( RPAL_PLATFORM_DEBUG_LOG ) || defined( RPAL_PLATFORM_DEBUG_LOG_INFO )
-#define rpal_debug_info(format,...)       rpal_debug_print( "INFO --------- %s: %d %s() %llu - " format "\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), ##__VA_ARGS__ )
+#define rpal_debug_info(format,...)       rpal_debug_print( "INFO --------- %s: %d %s() " RF_U64 " - " format "\n", __FILE__, __LINE__, __FUNCTION__, rpal_time_getLocal(), ##__VA_ARGS__ )
 #else
 #define rpal_debug_info(format,...)
 #endif
