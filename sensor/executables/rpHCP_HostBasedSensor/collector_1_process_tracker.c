@@ -847,6 +847,7 @@ HBS_DECLARE_TEST( notify_process )
 
 RPRIVATE
 RU32
+RPAL_THREAD_FUNC
     _threadStubToThreadPool
     (
         rEvent isTimeToStop
@@ -887,7 +888,7 @@ HBS_DECLARE_TEST( um_diff_thread )
     HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, 0, notifQueue, NULL ) );
 
     dummyStop = rEvent_create( TRUE );
-    hThread = rpal_thread_new( (rpal_thread_func)_threadStubToThreadPool, dummyStop );
+    hThread = rpal_thread_new( _threadStubToThreadPool, dummyStop );
     HBS_ASSERT_TRUE( NULL != hThread );
     rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
 

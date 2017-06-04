@@ -440,7 +440,6 @@ RBOOL
 
 RPRIVATE
 RPVOID
-RPAL_THREAD_FUNC
     issueSync
     (
         rEvent isTimeToStop,
