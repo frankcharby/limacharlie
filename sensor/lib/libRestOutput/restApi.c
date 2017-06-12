@@ -19,190 +19,173 @@ limitations under the License.
 #include <rpal/rpal.h>
 #include <libRestOutput/libRestOutput.h>
 
+#include <mbedtls/net.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/debug.h>
+#include <mbedtls/error.h>
+
 typedef struct
 {
-#ifdef RPAL_PLATFORM_WINDOWS
-    HMODULE hWininet;
+    rString headers;
+    RPCHAR destUrl;
+    RPCHAR destPort;
+    RPCHAR destPage;
 
-    InternetCrackUrl_f pInternetCrackUrl;
-    InternetOpen_f pInternetOpen;
-    InternetConnect_f pInternetConnect;
-    InternetCloseHandle_f pInternetCloseHandle;
-    HttpOpenRequest_f pHttpOpenRequest;
-    HttpSendRequest_f pHttpSendRequest;
-    InternetQueryDataAvailable_f pInternetQueryDataAvailable;
-    InternetReadFile_f pInternetReadFile;
-    InternetSetOption_f pInternetSetOption;
-    HttpQueryInfo_f pHttpQueryInfo;
+    struct
+    {
+        mbedtls_net_context server_fd;
+        mbedtls_entropy_context entropy;
+        mbedtls_ctr_drbg_context ctr_drbg;
+        mbedtls_ssl_context ssl;
+        mbedtls_ssl_config conf;
+        mbedtls_x509_crt cacert;
+    } tlsConnection;
 
-    INTERNET_SCHEME scheme;
-    RU32 flags;
-    HINTERNET hInternet;
-    HINTERNET hConnect;
-
-    RPCHAR server;
-    RPCHAR page;
-    RU16 port;
-#else
-
-#endif
 } _restOutputContext;
 
+RPRIVATE
+RBOOL
+    _loadOsCerts
+    (
+        restOutputContext pContext
+    )
+{
+    RBOOL isSuccess = FALSE;
+    _restOutputContext* ctx = pContext;
+    RS32 mbedRet = 0;
 
+    if( NULL != pContext )
+    {
+        mbedtls_x509_crt_init( &ctx->tlsConnection.cacert );
+
+#ifdef RPAL_PLATFORM_WINDOWS
+        {
+            HCERTSTORE hCertStore = NULL;
+            PCCERT_CONTEXT cert = NULL;
+            if( NULL != ( hCertStore = CertOpenSystemStoreA( (HCRYPTPROV)NULL, "ROOT" ) ) )
+            {
+                isSuccess = TRUE;
+
+                while( NULL != ( cert = CertEnumCertificatesInStore( hCertStore, cert ) ) )
+                {
+                    if( IS_FLAG_ENABLED( cert->dwCertEncodingType, X509_ASN_ENCODING ) )
+                    {
+                        if( 0 == ( mbedRet = mbedtls_x509_crt_parse( &ctx->tlsConnection.cacert, 
+                                                                     cert->pbCertEncoded, 
+                                                                     cert->cbCertEncoded ) ) )
+                        {
+                            rpal_debug_warning( "Failed to load default cert: %d", mbedRet );
+                        }
+                    }
+                }
+
+                CertCloseStore( hCertStore, 0 );
+            }
+        }
+#endif
+    }
+
+    return isSuccess;
+}
 
 
 restOutputContext
     restOutput_newContext
     (
         RPCHAR destUrl,
-        RPCHAR apiKey
+        RPCHAR apiKeyHeader
     )
 {
     _restOutputContext* ctx = NULL;
-
-    UNREFERENCED_PARAMETER( apiKey );
+    RS32 mbedRet = 0;
+    RBOOL isSuccess = FALSE;
 
     if( NULL != ( ctx = rpal_memory_alloc( sizeof( _restOutputContext ) ) ) )
     {
-#ifdef RPAL_PLATFORM_WINDOWS
-        RNCHAR wininet[] = _NC( "wininet.dll" );
-        RCHAR import1[] = "InternetCrackUrlA";
-        RCHAR import2[] = "InternetOpenA";
-        RCHAR import3[] = "InternetConnectA";
-        RCHAR import4[] = "InternetCloseHandle";
-        RCHAR import5[] = "HttpOpenRequestA";
-        RCHAR import6[] = "HttpSendRequestA";
-        RCHAR import7[] = "InternetQueryDataAvailable";
-        RCHAR import8[] = "InternetReadFile";
-        RCHAR import9[] = "InternetSetOptionA";
-        RCHAR import10[] = "HttpQueryInfo";
-        RCHAR userAgent[] = "rpHCP";
+        isSuccess = TRUE;
 
-        URL_COMPONENTSA components;
-        RBOOL isSecure = FALSE;
-        RCHAR pUser[ 1024 ] = { 0 };
-        RCHAR pPass[ 1024 ] = { 0 };
-        RCHAR pUrl[ 1024 ] = { 0 };
-        RCHAR pPage[ 1024 ] = { 0 };
-        RPCHAR pPortDelim = NULL;
-        RU64 tmpPort = 0;
-        RU32 timeout = MSEC_FROM_SEC( 10 );
+        mbedtls_x509_crt_init( &ctx->tlsConnection.cacert );
+        mbedtls_ctr_drbg_init( &ctx->tlsConnection.ctr_drbg );
+        mbedtls_entropy_init( &ctx->tlsConnection.entropy );
 
-        if( NULL == ( ctx->hWininet = LoadLibraryW( wininet ) ) ||
-            NULL == ( ctx->pInternetCrackUrl = (InternetCrackUrl_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import1 ) ) ||
-            NULL == ( ctx->pInternetOpen = (InternetOpen_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import2 ) ) ||
-            NULL == ( ctx->pInternetConnect = (InternetConnect_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import3 ) ) ||
-            NULL == ( ctx->pInternetCloseHandle = (InternetCloseHandle_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import4 ) ) ||
-            NULL == ( ctx->pHttpOpenRequest = (HttpOpenRequest_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import5 ) ) ||
-            NULL == ( ctx->pHttpSendRequest = (HttpSendRequest_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import6 ) ) ||
-            NULL == ( ctx->pInternetQueryDataAvailable = (InternetQueryDataAvailable_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import7 ) ) ||
-            NULL == ( ctx->pInternetReadFile = (InternetReadFile_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import8 ) ) ||
-            NULL == ( ctx->pInternetSetOption = (InternetSetOption_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import9 ) ) ||
-            NULL == ( ctx->pHttpQueryInfo = (HttpQueryInfo_f)GetProcAddress( ctx->hWininet, (RPCHAR)&import10 ) ) )
+        if( 0 != ( mbedRet = mbedtls_ctr_drbg_seed( &ctx->tlsConnection.ctr_drbg,
+                                                    mbedtls_entropy_func,
+                                                    &ctx->tlsConnection.entropy,
+                                                    NULL,
+                                                    0 ) ) &&
+            _loadOsCerts( ctx ) )
         {
-            rpal_debug_error( "Failed to wininet imports: %x", GetLastError() );
+            isSuccess = FALSE;
+        }
+    }
 
-            if( NULL != ctx->hWininet )
-            {
-                FreeLibrary( ctx->hWininet );
-            }
+    if( isSuccess )
+    {
+        ctx->destUrl = rpal_string_strdupA( destUrl );
+        // Look for a / which represents the start of the target page.
+        if( NULL != ( ctx->destPage = rpal_string_strstrA( ctx->destUrl, "/" ) ) )
+        {
+            ctx->destPage = 0;
+            ctx->destPage++;
+        }
+        else
+        {
+            ctx->destPage = "";
+        }
+
+        // Look for a : which represents the start of the port.
+        if( NULL != ( ctx->destPort = rpal_string_strstrA( ctx->destUrl, ":" ) ) )
+        {
+            *ctx->destPort = 0;
+            ctx->destPort++;
+        }
+        else
+        {
+            ctx->destPort = "443";
+        }
+
+        // All 3 components are required.
+        if( NULL == ctx->destUrl || NULL == ctx->destPort || NULL == ctx->destPage )
+        {
+            mbedtls_x509_crt_free( &ctx->tlsConnection.cacert );
+            mbedtls_ctr_drbg_free( &ctx->tlsConnection.ctr_drbg );
+            mbedtls_entropy_free( &ctx->tlsConnection.entropy );
+
+            rpal_memory_free( ctx->destUrl );
             rpal_memory_free( ctx );
             ctx = NULL;
         }
+    }
 
-        if( NULL != ctx )
+    if( isSuccess )
+    {
+        RCHAR header_1[] = { "POST /" };
+        RCHAR header_2[] = { " HTTP/1.0\nUser-Agent: lc-bulk\nContent-Type: application/json" };
+        if( NULL == ( ctx->headers = rpal_stringbuffer_new( 0, 0 ) ) ||
+            !rpal_stringbuffer_addA( ctx->headers, header_1 ) ||
+            !rpal_stringbuffer_addA( ctx->headers, ctx->destPage ) ||
+            !rpal_stringbuffer_addA( ctx->headers, header_2 ) ||
+            ( NULL != apiKeyHeader &&
+              ( !rpal_stringbuffer_addA( ctx->headers, "\n" ) ||
+                !rpal_stringbuffer_addA( ctx->headers, apiKeyHeader ) ) ) )
         {
-            components.lpszHostName = pUrl;
-            components.dwHostNameLength = sizeof( pUrl );
-            components.lpszUrlPath = pPage;
-            components.dwUrlPathLength = sizeof( pPage );
-            components.lpszUserName = pUser;
-            components.dwUserNameLength = sizeof( pUser );
-            components.lpszPassword = pPass;
-            components.dwPasswordLength = sizeof( pPass );
-            components.dwStructSize = sizeof( components );
-
-            if( !ctx->pInternetCrackUrl( destUrl, 0, 0, &components ) ||
-                0 == components.nPort ||
-                0 == rpal_string_strlenA( pUrl ) )
-            {
-                if( 0 == rpal_string_strlenA( pUrl ) &&
-                    rpal_string_strlenA( destUrl ) < ARRAY_N_ELEM( pUrl ) )
-                {
-                    rpal_string_strcpyA( pUrl, destUrl );
-                }
-                components.nPort = 443;
-                components.nScheme = INTERNET_SCHEME_HTTPS;
-
-                if( NULL != ( pPortDelim = rpal_string_strstrA( pUrl, ":" ) ) )
-                {
-                    *pPortDelim = 0;
-                    if( rpal_string_stoiA( pPortDelim + 1, &tmpPort ) )
-                    {
-                        components.nPort = (RU16)tmpPort;
-                    }
-                }
-            }
-
-            ctx->port = components.nPort;
-            ctx->server = rpal_string_strdupA( pUrl );
-            ctx->page = rpal_string_strdupA( pPage );
-
-            if( INTERNET_SCHEME_HTTPS == components.nScheme )
-            {
-                isSecure = TRUE;
-            }
-
-            ctx->flags = INTERNET_FLAG_NO_UI | 
-                         INTERNET_FLAG_NO_CACHE_WRITE | 
-                         INTERNET_FLAG_RELOAD;
-
-            if( isSecure )
-            {
-                ctx->flags |= INTERNET_FLAG_SECURE;
-            }
-
-            if( NULL != ( ctx->hInternet = ctx->pInternetOpen( userAgent, INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0 ) ) )
-            {
-                if( !ctx->pInternetSetOption( ctx->hInternet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeout, sizeof( timeout ) ) )
-                {
-                    rpal_debug_warning( "Failed to set connection timeout." );
-                }
-            }
-            else
-            {
-                rpal_debug_error( "Failed to open internet: %x", GetLastError() );
-                rpal_memory_free( ctx->server );
-                rpal_memory_free( ctx->page );
-                FreeLibrary( ctx->hWininet );
-                rpal_memory_free( ctx );
-                ctx = NULL;
-            }
+            // Something failed while assembling the header.
+            isSuccess = FALSE;
         }
+    }
 
-        if( NULL != ctx )
-        {
-            if( NULL == ( ctx->hConnect = ctx->pInternetConnect( ctx->hInternet,
-                                                                 ctx->server,
-                                                                 ctx->port,
-                                                                 NULL,
-                                                                 NULL,
-                                                                 ctx->scheme,
-                                                                 ctx->flags,
-                                                                 (DWORD_PTR)NULL ) ) )
-            {
-                rpal_debug_error( "Failed to connect internet: %x", GetLastError() );
-                ctx->pInternetCloseHandle( ctx->hInternet );
-                rpal_memory_free( ctx->server );
-                rpal_memory_free( ctx->page );
-                FreeLibrary( ctx->hWininet );
-                rpal_memory_free( ctx );
-                ctx = NULL;
-            }
-        }
-#else
+    if( !isSuccess && NULL != ctx )
+    {
+        mbedtls_x509_crt_free( &ctx->tlsConnection.cacert );
+        mbedtls_ctr_drbg_free( &ctx->tlsConnection.ctr_drbg );
+        mbedtls_entropy_free( &ctx->tlsConnection.entropy );
 
-#endif
+        rpal_stringbuffer_free( ctx->headers );
+        rpal_memory_free( ctx->destUrl );
+        rpal_memory_free( ctx );
+        ctx = NULL;
     }
 
     return (restOutputContext)ctx;
@@ -218,24 +201,63 @@ RVOID
     
     if( NULL != ctx )
     {
-#ifdef RPAL_PLATFORM_WINDOWS
-        if( NULL != ctx->hWininet )
-        {
-            FreeLibrary( ctx->hWininet );
-        }
-        if( NULL != ctx->hInternet &&
-            NULL != ctx->pInternetCloseHandle )
-        {
-            ctx->pInternetCloseHandle( ctx->hInternet );
-        }
-        rpal_memory_free( ctx->server );
-        rpal_memory_free( ctx->page );
+        rpal_stringbuffer_free( ctx->headers );
+        rpal_memory_free( ctx->destUrl );
+
+        mbedtls_x509_crt_free( &ctx->tlsConnection.cacert );
+        mbedtls_ctr_drbg_free( &ctx->tlsConnection.ctr_drbg );
+        mbedtls_entropy_free( &ctx->tlsConnection.entropy );
 
         rpal_memory_free( ctx );
-#else
-        rpal_memory_free( ctx );
-#endif
     }
+}
+
+RPRIVATE
+RBOOL
+    _sendUntil
+    (
+        _restOutputContext* ctx,
+        RPCHAR data,
+        RTIME until
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RU32 size = 0;
+    RU32 mbedRet = 0;
+    RU32 offset = 0;
+    RU32 toSend = 0;
+
+    if( NULL != ctx &&
+        NULL != data &&
+        0 != ( size = rpal_string_strlenA( data ) ) )
+    {
+
+        do
+        {
+            mbedRet = 0;
+
+            mbedRet = mbedtls_ssl_write( &ctx->tlsConnection.ssl, (RPU8)data + offset, toSend - offset );
+
+            if( 0 < mbedRet )
+            {
+                offset += mbedRet;
+                if( offset == toSend )
+                {
+                    isSuccess = TRUE;
+                    break;
+                }
+            }
+            else if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
+                     MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
+            {
+                break;
+            }
+
+            rpal_thread_sleep( 100 );
+        } while( rpal_time_getLocal() < until );
+    }
+
+    return isSuccess;
 }
 
 RBOOL
@@ -243,55 +265,129 @@ RBOOL
     (
         restOutputContext pContext,
         RPCHAR payload,
-        RU32* pStatusCode
+        RU32* pStatusCode,
+        RU32 timeout
     )
 {
     RBOOL isSuccess = FALSE;
     _restOutputContext* ctx = pContext;
+    RS32 mbedRet = 0;
+    RTIME endTime = rpal_time_getLocal() + timeout;
+    RCHAR contentLenth[] = { "\nContent-Length: " };
+    RCHAR tmpLength[ 16 ] = { 0 };
+    RCHAR hdrTerminator[] = { "\n\n" };
+    RU8 response[ 128 ] = { 0 };
+    RU32 readOffset = 0;
+    RCHAR expectedResponse[] = { "HTTP/1.0 " };
+    RU64 tmpCode = 0;
 
     if( NULL != ctx )
     {
-#ifdef RPAL_PLATFORM_WINDOWS
-        HINTERNET hHttp = NULL;
-        RCHAR verb[] = "POST";
-        RU32 statusCode = 0;
-        RU32 headerIndex = 0;
-        RU32 headerSize = sizeof( statusCode );
+        mbedtls_net_init( &ctx->tlsConnection.server_fd );
+        mbedtls_ssl_init( &ctx->tlsConnection.ssl );
+        mbedtls_ssl_config_init( &ctx->tlsConnection.conf );
 
-        if( NULL != ctx->hConnect &&
-            NULL != ctx->pHttpOpenRequest )
+        if( 0 == ( mbedRet = mbedtls_net_connect( &ctx->tlsConnection.server_fd,
+                                                  ctx->destUrl,
+                                                  ctx->destPort,
+                                                  MBEDTLS_NET_PROTO_TCP ) ) )
         {
-            if( NULL != ( hHttp = ctx->pHttpOpenRequest( ctx->hConnect,
-                                                         verb, ctx->page ? ctx->page : "",
-                                                         NULL,
-                                                         NULL,
-                                                         NULL,
-                                                         ctx->flags,
-                                                         (DWORD_PTR)NULL ) ) )
-            {
-                if( ctx->pHttpSendRequest( hHttp, 
-                                           "Content-Type: application/json", 
-                                           (RU32)-1, 
-                                           payload, 
-                                           rpal_string_strlenA( payload ) ) )
-                {
-                    if( ctx->pHttpQueryInfo( hHttp, HTTP_QUERY_STATUS_CODE, &statusCode, (LPDWORD)&headerSize, (LPDWORD)&headerIndex ) )
-                    {
-                        isSuccess = TRUE;
+            mbedtls_net_set_nonblock( &ctx->tlsConnection.server_fd );
 
-                        if( NULL != pStatusCode )
+            if( 0 == ( mbedRet = mbedtls_ssl_config_defaults( &ctx->tlsConnection.conf,
+                                                              MBEDTLS_SSL_IS_CLIENT,
+                                                              MBEDTLS_SSL_TRANSPORT_STREAM,
+                                                              MBEDTLS_SSL_PRESET_DEFAULT ) ) )
+            {
+                mbedtls_ssl_conf_authmode( &ctx->tlsConnection.conf, MBEDTLS_SSL_VERIFY_REQUIRED );
+                mbedtls_ssl_conf_ca_chain( &ctx->tlsConnection.conf, &ctx->tlsConnection.cacert, NULL );
+                mbedtls_ssl_conf_rng( &ctx->tlsConnection.conf, mbedtls_ctr_drbg_random, &ctx->tlsConnection.ctr_drbg );
+
+                if( 0 == ( mbedRet = mbedtls_ssl_setup( &ctx->tlsConnection.ssl, &ctx->tlsConnection.conf ) ) )
+                {
+                    mbedtls_ssl_set_bio( &ctx->tlsConnection.ssl,
+                                         &ctx->tlsConnection.server_fd,
+                                         mbedtls_net_send,
+                                         mbedtls_net_recv,
+                                         NULL );
+                    while( 0 != ( mbedRet = mbedtls_ssl_handshake( &ctx->tlsConnection.ssl ) ) &&
+                           rpal_time_getLocal() < endTime )
+                    {
+                        if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
+                            MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
                         {
-                            *pStatusCode = statusCode;
+                            break;
+                        }
+
+                        rpal_thread_sleep( 100 );
+                    }
+
+                    // Check if we timed out and were successful.
+                    if( 0 == mbedRet &&
+                        rpal_time_getLocal() <= endTime )
+                    {
+                        if( 0 == ( mbedRet = mbedtls_ssl_get_verify_result( &ctx->tlsConnection.ssl ) ) )
+                        {
+                            // Assemble the payload content length,
+                            if( NULL != rpal_string_itosA( rpal_string_strlenA( payload ), tmpLength, 10 ) )
+                            {
+                                // Ok now we can send the payload.
+                                // First we send the static header.
+                                // Then we send the payload.
+                                if( _sendUntil( ctx, rpal_stringbuffer_getStringA( ctx->headers ), endTime ) &&
+                                    _sendUntil( ctx, contentLenth, endTime ) &&
+                                    _sendUntil( ctx, tmpLength, endTime ) &&
+                                    _sendUntil( ctx, hdrTerminator, endTime ) &&
+                                    _sendUntil( ctx, payload, endTime ) )
+                                {
+                                    // The first 128 bytes will tell us what we need. We expect to get the status
+                                    // from the first successful read.
+                                    do
+                                    {
+                                        mbedRet = mbedtls_ssl_read( &ctx->tlsConnection.ssl, 
+                                                                    response + readOffset, 
+                                                                    sizeof( response ) - readOffset );
+
+                                        if( 0 < mbedRet )
+                                        {
+                                            readOffset += mbedRet;
+                                            break;
+                                        }
+
+                                    } while( rpal_time_getLocal() < endTime );
+
+
+                                    // Check to see if we got at least the bare minimum for a status code.
+                                    if( sizeof( expectedResponse ) + 3 <= readOffset )
+                                    {
+                                        // At this point we consider the POST was a success.
+                                        isSuccess = TRUE;
+
+                                        // But it doesn't mean the server liked it, check to see what the status code was.
+                                        // Terminate the status.
+                                        response[ sizeof( expectedResponse ) + 3 ] = 0;
+                                        // Conver the status to an int.
+                                        if( !rpal_string_stoiA( (RPCHAR)( response + sizeof( expectedResponse ) ), &tmpCode ) )
+                                        {
+                                            tmpCode = 0;
+                                        }
+
+                                        if( NULL != pStatusCode )
+                                        {
+                                            *pStatusCode = (RU32)tmpCode;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-
-                ctx->pInternetCloseHandle( hHttp );
             }
         }
-#else
 
-#endif
+        mbedtls_ssl_config_free( &ctx->tlsConnection.conf );
+        mbedtls_ssl_close_notify( &ctx->tlsConnection.ssl );
+        mbedtls_net_free( &ctx->tlsConnection.server_fd );
     }
 
     return isSuccess;

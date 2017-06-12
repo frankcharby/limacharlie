@@ -24,8 +24,8 @@ typedef RPVOID restOutputContext;
 restOutputContext
     restOutput_newContext
     (
-        RPCHAR destUrl,
-        RPCHAR apiKey
+        RPCHAR destUrl,     // MUST be of format: my.domain.name[:port[/page]]
+        RPCHAR apiKeyHeader
     );
 
 RVOID
@@ -39,7 +39,8 @@ RBOOL
     (
         restOutputContext pContext,
         RPCHAR payload,
-        RU32* pStatusCode
+        RU32* pStatusCode,
+        RU32 timeout
     );
 
 
