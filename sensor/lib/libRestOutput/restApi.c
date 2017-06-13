@@ -84,6 +84,8 @@ RBOOL
                 CertCloseStore( hCertStore, 0 );
             }
         }
+#elif defined( RPAL_PLATFORM_MACOSX )
+
 #endif
     }
 

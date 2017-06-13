@@ -2,8 +2,6 @@ Import( 'env' )
 Import( 'compmap' )
 import profiles
 
-env.AppendUnique( CPPPATH = '../../lib/yara/libyara/include' )
-
 profiles.DynamicLibrary(
         'rpHCP_BulkCollector',
         profiles.GitInfo(),
@@ -12,7 +10,12 @@ profiles.DynamicLibrary(
             env,
             Glob( '*.c' ),
             compmap,
-            'rpHostCommonPlatformIFaceLib'
+            'rpHostCommonPlatformIFaceLib',
+            'cryptoLib',
+            'networkLib',
+            'Os',
+            'libRestOutput',
+            'kernelAcquisitionLib',
             )
 
 

@@ -93,6 +93,7 @@ RBOOL
         RCHAR procDir[] = "/proc/";
         rDir hProcDir = NULL;
         rFileInfo finfo = {0};
+        RU64 tmpPid = 0;
 
         if( rDir_open( (RPCHAR)&procDir, &hProcDir ) )
         {
@@ -101,9 +102,11 @@ RBOOL
             while( rDir_next( hProcDir, &finfo ) &&
                    MAX_SNAPSHOT_SIZE > i )
             {
-                if( rpal_string_stoi( (RPCHAR)finfo.fileName, &( toSnapshot[ i ].pid ) )
-                    && 0 != toSnapshot[ i ].pid )
+                tmpPid = 0;
+                if( rpal_string_stoi( (RPCHAR)finfo.fileName, &tmpPid )
+                    && 0 != tmpPid )
                 {
+                    toSnapshot[ i ].pid = (RU32)tmpPid;
                     toSnapshot[ i ].ppid = NO_PARENT_PID;
                     i++;
                 }
