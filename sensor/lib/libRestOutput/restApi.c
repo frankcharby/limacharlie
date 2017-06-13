@@ -72,7 +72,7 @@ RBOOL
                 {
                     if( IS_FLAG_ENABLED( cert->dwCertEncodingType, X509_ASN_ENCODING ) )
                     {
-                        if( 0 == ( mbedRet = mbedtls_x509_crt_parse( &ctx->tlsConnection.cacert, 
+                        if( 0 != ( mbedRet = mbedtls_x509_crt_parse( &ctx->tlsConnection.cacert, 
                                                                      cert->pbCertEncoded, 
                                                                      cert->cbCertEncoded ) ) )
                         {
@@ -114,8 +114,8 @@ restOutputContext
                                                     mbedtls_entropy_func,
                                                     &ctx->tlsConnection.entropy,
                                                     NULL,
-                                                    0 ) ) &&
-            _loadOsCerts( ctx ) )
+                                                    0 ) ) ||
+            !_loadOsCerts( ctx ) )
         {
             isSuccess = FALSE;
         }
@@ -127,7 +127,7 @@ restOutputContext
         // Look for a / which represents the start of the target page.
         if( NULL != ( ctx->destPage = rpal_string_strstrA( ctx->destUrl, "/" ) ) )
         {
-            ctx->destPage = 0;
+            *ctx->destPage = 0;
             ctx->destPage++;
         }
         else
@@ -222,14 +222,13 @@ RBOOL
     )
 {
     RBOOL isSuccess = FALSE;
-    RU32 size = 0;
     RU32 mbedRet = 0;
     RU32 offset = 0;
     RU32 toSend = 0;
 
     if( NULL != ctx &&
         NULL != data &&
-        0 != ( size = rpal_string_strlenA( data ) ) )
+        0 != ( toSend = rpal_string_strlenA( data ) ) )
     {
 
         do
@@ -354,6 +353,7 @@ RBOOL
                                             break;
                                         }
 
+                                        rpal_thread_sleep( 100 );
                                     } while( rpal_time_getLocal() < endTime );
 
 
@@ -367,7 +367,7 @@ RBOOL
                                         // Terminate the status.
                                         response[ sizeof( expectedResponse ) + 3 ] = 0;
                                         // Conver the status to an int.
-                                        if( !rpal_string_stoiA( (RPCHAR)( response + sizeof( expectedResponse ) ), &tmpCode ) )
+                                        if( !rpal_string_stoiA( (RPCHAR)( response + sizeof( expectedResponse ) - 1 ), &tmpCode ) )
                                         {
                                             tmpCode = 0;
                                         }
@@ -387,6 +387,7 @@ RBOOL
 
         mbedtls_ssl_config_free( &ctx->tlsConnection.conf );
         mbedtls_ssl_close_notify( &ctx->tlsConnection.ssl );
+        mbedtls_ssl_session_reset( &ctx->tlsConnection.ssl );
         mbedtls_net_free( &ctx->tlsConnection.server_fd );
     }
 

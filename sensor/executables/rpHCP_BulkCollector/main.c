@@ -34,12 +34,16 @@ RpHcp_ModuleId g_current_Module_id = RP_HCP_MODULE_ID_BULK_COLLECTOR;
 
 // The destination URL to POST data to.
 #ifndef BULK_COLLECTOR_DEST
-#define BULK_COLLECTOR_DEST                 "https://127.0.0.1/"
+#define BULK_COLLECTOR_DEST                 "www.google.com:443/"
+#endif
+
+#ifndef BULK_COLLECTOR_TIMEOUT
+#define BULK_COLLECTOR_TIMEOUT              (60 * 10)
 #endif
 
 // The API key to use in the POST.
 #ifndef BULK_COLLECTOR_API_KEY
-#define BULK_COLLECTOR_API_KEY              "abcdef"
+#define BULK_COLLECTOR_API_KEY              "x-goog-api-key: abcdef"
 #endif
 
 // The customer id.
@@ -150,7 +154,7 @@ RBOOL
         }
 
         rSequence_shallowFree( jsonPayload );
-        rList_shallowFree( jsonPayload );
+        rList_shallowFree( jsonEnvelope );
         rSequence_shallowFree( chunk );
         rSequence_shallowFree( metadata );
         rSequence_shallowFree( source );
@@ -208,7 +212,7 @@ RPAL_THREAD_FUNC
                     if( slabToPayload( pSlab, payload ) )
                     {
                         // We successfully assembled a JSON string for payload.
-                        if( restOutput_send( restCtx, rpal_stringbuffer_getStringA( payload ), &statusCode ) )
+                        if( restOutput_send( restCtx, rpal_stringbuffer_getStringA( payload ), &statusCode, BULK_COLLECTOR_TIMEOUT ) )
                         {
                             rpal_debug_info( "REST POST Sent with status code: " RF_U32, statusCode );
                         }

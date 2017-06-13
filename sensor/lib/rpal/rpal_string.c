@@ -1501,8 +1501,7 @@ RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
         *pNum = (RU64)strtoll( str, &tmp, 10 );
 #endif
         
-        if( NULL != tmp &&
-            0 == *tmp )
+        if( str != tmp )
         {
             isSuccess = TRUE;
         }
@@ -1534,8 +1533,7 @@ RBOOL
 #else
         *pNum = (RU64)strtoll( str, &tmp, 10 );
 #endif
-        if( NULL != tmp &&
-            0 == *tmp )
+        if( str != tmp )
         {
             isSuccess = TRUE;
         }
@@ -1567,8 +1565,7 @@ RBOOL
 #else
         *pNum = (RU64)wcstoll( str, &tmp, 10 );
 #endif
-        if( NULL != tmp &&
-            0 == *tmp )
+        if( str != tmp )
         {
             isSuccess = TRUE;
         }
