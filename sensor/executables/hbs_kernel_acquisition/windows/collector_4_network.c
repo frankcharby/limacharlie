@@ -67,7 +67,7 @@ RVOID
     );
 
 RVOID
-    coInboundTransport
+    coInOutboundTransport
     (
         const FWPS_INCOMING_VALUES* fixVals,
         const FWPS_INCOMING_METADATA_VALUES* metaVals,
@@ -110,14 +110,29 @@ static LayerInfo g_layerInboundTransport4 = {
     _WCH( "slInboundTransport4" ),
     _WCH( "coInboundTransport4" ),
     _WCH( "flInboundTransport4" ),
-    coInboundTransport
+    coInOutboundTransport
 };
 
 static LayerInfo g_layerInboundTransport6 = {
     _WCH( "slInboundTransport6" ),
     _WCH( "coInboundTransport6" ),
     _WCH( "flInboundTransport6" ),
-    coInboundTransport
+    coInOutboundTransport
+};
+
+
+static LayerInfo g_layerOutboundTransport4 = {
+    _WCH( "slOutboundTransport4" ),
+    _WCH( "coOutboundTransport4" ),
+    _WCH( "flOutboundTransport4" ),
+    coInOutboundTransport
+};
+
+static LayerInfo g_layerOutboundTransport6 = {
+    _WCH( "slOutboundTransport6" ),
+    _WCH( "coOutboundTransport6" ),
+    _WCH( "flOutboundTransport6" ),
+    coInOutboundTransport
 };
 
 static LayerInfo* g_layers[] = { &g_layerAuthConnect4,
@@ -125,7 +140,9 @@ static LayerInfo* g_layers[] = { &g_layerAuthConnect4,
                                  &g_layerAuthRecvAccept4,
                                  &g_layerAuthRecvAccept6,
                                  &g_layerInboundTransport4,
-                                 &g_layerInboundTransport6 };
+                                 &g_layerInboundTransport6,
+                                 &g_layerOutboundTransport4,
+                                 &g_layerOutboundTransport6 };
 
 static HANDLE g_stateChangeHandle = NULL;
 static HANDLE g_engineHandle = NULL;
@@ -315,6 +332,26 @@ static NTSTATUS
             netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V6_IP_REMOTE_PORT ].value.uint16;
             netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V6_IP_PROTOCOL ].value.uint8;
             break;
+        case FWPS_LAYER_OUTBOUND_TRANSPORT_V4:
+            netEntry->isIncoming = FALSE; // We say it's outgoing but in reality we're not sure
+            netEntry->srcIp.isV6 = FALSE;
+            netEntry->dstIp.isV6 = FALSE;
+            netEntry->srcIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_OUTBOUND_TRANSPORT_V4_IP_LOCAL_ADDRESS ].value.uint32;
+            netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_OUTBOUND_TRANSPORT_V4_IP_LOCAL_PORT ].value.uint16;
+            netEntry->dstIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_OUTBOUND_TRANSPORT_V4_IP_REMOTE_ADDRESS ].value.uint32;
+            netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_OUTBOUND_TRANSPORT_V4_IP_REMOTE_PORT ].value.uint16;
+            netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_OUTBOUND_TRANSPORT_V4_IP_PROTOCOL ].value.uint8;
+            break;
+        case FWPS_LAYER_OUTBOUND_TRANSPORT_V6:
+            netEntry->isIncoming = FALSE; // We say it's outgoing but in reality we're not sure
+            netEntry->srcIp.isV6 = TRUE;
+            netEntry->dstIp.isV6 = TRUE;
+            netEntry->srcIp.value.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_OUTBOUND_TRANSPORT_V6_IP_LOCAL_ADDRESS ].value.byteArray16;
+            netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_OUTBOUND_TRANSPORT_V6_IP_LOCAL_PORT ].value.uint16;
+            netEntry->dstIp.value.v6 = *(RIpV6*)fixedVals->incomingValue[ FWPS_FIELD_OUTBOUND_TRANSPORT_V6_IP_REMOTE_ADDRESS ].value.byteArray16;
+            netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_OUTBOUND_TRANSPORT_V6_IP_REMOTE_PORT ].value.uint16;
+            netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_OUTBOUND_TRANSPORT_V6_IP_PROTOCOL ].value.uint8;
+            break;
 
         default:
             rpal_debug_kernel( "Unknown layer protocol family: 0x%08X", layerId );
@@ -427,7 +464,7 @@ RVOID
 }
 
 RVOID
-    coInboundTransport
+    coInOutboundTransport
     (
         const FWPS_INCOMING_VALUES* fixVals,
         const FWPS_INCOMING_METADATA_VALUES* metaVals,
@@ -869,6 +906,32 @@ static NTSTATUS
         if( !NT_SUCCESS( status ) )
         {
             rpal_debug_kernel( "Failed to create inboundTransport6 GUIDs: 0x%08X", status );
+            break;
+        }
+
+        if( NT_SUCCESS( status = ExUuidCreate( &g_layerOutboundTransport4.slGuid ) ) &&
+            NT_SUCCESS( status = ExUuidCreate( &g_layerOutboundTransport4.coGuid ) ) &&
+            NT_SUCCESS( status = ExUuidCreate( &g_layerOutboundTransport4.flGuid ) ) )
+        {
+            g_layerOutboundTransport4.guid = FWPM_LAYER_OUTBOUND_TRANSPORT_V4;
+        }
+
+        if( !NT_SUCCESS( status ) )
+        {
+            rpal_debug_kernel( "Failed to create outboundTransport4 GUIDs: 0x%08X", status );
+            break;
+        }
+
+        if( NT_SUCCESS( status = ExUuidCreate( &g_layerOutboundTransport6.slGuid ) ) &&
+            NT_SUCCESS( status = ExUuidCreate( &g_layerOutboundTransport6.coGuid ) ) &&
+            NT_SUCCESS( status = ExUuidCreate( &g_layerOutboundTransport6.flGuid ) ) )
+        {
+            g_layerOutboundTransport6.guid = FWPM_LAYER_OUTBOUND_TRANSPORT_V6;
+        }
+
+        if( !NT_SUCCESS( status ) )
+        {
+            rpal_debug_kernel( "Failed to create outboundTransport6 GUIDs: 0x%08X", status );
             break;
         }
 

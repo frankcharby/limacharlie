@@ -439,28 +439,74 @@ errno_t
     )
 {
     SockCookie* sc = (SockCookie*)cookie;
+    RPU8 packet = NULL;
+    RSIZET packetSize = 0;
     
     UNREFERENCED_PARAMETER( data );
     UNREFERENCED_PARAMETER( control );
     UNREFERENCED_PARAMETER( flags );
     
-    if( NULL != cookie &&
-        !sc->isReported )
+    if( NULL != cookie )
     {
-        if( !sc->isConnected )
+        if( !sc->isReported )
         {
-            sc->netEvent.isIncoming = FALSE;
+            if( !sc->isConnected )
+            {
+                sc->netEvent.isIncoming = FALSE;
+            }
+            
+            populateCookie( sc, so, to );
+            
+            rpal_mutex_lock( g_collector_4_mutex );
+        
+            sc->isReported = TRUE;
+            g_connections[ g_nextConnection ] = sc->netEvent;
+            next_connection();
+            
+            rpal_mutex_unlock( g_collector_4_mutex );
         }
         
-        populateCookie( sc, so, to );
-        
-        rpal_mutex_lock( g_collector_4_mutex );
-    
-        sc->isReported = TRUE;
-        g_connections[ g_nextConnection ] = sc->netEvent;
-        next_connection();
-        
-        rpal_mutex_unlock( g_collector_4_mutex );
+        // See if we need to report on any content based parsing
+        // Looking for DNS responses
+        if( ( 53 == sc->netEvent.dstPort ||
+              53 == sc->netEvent.srcPort )&&
+            ( IPPROTO_TCP == sc->netEvent.proto ||
+              IPPROTO_UDP == sc->netEvent.proto ) &&
+            getPacket( data, &packet, &packetSize ) &&
+            0 != packetSize )
+        {
+            KernelAcqDnsPacket dnsRecord = {0};
+            RU32 requiredSize = 0;
+            
+            dnsRecord.ts = sc->netEvent.ts;
+            dnsRecord.dstIp = sc->netEvent.dstIp;
+            dnsRecord.dstPort = sc->netEvent.dstPort;
+            dnsRecord.srcIp = sc->netEvent.srcIp;
+            dnsRecord.srcPort = sc->netEvent.srcPort;
+            dnsRecord.pid = sc->netEvent.pid;
+            dnsRecord.proto = sc->netEvent.proto;
+            dnsRecord.packetSize = (RU32)packetSize;
+            
+            requiredSize = (RU32)sizeof( KernelAcqDnsPacket ) + (RU32)packetSize;
+            
+            rpal_mutex_lock( g_collector_4_mutex_dns );
+            
+            if( sizeof( g_dns ) - g_nextDns < requiredSize )
+            {
+                // Buffer overflow, reset to the beginning.
+                g_nextDns = 0;
+                rpal_debug_info( "DNS packet buffer overflow" );
+            }
+            
+            if( sizeof( g_dns ) - g_nextDns >= requiredSize )
+            {
+                memcpy( g_dns + g_nextDns, &dnsRecord, sizeof( KernelAcqDnsPacket ) );
+                memcpy( g_dns + g_nextDns + sizeof( KernelAcqDnsPacket ), packet, packetSize );
+                g_nextDns += requiredSize;
+            }
+            
+            rpal_mutex_unlock( g_collector_4_mutex_dns );
+        }
     }
     
     return KERN_SUCCESS;
