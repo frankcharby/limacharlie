@@ -26,6 +26,11 @@ limitations under the License.
 #include <mbedtls/debug.h>
 #include <mbedtls/error.h>
 
+#ifdef RPAL_PLATFORM_MACOSX
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+#endif
+
 typedef struct
 {
     rString headers;
@@ -44,6 +49,23 @@ typedef struct
     } tlsConnection;
 
 } _restOutputContext;
+
+
+RPRIVATE
+RVOID
+    _printMbedError
+    (
+        RS32 mbedRet
+    )
+{
+#ifdef RPAL_PLATFORM_DEBUG
+    RCHAR tmpError[ 512 ] = { 0 };
+    mbedtls_strerror( mbedRet, tmpError, sizeof( tmpError ) );
+    rpal_debug_error( "TLS Error %d: %s", mbedRet, tmpError );
+#else
+    rpal_debug_error( "TLS Error: %d", mbedRet );
+#endif
+}
 
 RPRIVATE
 RBOOL
@@ -72,11 +94,11 @@ RBOOL
                 {
                     if( IS_FLAG_ENABLED( cert->dwCertEncodingType, X509_ASN_ENCODING ) )
                     {
-                        if( 0 != ( mbedRet = mbedtls_x509_crt_parse( &ctx->tlsConnection.cacert, 
-                                                                     cert->pbCertEncoded, 
+                        if( 0 != ( mbedRet = mbedtls_x509_crt_parse( &ctx->tlsConnection.cacert,
+                                                                     cert->pbCertEncoded,
                                                                      cert->cbCertEncoded ) ) )
                         {
-                            rpal_debug_warning( "Failed to load default cert: %d", mbedRet );
+                            _printMbedError( mbedRet );
                         }
                     }
                 }
@@ -85,7 +107,41 @@ RBOOL
             }
         }
 #elif defined( RPAL_PLATFORM_MACOSX )
+        {
+            OSStatus err = 0;
+            RU32 i = 0;
+            RU32 nCerts = 0;
+            CFArrayRef certs = NULL;
+            SecCertificateRef cert = NULL;
+            CFDataRef data = NULL;
 
+            if( noErr == ( err = SecTrustCopyAnchorCertificates( &certs ) ) )
+            {
+                isSuccess = TRUE;
+
+                nCerts = CFArrayGetCount( certs );
+
+                for( i = 0; i < nCerts; i++ )
+                {
+                    if( NULL != ( cert = (SecCertificateRef)CFArrayGetValueAtIndex( certs, i ) ) )
+                    {
+                        if( noErr == ( err = SecItemExport( cert, kSecFormatX509Cert, 0, NULL, &data ) ) )
+                        {
+                            if( 0 != ( mbedRet = mbedtls_x509_crt_parse( &ctx->tlsConnection.cacert,
+                                                                         CFDataGetBytePtr( data ),
+                                                                         CFDataGetLength( data ) ) ) )
+                            {
+                                _printMbedError( mbedRet );
+                            }
+                            
+                            CFRelease( data );
+                        }
+                    }
+                }
+
+                CFRelease( certs );
+            }
+        }
 #endif
     }
 
@@ -119,6 +175,10 @@ restOutputContext
                                                     0 ) ) ||
             !_loadOsCerts( ctx ) )
         {
+            if( 0 != mbedRet )
+            {
+                _printMbedError( mbedRet );
+            }
             isSuccess = FALSE;
         }
     }
@@ -251,6 +311,7 @@ RBOOL
             else if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
                      MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
             {
+                _printMbedError( mbedRet );
                 break;
             }
 
@@ -317,6 +378,7 @@ RBOOL
                         if( MBEDTLS_ERR_SSL_WANT_READ != mbedRet &&
                             MBEDTLS_ERR_SSL_WANT_WRITE != mbedRet )
                         {
+                            _printMbedError( mbedRet );
                             break;
                         }
 
@@ -379,12 +441,40 @@ RBOOL
                                             *pStatusCode = (RU32)tmpCode;
                                         }
                                     }
+                                    else
+                                    {
+                                        rpal_debug_warning( "could not find status code in response." );
+                                    }
+                                }
+                                else
+                                {
+                                    rpal_debug_warning( "failure while sending payload." );
                                 }
                             }
                         }
+                        else
+                        {
+                            _printMbedError( mbedRet );
+                        }
+                    }
+                    else if( 0 == mbedRet )
+                    {
+                        rpal_debug_warning( "timeout while sending." );
                     }
                 }
+                else
+                {
+                    _printMbedError( mbedRet );
+                }
             }
+            else
+            {
+                _printMbedError( mbedRet );
+            }
+        }
+        else
+        {
+            _printMbedError( mbedRet );
         }
 
         mbedtls_ssl_config_free( &ctx->tlsConnection.conf );

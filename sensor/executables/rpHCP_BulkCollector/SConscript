@@ -2,6 +2,8 @@ Import( 'env' )
 Import( 'compmap' )
 import profiles
 
+env.Append( LINKFLAGS = ['-framework', 'CoreFoundation', '-framework', 'Security'] )
+
 profiles.DynamicLibrary(
         'rpHCP_BulkCollector',
         profiles.GitInfo(),

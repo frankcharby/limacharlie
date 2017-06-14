@@ -6,6 +6,9 @@ env.AppendUnique( CPPPATH = 'mbedtls-2.1.2/' )
 env.AppendUnique( CPPPATH = 'mbedtls-2.1.2/include' )
 env.AppendUnique( CPPPATH = 'mbedtls-2.1.2/library' )
 
+if env[ 'IS_DEBUG' ]:
+    env.AppendUnique( CPPDEFINES = [ 'MBEDTLS_ERROR_C' ] )
+
 profiles.StaticLibrary( "mbedtls" ).Target(
         env,
         Glob( 'mbedtls-2.1.2/library/*.c' ) + Glob( 'mbedtls-2.1.2/include/*.h' ),
