@@ -712,15 +712,19 @@ RU32
 
                             if( 0 == mbedRet )
                             {
+#ifndef HCP_NO_TLS_VALIDATION
                                 if( 0 == ( mbedRet = mbedtls_ssl_get_verify_result( &g_tlsConnection.ssl ) ) )
                                 {
+#endif
                                     isHandshakeComplete = TRUE;
                                     rpal_debug_info( "TLS handshake complete." );
+#ifndef HCP_NO_TLS_VALIDATION
                                 }
                                 else
                                 {
                                     rpal_debug_error( "failed to validate remote certificate: %d", mbedRet );
                                 }
+#endif
                             }
                             else
                             {
