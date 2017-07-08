@@ -1104,6 +1104,8 @@ RPAL_THREAD_FUNC
         rSequence testConfig = NULL;
         RU32 i = 0;
 
+        rpal_debug_info( "power on self test begins" );
+
         if( NULL != ( testEvent = rSequence_new() ) )
         {
             if( NULL != ( testConfigs = rList_new( RP_TAGS_HBS_CONFIGURATION, RPCM_SEQUENCE ) ) )
@@ -1133,6 +1135,8 @@ RPAL_THREAD_FUNC
 
             rSequence_free( testEvent );
         }
+
+        rpal_debug_info( "power on self test ends" );
     }
 #endif
 
