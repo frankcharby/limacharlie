@@ -51,6 +51,12 @@ limitations under the License.
 #define TLS_SEND_TIMEOUT    (60 * 1)
 #define TLS_RECV_TIMEOUT    (60 * 1)
 
+#ifdef HCP_NO_TLS_VALIDATION
+#define _TLS_VALIDATION FLAG    MBEDTLS_SSL_VERIFY_OPTIONAL
+#else
+#define _TLS_VALIDATION FLAG    MBEDTLS_SSL_VERIFY_REQUIRED
+#endif
+
 RPRIVATE
 struct
 {
@@ -681,7 +687,7 @@ RU32
                                                                       MBEDTLS_SSL_TRANSPORT_STREAM,
                                                                       MBEDTLS_SSL_PRESET_DEFAULT ) ) )
                     {
-                        mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, MBEDTLS_SSL_VERIFY_REQUIRED );
+                        mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, _SSL_VALIDATION_FLAG );
                         mbedtls_ssl_conf_ca_chain( &g_tlsConnection.conf, &g_tlsConnection.cacert, NULL );
                         mbedtls_ssl_conf_rng( &g_tlsConnection.conf, mbedtls_ctr_drbg_random, &g_tlsConnection.ctr_drbg );
 
