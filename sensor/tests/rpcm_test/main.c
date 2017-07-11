@@ -237,7 +237,7 @@ void test_SerialiseAndDeserialise(void)
     // Fuzz the deserialization function.
     for( garbageLoops = garbageLoops; 0 != garbageLoops; garbageLoops-- )
     {
-        garbageSize = ( rpal_rand() % garbageMaxSize ) + 1;
+        garbageSize = ( rpal_rand() % garbageMaxSize ) + 128;
         garbage = rpal_memory_alloc( garbageSize );
         CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
         CU_ASSERT_TRUE( CryptoLib_genRandomBytes( garbage, garbageSize ) );
