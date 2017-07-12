@@ -71,7 +71,8 @@ for sources, destination in mainBinaries:
         print( "Copying %s -> %s" % ( file, dest ) )
         try:
             shutil.copyfile( file, dest )
-        except e:
+        except:
+            e = sys.exc_info()[0]
             print( "ERROR: %s" % e )
             ret = 1
 
