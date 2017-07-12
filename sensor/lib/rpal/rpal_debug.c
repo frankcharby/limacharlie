@@ -33,6 +33,7 @@ RVOID
     vsprintf( (RPCHAR)&tmp, format, args );
 
     OutputDebugString( tmp );
+    printf( "%s", (RPCHAR)tmp );
 
     va_end( args );
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
