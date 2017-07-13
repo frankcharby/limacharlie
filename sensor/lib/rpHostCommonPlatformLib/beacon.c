@@ -28,6 +28,7 @@ limitations under the License.
 #include "crashHandling.h"
 #include <networkLib/networkLib.h>
 #include "git_info.h"
+#include <processLib/processLib.h>
 
 #include <mbedtls/net.h>
 #include <mbedtls/ssl.h>
@@ -390,6 +391,8 @@ rList
     RPU8 crashContext = NULL;
     RU32 crashContextSize = 0;
     RU8 defaultCrashContext = 1;
+    RPNCHAR currentPath = NULL;
+    CryptoLib_Hash currentHash = { 0 };
 
     if( NULL != ( wrapper = rList_new( RP_TAGS_MESSAGE, RPCM_SEQUENCE ) ) )
     {
@@ -444,13 +447,32 @@ rList
                     0 != g_hcpContext.enrollmentTokenSize )
                 {
                     rSequence_addBUFFER( headers,
-                        RP_TAGS_HCP_ENROLLMENT_TOKEN,
-                        g_hcpContext.enrollmentToken,
-                        g_hcpContext.enrollmentTokenSize );
+                                         RP_TAGS_HCP_ENROLLMENT_TOKEN,
+                                         g_hcpContext.enrollmentToken,
+                                         g_hcpContext.enrollmentTokenSize );
                 }
 
                 // The current version running.
                 rSequence_addRU32( headers, RP_TAGS_PACKAGE_VERSION, GIT_REVISION );
+
+                // Get the hash of the current module.
+                if( NULL != ( currentPath = processLib_getCurrentModulePath() ) )
+                {
+                    if( CryptoLib_hashFile( currentPath, &currentHash, FALSE ) )
+                    {
+                        rSequence_addBUFFER( headers, RP_TAGS_HASH, (RPU8)&currentHash, sizeof( currentHash ) );
+                    }
+                    else
+                    {
+                        rpal_debug_warning( "could not get current HCP hash." );
+                    }
+
+                    rpal_memory_free( currentPath );
+                }
+                else
+                {
+                    rpal_debug_warning( "could not get current HCP path." );
+                }
             }
             else
             {
