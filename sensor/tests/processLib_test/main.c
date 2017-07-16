@@ -262,8 +262,21 @@ void
     RU32 nHandles = 0;
     RU32 nNamedHandles = 0;
     RPNCHAR handleName = NULL;
+    processLibProcEntry* tmpProcesses = NULL;
+    RU32 i = 0;
+    RU32 targetPID = 0;
 
-    handles = processLib_getHandles( 0, FALSE, NULL );
+    // Look for a process to analyze.
+    if( NULL != ( tmpProcesses = processLib_getProcessEntries( FALSE ) ) )
+    {
+        while( 0 != tmpProcesses[ i ].pid )
+        {
+            targetPID = tmpProcesses[ i ].pid;
+            i++;
+        }
+    }
+
+    handles = processLib_getHandles( targetPID, FALSE, NULL );
 
     CU_ASSERT_PTR_NOT_EQUAL_FATAL( handles, NULL );
 
@@ -276,7 +289,7 @@ void
 
     rList_free( handles );
 
-    handles = processLib_getHandles( 0, TRUE, NULL );
+    handles = processLib_getHandles( targetPID, TRUE, NULL );
 
     CU_ASSERT_PTR_NOT_EQUAL_FATAL( handles, NULL );
 
@@ -291,6 +304,8 @@ void
     CU_ASSERT_TRUE( nNamedHandles < nHandles );
 
     rList_free( handles );
+
+    rpal_memory_free( tmpProcesses );
 #else
     CU_ASSERT_EQUAL( processLib_getHandles( 0, FALSE, NULL ), NULL );
 #endif

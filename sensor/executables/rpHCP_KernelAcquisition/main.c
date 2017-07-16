@@ -382,7 +382,7 @@ RBOOL
         rpal_debug_warning( "failed to load, will cleanup any partial install so we can try again" );
     }
 
-    rpal_debug_info( "unoading kernel acquisition" );
+    rpal_debug_info( "unloading kernel acquisition" );
 #ifdef RPAL_PLATFORM_MACOSX
     do
     {
