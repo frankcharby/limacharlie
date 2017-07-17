@@ -274,6 +274,7 @@ void
             if( tmpProcesses[ i ].pid < targetPID && 4 < tmpProcesses[ i ].pid )
             {
                 targetPID = tmpProcesses[ i ].pid;
+                break;
             }
             i++;
         }
