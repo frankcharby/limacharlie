@@ -1858,7 +1858,7 @@ rList
         queryFile = (pfnNtQueryInformationFile)GetProcAddress( LoadLibraryW( api_ntdll ), api_queryfile );
     }
 
-    if( OSLIB_VERSION_WINDOWS_XP < libOs_getOsVersion() )
+    if( OSLIB_VERSION_WINDOWS_2K3 < libOs_getOsVersion() )
     {
         isFileHackSupported = TRUE;
     }
