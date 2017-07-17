@@ -263,17 +263,12 @@ void
     RU32 nNamedHandles = 0;
     RPNCHAR handleName = NULL;
     processLibProcEntry* tmpProcesses = NULL;
-    RU32 i = 0;
     RU32 targetPID = 0;
 
     // Look for a process to analyze.
     if( NULL != ( tmpProcesses = processLib_getProcessEntries( FALSE ) ) )
     {
-        while( 0 != tmpProcesses[ i ].pid )
-        {
-            targetPID = tmpProcesses[ i ].pid;
-            i++;
-        }
+        targetPID = tmpProcesses[ 0 ].pid;
     }
 
     handles = processLib_getHandles( targetPID, FALSE, NULL );
