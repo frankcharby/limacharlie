@@ -263,12 +263,20 @@ void
     RU32 nNamedHandles = 0;
     RPNCHAR handleName = NULL;
     processLibProcEntry* tmpProcesses = NULL;
+    RU32 i = 0;
     RU32 targetPID = 0;
 
     // Look for a process to analyze.
     if( NULL != ( tmpProcesses = processLib_getProcessEntries( FALSE ) ) )
     {
-        targetPID = tmpProcesses[ 0 ].pid;
+        while( 0 != tmpProcesses[ i ].pid )
+        {
+            if( tmpProcesses[ i ].pid < targetPID && 4 < tmpProcesses[ i ].pid )
+            {
+                targetPID = tmpProcesses[ i ].pid;
+            }
+            i++;
+        }
     }
 
     handles = processLib_getHandles( targetPID, FALSE, NULL );
@@ -329,7 +337,7 @@ int
     {
         if( CUE_SUCCESS == ( error = CU_initialize_registry() ) )
         {
-            if( NULL != ( suite = CU_add_suite( "raptd", NULL, NULL ) ) )
+            if( NULL != ( suite = CU_add_suite( "processLib", NULL, NULL ) ) )
             {
                 if( NULL == CU_add_test( suite, "procEntries", test_procEntries ) ||
                     NULL == CU_add_test( suite, "processInfo", test_processInfo ) ||
