@@ -199,9 +199,9 @@ RBOOL
             DWORD sizeZero = 0;
 
             if( !rSequence_getBUFFER( config,
-                RP_TAGS_BINARY,
-                &driverBuffer,
-                &driverBufferSize ) )
+                                      RP_TAGS_BINARY,
+                                      &driverBuffer,
+                                      &driverBufferSize ) )
             {
                 rpal_debug_error( "malformed config" );
                 break;
@@ -209,16 +209,15 @@ RBOOL
 
             if( !rpal_file_write( driverPath, driverBuffer, driverBufferSize, TRUE ) )
             {
-                rpal_debug_error( "could not write driver to disk" );
+                rpal_debug_error( "could not write driver to disk: 0x%08X", rpal_error_getLast() );
                 break;
             }
 
             if( NULL == ( hScControl = OpenSCManagerW( NULL,
-                NULL,
-                SC_MANAGER_CREATE_SERVICE ) ) )
+                                                       NULL,
+                                                       SC_MANAGER_CREATE_SERVICE ) ) )
             {
-                rpal_debug_error( "error opening service manager: 0x%08X",
-                    rpal_error_getLast() );
+                rpal_debug_error( "error opening service manager: 0x%08X", rpal_error_getLast() );
                 break;
             }
 
@@ -441,29 +440,30 @@ RBOOL
             rpal_debug_error( "error opening service: 0x%08X",
                               rpal_error_getLast() );
             CloseServiceHandle( hScControl );
-            break;
         }
-
-        if( NULL != hService &&
-            !ControlService( hService, SERVICE_CONTROL_STOP, &svcStatus ) )
+        else
         {
-            rpal_debug_error( "error stopping driver" );
-        }
+            if( NULL != hService &&
+                !ControlService( hService, SERVICE_CONTROL_STOP, &svcStatus ) )
+            {
+                rpal_debug_error( "error stopping driver" );
+            }
 
-        if( NULL != hService &&
-            !DeleteService( hService ) )
-        {
-            rpal_debug_error( "error deleting driver entry" );
-        }
+            if( NULL != hService &&
+                !DeleteService( hService ) )
+            {
+                rpal_debug_error( "error deleting driver entry" );
+            }
 
-        if( NULL != hService )
-        {
-            CloseServiceHandle( hService );
-        }
+            if( NULL != hService )
+            {
+                CloseServiceHandle( hService );
+            }
 
-        if( NULL != hScControl )
-        {
-            CloseServiceHandle( hScControl );
+            if( NULL != hScControl )
+            {
+                CloseServiceHandle( hScControl );
+            }
         }
 
         if( !rpal_file_delete( driverPath, FALSE ) )
