@@ -237,17 +237,23 @@ RBOOL
     RCHAR strSeDebug[] = "SeDebugPrivilege";
     RCHAR strSeBackup[] = "SeBackupPrivilege";
     RCHAR strSeRestore[] = "SeRestorePrivilege";
+
+    isSuccess = TRUE;
+
     if( !WindowsGetPrivilege( strSeDebug ) )
     {
         rpal_debug_warning( "error getting SeDebugPrivilege" );
+        isSuccess = FALSE;
     }
     if( !WindowsGetPrivilege( strSeBackup ) )
     {
         rpal_debug_warning( "error getting SeBackupPrivilege" );
+        isSuccess = FALSE;
     }
     if( !WindowsGetPrivilege( strSeRestore ) )
     {
         rpal_debug_warning( "error getting SeRestorePrivilege" );
+        isSuccess = FALSE;
     }
 #elif defined( RPAL_PLATFORM_LINUX )
     
