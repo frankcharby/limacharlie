@@ -144,6 +144,7 @@ RBOOL
                     opInfo.pFrom = tmpPath;
                     ENABLE_FLAG( opInfo.fFlags, FOF_NOCONFIRMATION );
                     ENABLE_FLAG( opInfo.fFlags, FOF_SILENT );
+
                     if( 0 == SHFileOperationW( &opInfo ) )
                     {
                         isDeleted = TRUE;
@@ -286,14 +287,17 @@ RBOOL
         if( rpal_string_expand( filePath, &expFilePath ) )
         {
 #ifdef RPAL_PLATFORM_WINDOWS
+            HANDLE hFind = NULL;
 
-            if( INVALID_HANDLE_VALUE == FindFirstFileW( expFilePath, &findData ) )
+            if( INVALID_HANDLE_VALUE == ( hFind = FindFirstFileW( expFilePath, &findData ) ) )
             {
                 rpal_memory_free( expFilePath );
                 return FALSE;
             }
             else
             {
+                FindClose( hFind );
+
                 pFileInfo->attributes = 0;
 
                 if( IS_FLAG_ENABLED( findData.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY ) )

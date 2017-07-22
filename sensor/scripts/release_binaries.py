@@ -41,16 +41,20 @@ args = parser.parse_args()
 mainBinaries = [
     ( 'sensor/bin/macosx/*/x86_64/debug/rpHostCommonPlatformExe', 'hcp_osx_x64_debug_%s' ),
     ( 'sensor/bin/macosx/*/x86_64/release/rpHostCommonPlatformExe', 'hcp_osx_x64_release_%s' ),
-    ( 'sensor/bin/ubuntu/*/x86_64/debug/rpHostCommonPlatformExe', 'hcp_ubuntu_x64_debug_%s' ),
-    ( 'sensor/bin/ubuntu/*/x86_64/release/rpHostCommonPlatformExe', 'hcp_ubuntu_x64_release_%s' ),
+    ( 'sensor/bin/ubuntu/*/x86_64/debug/rpHostCommonPlatformExe', 'hcp_linux_x64_debug_%s' ),
+    ( 'sensor/bin/ubuntu/*/x86_64/release/rpHostCommonPlatformExe', 'hcp_linux_x64_release_%s' ),
+    ( 'sensor/bin/centos/*/x86_64/debug/rpHostCommonPlatformExe', 'hcp_linux_x64_debug_%s' ),
+    ( 'sensor/bin/centos/*/x86_64/release/rpHostCommonPlatformExe', 'hcp_linux_x64_release_%s' ),
     ( 'sensor/bin/windows/Win32/Debug/rphcp.exe', 'hcp_win_x86_debug_%s.exe' ),
     ( 'sensor/bin/windows/Win32/Release/rphcp.exe', 'hcp_win_x86_release_%s.exe' ),
     ( 'sensor/bin/windows/x64/Debug/rphcp.exe', 'hcp_win_x64_debug_%s.exe' ),
     ( 'sensor/bin/windows/x64/Release/rphcp.exe', 'hcp_win_x64_release_%s.exe' ),
     ( 'sensor/bin/macosx/*/x86_64/debug/librpHCP_HostBasedSensor.dylib', 'hbs_osx_x64_debug_%s.dylib' ),
     ( 'sensor/bin/macosx/*/x86_64/release/librpHCP_HostBasedSensor.dylib', 'hbs_osx_x64_release_%s.dylib' ),
-    ( 'sensor/bin/ubuntu/*/x86_64/debug/librpHCP_HostBasedSensor.so', 'hbs_ubuntu_x64_debug_%s.so' ),
-    ( 'sensor/bin/ubuntu/*/x86_64/release/librpHCP_HostBasedSensor.so', 'hbs_ubuntu_x64_release_%s.so' ),
+    ( 'sensor/bin/ubuntu/*/x86_64/debug/librpHCP_HostBasedSensor.so', 'hbs_linux_x64_debug_%s.so' ),
+    ( 'sensor/bin/ubuntu/*/x86_64/release/librpHCP_HostBasedSensor.so', 'hbs_linux_x64_release_%s.so' ),
+    ( 'sensor/bin/centos/*/x86_64/debug/librpHCP_HostBasedSensor.so', 'hbs_linux_x64_debug_%s.so' ),
+    ( 'sensor/bin/centos/*/x86_64/release/librpHCP_HostBasedSensor.so', 'hbs_linux_x64_release_%s.so' ),
     ( 'sensor/bin/windows/Win32/Debug/rpHCP_HostBasedSensor.dll', 'hbs_win_x86_debug_%s.dll' ),
     ( 'sensor/bin/windows/Win32/Release/rpHCP_HostBasedSensor.dll', 'hbs_win_x86_release_%s.dll' ),
     ( 'sensor/bin/windows/x64/Debug/rpHCP_HostBasedSensor.dll', 'hbs_win_x64_debug_%s.dll' ),
@@ -71,7 +75,8 @@ for sources, destination in mainBinaries:
         print( "Copying %s -> %s" % ( file, dest ) )
         try:
             shutil.copyfile( file, dest )
-        except e:
+        except:
+            e = sys.exc_info()[0]
             print( "ERROR: %s" % e )
             ret = 1
 

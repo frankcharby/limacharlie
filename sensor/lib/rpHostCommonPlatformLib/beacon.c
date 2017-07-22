@@ -28,6 +28,7 @@ limitations under the License.
 #include "crashHandling.h"
 #include <networkLib/networkLib.h>
 #include "git_info.h"
+#include <processLib/processLib.h>
 
 #include <mbedtls/net.h>
 #include <mbedtls/ssl.h>
@@ -50,6 +51,12 @@ limitations under the License.
 #define TLS_CONNECT_TIMEOUT (30)
 #define TLS_SEND_TIMEOUT    (60 * 1)
 #define TLS_RECV_TIMEOUT    (60 * 1)
+
+#ifdef HCP_NO_TLS_VALIDATION
+#define _SSL_VALIDATION_FLAG    MBEDTLS_SSL_VERIFY_OPTIONAL
+#else
+#define _SSL_VALIDATION_FLAG    MBEDTLS_SSL_VERIFY_REQUIRED
+#endif
 
 RPRIVATE
 struct
@@ -384,6 +391,8 @@ rList
     RPU8 crashContext = NULL;
     RU32 crashContextSize = 0;
     RU8 defaultCrashContext = 1;
+    RPNCHAR currentPath = NULL;
+    CryptoLib_Hash currentHash = { 0 };
 
     if( NULL != ( wrapper = rList_new( RP_TAGS_MESSAGE, RPCM_SEQUENCE ) ) )
     {
@@ -438,13 +447,32 @@ rList
                     0 != g_hcpContext.enrollmentTokenSize )
                 {
                     rSequence_addBUFFER( headers,
-                        RP_TAGS_HCP_ENROLLMENT_TOKEN,
-                        g_hcpContext.enrollmentToken,
-                        g_hcpContext.enrollmentTokenSize );
+                                         RP_TAGS_HCP_ENROLLMENT_TOKEN,
+                                         g_hcpContext.enrollmentToken,
+                                         g_hcpContext.enrollmentTokenSize );
                 }
 
                 // The current version running.
                 rSequence_addRU32( headers, RP_TAGS_PACKAGE_VERSION, GIT_REVISION );
+
+                // Get the hash of the current module.
+                if( NULL != ( currentPath = processLib_getCurrentModulePath() ) )
+                {
+                    if( CryptoLib_hashFile( currentPath, &currentHash, FALSE ) )
+                    {
+                        rSequence_addBUFFER( headers, RP_TAGS_HASH, (RPU8)&currentHash, sizeof( currentHash ) );
+                    }
+                    else
+                    {
+                        rpal_debug_warning( "could not get current HCP hash." );
+                    }
+
+                    rpal_memory_free( currentPath );
+                }
+                else
+                {
+                    rpal_debug_warning( "could not get current HCP path." );
+                }
             }
             else
             {
@@ -681,7 +709,7 @@ RU32
                                                                       MBEDTLS_SSL_TRANSPORT_STREAM,
                                                                       MBEDTLS_SSL_PRESET_DEFAULT ) ) )
                     {
-                        mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, MBEDTLS_SSL_VERIFY_REQUIRED );
+                        mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, _SSL_VALIDATION_FLAG );
                         mbedtls_ssl_conf_ca_chain( &g_tlsConnection.conf, &g_tlsConnection.cacert, NULL );
                         mbedtls_ssl_conf_rng( &g_tlsConnection.conf, mbedtls_ctr_drbg_random, &g_tlsConnection.ctr_drbg );
 
@@ -706,15 +734,19 @@ RU32
 
                             if( 0 == mbedRet )
                             {
+#ifndef HCP_NO_TLS_VALIDATION
                                 if( 0 == ( mbedRet = mbedtls_ssl_get_verify_result( &g_tlsConnection.ssl ) ) )
                                 {
+#endif
                                     isHandshakeComplete = TRUE;
                                     rpal_debug_info( "TLS handshake complete." );
+#ifndef HCP_NO_TLS_VALIDATION
                                 }
                                 else
                                 {
                                     rpal_debug_error( "failed to validate remote certificate: %d", mbedRet );
                                 }
+#endif
                             }
                             else
                             {

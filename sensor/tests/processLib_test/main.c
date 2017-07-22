@@ -262,35 +262,55 @@ void
     RU32 nHandles = 0;
     RU32 nNamedHandles = 0;
     RPNCHAR handleName = NULL;
+    processLibProcEntry* tmpProcesses = NULL;
+    RU32 i = 0;
 
-    handles = processLib_getHandles( 0, FALSE, NULL );
-
-    CU_ASSERT_PTR_NOT_EQUAL_FATAL( handles, NULL );
-
-    while( rList_getSEQUENCE( handles, RP_TAGS_HANDLE_INFO, &handle ) )
+    // Look for a process to analyze.
+    if( NULL != ( tmpProcesses = processLib_getProcessEntries( FALSE ) ) )
     {
-        nHandles++;
+        while( 0 != tmpProcesses[ i ].pid )
+        {
+            nHandles = 0;
+            nNamedHandles = 0;
+
+            if( NULL != ( handles = processLib_getHandles( tmpProcesses[ i ].pid, FALSE, NULL ) ) )
+            {
+                while( rList_getSEQUENCE( handles, RP_TAGS_HANDLE_INFO, &handle ) )
+                {
+                    nHandles++;
+                }
+
+                rList_free( handles );
+            }
+
+            if( 0 != nHandles )
+            {
+                if( NULL != ( handles = processLib_getHandles( tmpProcesses[ i ].pid, TRUE, NULL ) ) )
+                {
+                    while( rList_getSEQUENCE( handles, RP_TAGS_HANDLE_INFO, &handle ) )
+                    {
+                        nNamedHandles++;
+
+                        CU_ASSERT_TRUE( rSequence_getSTRINGN( handle, RP_TAGS_HANDLE_NAME, &handleName ) );
+                        CU_ASSERT_TRUE( 0 != rpal_string_strlen( handleName ) );
+                    }
+
+                    rList_free( handles );
+                }
+
+                CU_ASSERT_TRUE( 10 < nHandles );
+                CU_ASSERT_TRUE( nNamedHandles < nHandles );
+                break;
+            }
+
+            i++;
+        }
+
+        rpal_memory_free( tmpProcesses );
     }
 
-    CU_ASSERT_TRUE( 100 < nHandles );
-
-    rList_free( handles );
-
-    handles = processLib_getHandles( 0, TRUE, NULL );
-
-    CU_ASSERT_PTR_NOT_EQUAL_FATAL( handles, NULL );
-
-    while( rList_getSEQUENCE( handles, RP_TAGS_HANDLE_INFO, &handle ) )
-    {
-        nNamedHandles++;
-
-        CU_ASSERT_TRUE( rSequence_getSTRINGN( handle, RP_TAGS_HANDLE_NAME, &handleName ) );
-        CU_ASSERT_TRUE( 0 != rpal_string_strlen( handleName ) );
-    }
-
-    CU_ASSERT_TRUE( nNamedHandles < nHandles );
-
-    rList_free( handles );
+    CU_ASSERT_TRUE( 0 != nHandles );
+    CU_ASSERT_TRUE( 0 != nNamedHandles );
 #else
     CU_ASSERT_EQUAL( processLib_getHandles( 0, FALSE, NULL ), NULL );
 #endif
@@ -319,7 +339,7 @@ int
     {
         if( CUE_SUCCESS == ( error = CU_initialize_registry() ) )
         {
-            if( NULL != ( suite = CU_add_suite( "raptd", NULL, NULL ) ) )
+            if( NULL != ( suite = CU_add_suite( "processLib", NULL, NULL ) ) )
             {
                 if( NULL == CU_add_test( suite, "procEntries", test_procEntries ) ||
                     NULL == CU_add_test( suite, "processInfo", test_processInfo ) ||

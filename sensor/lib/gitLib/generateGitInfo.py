@@ -25,7 +25,7 @@ p = subprocess.Popen(
     )
 rev_data, _ = p.communicate()
 
-if len( rev_data ) != 7:
+if len( rev_data ) != 7 and len( rev_data ) != 8:
     print "GIT Revision does not seem valid: %s" % rev_data
     sys.exit(1)
 git_revision = rev_data

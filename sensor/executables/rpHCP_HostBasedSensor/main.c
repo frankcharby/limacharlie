@@ -237,17 +237,23 @@ RBOOL
     RCHAR strSeDebug[] = "SeDebugPrivilege";
     RCHAR strSeBackup[] = "SeBackupPrivilege";
     RCHAR strSeRestore[] = "SeRestorePrivilege";
+
+    isSuccess = TRUE;
+
     if( !WindowsGetPrivilege( strSeDebug ) )
     {
         rpal_debug_warning( "error getting SeDebugPrivilege" );
+        isSuccess = FALSE;
     }
     if( !WindowsGetPrivilege( strSeBackup ) )
     {
         rpal_debug_warning( "error getting SeBackupPrivilege" );
+        isSuccess = FALSE;
     }
     if( !WindowsGetPrivilege( strSeRestore ) )
     {
         rpal_debug_warning( "error getting SeRestorePrivilege" );
+        isSuccess = FALSE;
     }
 #elif defined( RPAL_PLATFORM_LINUX )
     
@@ -440,7 +446,6 @@ RBOOL
 
 RPRIVATE
 RPVOID
-RPAL_THREAD_FUNC
     issueSync
     (
         rEvent isTimeToStop,
@@ -1105,6 +1110,8 @@ RPAL_THREAD_FUNC
         rSequence testConfig = NULL;
         RU32 i = 0;
 
+        rpal_debug_info( "power on self test begins" );
+
         if( NULL != ( testEvent = rSequence_new() ) )
         {
             if( NULL != ( testConfigs = rList_new( RP_TAGS_HBS_CONFIGURATION, RPCM_SEQUENCE ) ) )
@@ -1134,6 +1141,8 @@ RPAL_THREAD_FUNC
 
             rSequence_free( testEvent );
         }
+
+        rpal_debug_info( "power on self test ends" );
     }
 #endif
 

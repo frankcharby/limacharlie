@@ -237,7 +237,7 @@ void test_SerialiseAndDeserialise(void)
     // Fuzz the deserialization function.
     for( garbageLoops = garbageLoops; 0 != garbageLoops; garbageLoops-- )
     {
-        garbageSize = ( rpal_rand() % garbageMaxSize ) + 1;
+        garbageSize = ( rpal_rand() % garbageMaxSize ) + 128;
         garbage = rpal_memory_alloc( garbageSize );
         CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
         CU_ASSERT_TRUE( CryptoLib_genRandomBytes( garbage, garbageSize ) );
@@ -465,7 +465,11 @@ void test_EstimateSize( void )
     CU_ASSERT_TRUE( rSequence_addLIST( seq, 66, list ) );
 
 #ifdef RPAL_PLATFORM_WINDOWS
+#ifdef RPAL_PLATFORM_32_BIT
+    CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 100 );
+#else
     CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 112 );
+#endif
 #else
     CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 120 );
 #endif

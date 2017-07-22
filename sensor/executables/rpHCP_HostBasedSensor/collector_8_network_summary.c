@@ -101,7 +101,8 @@ RBOOL
 
     if( NULL != pActivity )
     {
-        if( NULL != pActivity->net )
+        if( NULL != pActivity->net &&
+            0 != rList_getNumElements( pActivity->net ) )
         {
             if( NULL == pActivity->proc )
             {

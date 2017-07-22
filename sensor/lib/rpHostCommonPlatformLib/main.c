@@ -492,7 +492,7 @@ RBOOL
                             {
                                 g_hcpContext.modules[ moduleIndex ].isOsLoaded = TRUE;
                                 isSuccess = TRUE;
-                                rpal_debug_info( "module %S successfully loaded manually.", modulePath );
+                                rpal_debug_info( "module " RF_STR_N " successfully loaded manually.", modulePath );
                             }
                         }
                     }
@@ -512,7 +512,7 @@ RBOOL
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
                     errorStr = dlerror();
 #endif
-                    rpal_debug_error( "Could not manually load module %S: %X %s", 
+                    rpal_debug_error( "Could not manually load module " RF_STR_N": %X %s", 
                                       modulePath, 
                                       rpal_error_getLast(), 
                                       errorStr );
@@ -522,7 +522,7 @@ RBOOL
             }
         }
     }
-    //forceCrash();
+
     return isSuccess;
 }
 

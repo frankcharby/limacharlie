@@ -32,7 +32,12 @@ limitations under the License.
 #endif
 #endif
 
-static rEvent g_timeToQuit = NULL;
+RPRIVATE rEvent g_timeToQuit = NULL;
+RPRIVATE struct
+{
+    RU32 nMod;
+    RPNCHAR modPath;
+} g_manual_loads[ 10 ] = { 0 };
 
 
 
@@ -131,8 +136,6 @@ static SERVICE_STATUS g_svc_status = { 0 };
 static SERVICE_STATUS_HANDLE g_svc_status_handle = NULL;
 static RPNCHAR g_svc_primary = NULL;
 static RPNCHAR g_svc_secondary = NULL;
-static RPNCHAR g_svc_mod = NULL;
-static RU32 g_svc_mod_id = 0;
 
 static
 RU32
@@ -355,6 +358,7 @@ VOID WINAPI
 {
     RU32 memUsed = 0;
     RWCHAR svcName[] = { _SERVICE_NAME };
+    RU32 i = 0;
 
     UNREFERENCED_PARAMETER( dwArgc );
     UNREFERENCED_PARAMETER( lpszArgv );
@@ -390,12 +394,28 @@ VOID WINAPI
         rpal_debug_warning( "error launching hcp." );
     }
 
-    if( NULL != g_svc_mod )
+    for( i = 0; i < ARRAY_N_ELEM( g_manual_loads ); i++ )
     {
+        if( NULL != g_manual_loads[ i ].modPath )
+        {
+            if( 0 != g_manual_loads[ i ].nMod )
+            {
 #ifdef HCP_EXE_ENABLE_MANUAL_LOAD
-        rpHostCommonPlatformLib_load( g_svc_mod, g_svc_mod_id );
+                rpHostCommonPlatformLib_load( g_manual_loads[ i ].modPath, g_manual_loads[ i ].nMod );
 #endif
-        rpal_memory_free( g_svc_mod );
+            }
+            else
+            {
+                rpal_debug_error( "Mismatched number of -m modulePath and -n moduleId statements provided!" );
+            }
+
+            rpal_memory_free( g_manual_loads[ i ].modPath );
+            g_manual_loads[ i ].modPath = NULL;
+        }
+        else
+        {
+            break;
+        }
     }
 
     g_svc_status.dwControlsAccepted = SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN;
@@ -407,11 +427,6 @@ VOID WINAPI
     rpal_debug_info( "...running, waiting to exit..." );
     rEvent_wait( g_timeToQuit, RINFINITE );
     rEvent_free( g_timeToQuit );
-
-    if( rpal_memory_isValid( g_svc_mod ) )
-    {
-        rpal_memory_free( g_svc_mod );
-    }
 
     rpal_debug_info( "...exiting..." );
     rpal_Context_cleanup();
@@ -578,6 +593,7 @@ RPAL_NATIVE_MAIN
     RPNCHAR secondary = NULL;
     RPNCHAR tmpMod = NULL;
     RU32 tmpModId = 0;
+    RU32 i = 0;
     RU32 memUsed = 0;
     RBOOL asService = FALSE;
     RBOOL isArgumentsSpecified = FALSE;
@@ -607,23 +623,47 @@ RPAL_NATIVE_MAIN
             {
                 case _NC( 'p' ):
                     primary = argVal;
-                    rpal_debug_info( "Setting primary URL: %s.", primary );
+                    rpal_debug_info( "Setting primary URL: " RF_STR_N ".", primary );
                     isArgumentsSpecified = TRUE;
                     break;
                 case _NC( 's' ):
                     secondary = argVal;
-                    rpal_debug_info( "Setting secondary URL: %s.", secondary );
+                    rpal_debug_info( "Setting secondary URL: " RF_STR_N ".", secondary );
                     isArgumentsSpecified = TRUE;
                     break;
                 case _NC( 'm' ):
                     tmpMod = rpal_string_strdup( argVal );
-                    rpal_debug_info( "Manually loading module: %s.", argVal );
+                    rpal_debug_info( "Manually loading module: " RF_STR_N ".", argVal );
+                    for( i = 0; i < ARRAY_N_ELEM( g_manual_loads ); i++ )
+                    {
+                        if( NULL == g_manual_loads[ i ].modPath )
+                        {
+                            g_manual_loads[ i ].modPath = tmpMod;
+                            break;
+                        }
+                    }
+                    if( i >= ARRAY_N_ELEM( g_manual_loads ) )
+                    {
+                        rpal_debug_error( "Too many manual loads specified, ignoring, max: %d", ARRAY_N_ELEM( g_manual_loads ) );
+                    }
                     isArgumentsSpecified = TRUE;
                     break;
                 case _NC( 'n' ):
                     if( rpal_string_stoi( argVal, &tmpModId ) )
                     {
-                        rpal_debug_info( "Manually loaded module id is: %d", tmpModId );
+                        rpal_debug_info( "Manually loading module id is: %d", tmpModId );
+                        for( i = 0; i < ARRAY_N_ELEM( g_manual_loads ); i++ )
+                        {
+                            if( 0 == g_manual_loads[ i ].nMod )
+                            {
+                                g_manual_loads[ i ].nMod = tmpModId;
+                                break;
+                            }
+                        }
+                        if( i >= ARRAY_N_ELEM( g_manual_loads ) )
+                        {
+                            rpal_debug_error( "Too many manual loads specified, ignoring, max: %d", ARRAY_N_ELEM( g_manual_loads ) );
+                        }
                     }
                     else
                     {
@@ -653,7 +693,7 @@ RPAL_NATIVE_MAIN
                 case _NC( 'h' ):
                 default:
 #ifdef RPAL_PLATFORM_DEBUG
-                    printf( "Usage: %s [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].\n", argv[ 0 ] );
+                    printf( "Usage: " RF_STR_N " [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].\n", argv[ 0 ] );
                     printf( "-p: primary Url used to communicate home.\n" );
                     printf( "-s: secondary Url used to communicate home if the primary failed.\n" );
                     printf( "-m: module to be loaded manually, only available in debug builds.\n" );
@@ -687,8 +727,7 @@ RPAL_NATIVE_MAIN
 
             g_svc_primary = primary;
             g_svc_secondary = secondary;
-            g_svc_mod = tmpMod;
-            g_svc_mod_id = tmpModId;
+
             if( !StartServiceCtrlDispatcherW( DispatchTable ) )
             {
                 return GetLastError();
@@ -763,13 +802,26 @@ RPAL_NATIVE_MAIN
             return -1;
         }
 #endif
-
-        if( NULL != tmpMod )
+        for( i = 0; i < ARRAY_N_ELEM( g_manual_loads ); i++ )
         {
+            if( NULL != g_manual_loads[ i ].modPath )
+            {
+                if( 0 != g_manual_loads[ i ].nMod )
+                {
 #ifdef HCP_EXE_ENABLE_MANUAL_LOAD
-            rpHostCommonPlatformLib_load( tmpMod, tmpModId );
+                    rpHostCommonPlatformLib_load( g_manual_loads[ i ].modPath, g_manual_loads[ i ].nMod );
 #endif
-            rpal_memory_free( tmpMod );
+                }
+                else
+                {
+                    rpal_debug_error( "Mismatched number of -m modulePath and -n moduleId statements provided!" );
+                }
+                rpal_memory_free( g_manual_loads[ i ].modPath );
+            }
+            else
+            {
+                break;
+            }
         }
 
         rpal_debug_info( "...running, waiting to exit..." );

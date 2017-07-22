@@ -847,6 +847,7 @@ HBS_DECLARE_TEST( notify_process )
 
 RPRIVATE
 RU32
+RPAL_THREAD_FUNC
     _threadStubToThreadPool
     (
         rEvent isTimeToStop
@@ -863,7 +864,7 @@ HBS_DECLARE_TEST( um_diff_thread )
     rQueue notifQueue = NULL;
 #ifdef RPAL_PLATFORM_WINDOWS
     //RPNCHAR spawnCmd[] = { _NC( "ping 1.1.1.1 -n 5 -w 1000" ) };
-    RCHAR spawnCmd[] = "c:\\windows\\system32\\ping.exe 1.1.1.1 -n 2 -w 1000";
+    RCHAR spawnCmd[] = "c:\\windows\\system32\\ping.exe 1.1.1.1 -n 5 -w 1000";
     RNCHAR cmdMarker[] = _NC( "ping" );
     RU32 expectedRet = 1;
 #else
@@ -878,7 +879,8 @@ HBS_DECLARE_TEST( um_diff_thread )
     RPNCHAR tmpPath = NULL;
     RU32 targetPid = 0;
     RU32 pid = 0;
-    RBOOL isTargetFound = FALSE;
+    RBOOL isTargetFoundStart = FALSE;
+    RBOOL isTargetFoundStop = FALSE;
 
     HBS_ASSERT_TRUE( rQueue_create( &notifQueue, rSequence_freeWithSize, 10 ) );
 
@@ -887,14 +889,14 @@ HBS_DECLARE_TEST( um_diff_thread )
     HBS_ASSERT_TRUE( notifications_subscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, 0, notifQueue, NULL ) );
 
     dummyStop = rEvent_create( TRUE );
-    hThread = rpal_thread_new( (rpal_thread_func)_threadStubToThreadPool, dummyStop );
+    hThread = rpal_thread_new( _threadStubToThreadPool, dummyStop );
     HBS_ASSERT_TRUE( NULL != hThread );
     rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
 
     // Spawn a process
     HBS_ASSERT_TRUE( expectedRet == ( ret = system( (RPCHAR)spawnCmd ) ) );
 
-    rpal_thread_sleep( MSEC_FROM_SEC( 10 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 20 ) );
     rEvent_set( dummyStop );
     rpal_thread_wait( hThread, RINFINITE );
     rEvent_free( dummyStop );
@@ -905,7 +907,8 @@ HBS_DECLARE_TEST( um_diff_thread )
     HBS_ASSERT_TRUE( 2 <= size );   // We check for greater since some unrelated process could have started too...
 
     // We make sure the sleeps are in the notifications as expected.
-    while( !isTargetFound &&
+    while( !( isTargetFoundStart &&
+              isTargetFoundStop ) &&
            rQueue_remove( notifQueue, &notif, NULL, 0 ) )
     {
         // We look for the process starting up and record the pid.
@@ -919,6 +922,7 @@ HBS_DECLARE_TEST( um_diff_thread )
             else
             {
                 HBS_ASSERT_TRUE( rSequence_getRU32( notif, RP_TAGS_PROCESS_ID, &targetPid ) );
+                isTargetFoundStart = TRUE;
             }
         }
         // Only process termination has no path.
@@ -928,14 +932,15 @@ HBS_DECLARE_TEST( um_diff_thread )
             // This means we've identified the target process, look for the termination
             if( pid == targetPid )
             {
-                isTargetFound = TRUE;
+                isTargetFoundStop = TRUE;
             }
         }
 
         rSequence_free( notif );
     }
 
-    HBS_ASSERT_TRUE( isTargetFound );
+    HBS_ASSERT_TRUE( isTargetFoundStart );
+    HBS_ASSERT_TRUE( isTargetFoundStop );
 
     // Teardown
     notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, notifQueue, NULL );
