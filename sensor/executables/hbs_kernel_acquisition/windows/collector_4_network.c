@@ -259,9 +259,9 @@ static NTSTATUS
             netEntry->isIncoming = FALSE;
             netEntry->srcIp.isV6 = FALSE;
             netEntry->dstIp.isV6 = FALSE;
-            netEntry->srcIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_LOCAL_ADDRESS ].value.uint32;
+            netEntry->srcIp.value.v4 = RtlUlongByteSwap( fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_LOCAL_ADDRESS ].value.uint32 );
             netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_LOCAL_PORT ].value.uint16;
-            netEntry->dstIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_REMOTE_ADDRESS ].value.uint32;
+            netEntry->dstIp.value.v4 = RtlUlongByteSwap( fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_REMOTE_ADDRESS ].value.uint32 );
             netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_REMOTE_PORT ].value.uint16;
             netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_PROTOCOL ].value.uint8;
             break;
@@ -279,9 +279,9 @@ static NTSTATUS
             netEntry->isIncoming = TRUE;
             netEntry->srcIp.isV6 = FALSE;
             netEntry->dstIp.isV6 = FALSE;
-            netEntry->dstIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_LOCAL_ADDRESS ].value.uint32;
+            netEntry->dstIp.value.v4 = RtlUlongByteSwap( fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_LOCAL_ADDRESS ].value.uint32 );
             netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_LOCAL_PORT ].value.uint16;
-            netEntry->srcIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_REMOTE_ADDRESS ].value.uint32;
+            netEntry->srcIp.value.v4 = RtlUlongByteSwap( fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_REMOTE_ADDRESS ].value.uint32 );
             netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_REMOTE_PORT ].value.uint16;
             netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_ALE_AUTH_RECV_ACCEPT_V4_IP_PROTOCOL ].value.uint8;
             break;
@@ -299,9 +299,9 @@ static NTSTATUS
             netEntry->isIncoming = FALSE; // We say it's outgoing but in reality we're not sure
             netEntry->srcIp.isV6 = FALSE;
             netEntry->dstIp.isV6 = FALSE;
-            netEntry->srcIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_LOCAL_ADDRESS ].value.uint32;
+            netEntry->srcIp.value.v4 = RtlUlongByteSwap( fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_LOCAL_ADDRESS ].value.uint32 );
             netEntry->srcPort = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_LOCAL_PORT ].value.uint16;
-            netEntry->dstIp.value.v4 = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_REMOTE_ADDRESS ].value.uint32;
+            netEntry->dstIp.value.v4 = RtlUlongByteSwap( fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_REMOTE_ADDRESS ].value.uint32 );
             netEntry->dstPort = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_REMOTE_PORT ].value.uint16;
             netEntry->proto = fixedVals->incomingValue[ FWPS_FIELD_INBOUND_TRANSPORT_V4_IP_PROTOCOL ].value.uint8;
             break;
