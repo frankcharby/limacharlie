@@ -168,6 +168,8 @@ RPVOID
             break;
         }
 
+#ifdef RPAL_PLATFORM_WINDOWS
+// Drivers are only available on Windows
         if( NULL != ( snapshot = libOs_getDrivers( TRUE ) ) )
         {
             _processSnapshot( snapshot,
@@ -183,7 +185,10 @@ RPVOID
         {
             break;
         }
+#endif
 
+#if defined( RPAL_PLATFORM_WINDOWS ) || defined( RPAL_PLATFORM_MACOSX )
+// Services are currently only available on OSX and Windows
         if( NULL != ( snapshot = libOs_getAutoruns( TRUE ) ) )
         {
             _processSnapshot( snapshot,
@@ -197,6 +202,7 @@ RPVOID
 
         rpal_debug_info( "finished updating snapshots" );
     }
+#endif
 
     FREE_AND_NULL( prevServices );
     FREE_AND_NULL( prevDrivers );
