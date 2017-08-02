@@ -201,8 +201,8 @@ RPVOID
         }
 
         rpal_debug_info( "finished updating snapshots" );
-    }
 #endif
+    }
 
     FREE_AND_NULL( prevServices );
     FREE_AND_NULL( prevDrivers );
