@@ -15,7 +15,7 @@ A free cloud hosted version of LimaCharlie is now available at [limacharlie.io](
 This is a great way to test the basic "flight-recording" features of LC without doing a deployment on premise. With a short retention it's also a great way of having a cheap safety net EDR without costly deployment, maintenance and licensing.
 
 ## Documentation
-Most of the documentation is now found on the [LC wiki](https://github.com/refractionPOINT/limacharlie/wiki).
+**Most of the documentation is now found on the [LC wiki](https://github.com/refractionPOINT/limacharlie/wiki).**
 
 [LimaCharlie Youtube channel](https://www.youtube.com/channel/UCR0GhNmc4gVcD9Uj07HS5AA) contains overview and tutorial videos.
 
@@ -35,6 +35,29 @@ and installs nothing on the host.
 Ultimately LC is meant to be a platform for the security community to experiment with, a starter kit to have the 
 endpoint monitoring you want or to the platform enabling you to try new endpoint techniques without the hassle of
 rebuilding the basics.)
+
+## Who Uses LimaCharlie?
+*If you are using LC and would like to appear here drop us a line.*
+
+### Loki Labs
+<p align="center">
+  <img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/lokilabs.png" width="200" href="https://lokilabs.io">
+</p>
+Founded by former members of the US intelligence & military community, Loki Labs' security engineers previously held elite, highly-specialized roles working in support of offensive and defensive cybersecurity efforts. As a result, the technical team possess unique training, experience, capabilities, and insight of the tools and tactics used by adversaries to gain access to targets of interest.
+<p align="center">
+  <i>"In an endless sea of endpoint agents, LC stands head-and-shoulders above competing open-source and fee-based tools at a fraction of the operating cost. LC's APT detection, threat mitigation, and interoperability are best-in-class and this is why its our agent of choice."</i>
+</p>
+
+### Jigsaw Security
+<p align="center">
+  <img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/jigsaw-security.png" width="200" href="https://www.jigsawsecurityenterprise.com">
+</p>
+
+### MalwareLab.co.uk
+Live Malware Analysis performed thinking Out of the (Sand)Box.
+<p align="center">
+  <img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/the_malware_lab.png" width="200" href="https://malwarelab.co.uk">
+</p>
 
 ## Core Values
 LIMA CHARLIE's design and implementation is based on the following core values:
