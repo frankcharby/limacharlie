@@ -41,7 +41,7 @@ rebuilding the basics.)
 
 ### Loki Labs
 <p align="center">
-  <img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/lokilabs.png" width="200" href="https://lokilabs.io">
+  <a href="https://lokilabs.io"><img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/lokilabs.png" width="200"></a>
 </p>
 Founded by former members of the US intelligence & military community, Loki Labs' security engineers previously held elite, highly-specialized roles working in support of offensive and defensive cybersecurity efforts. As a result, the technical team possess unique training, experience, capabilities, and insight of the tools and tactics used by adversaries to gain access to targets of interest.
 <p align="center">
@@ -50,13 +50,14 @@ Founded by former members of the US intelligence & military community, Loki Labs
 
 ### Jigsaw Security
 <p align="center">
-  <img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/jigsaw-security.png" width="200" href="https://www.jigsawsecurityenterprise.com">
+  <a href="https://www.jigsawsecurityenterprise.com"><img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/jigsaw-security.png" width="200"></a>
 </p>
+Jigsaw Security is as much of a concept as it is a company. Combining strategic partnerships with the right engineers to provide best in class security software, consulting, management and delivery. Our team started in DoD consulting and Military service and still serves through the development of strategic partnerships with Government and Private Sector to keep industries safe from Cyber and Physical threats and challenges.
 
 ### MalwareLab.co.uk
 Live Malware Analysis performed thinking Out of the (Sand)Box.
 <p align="center">
-  <img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/the_malware_lab.png" width="200" href="https://malwarelab.co.uk">
+  <a href="https://malwarelab.co.uk"><img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/the_malware_lab.png" width="200"></a>
 </p>
 
 ## Core Values
