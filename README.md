@@ -57,7 +57,7 @@ Jigsaw Security is as much of a concept as it is a company. Combining strategic 
 ### MalwareLab.co.uk
 Live Malware Analysis performed thinking Out of the (Sand)Box.
 <p align="center">
-  <a href="https://malwarelab.co.uk"><img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/the_malware_lab.png" width="200"></a>
+  <a href="http://malwarelab.co.uk"><img src="https://raw.github.com/refractionPOINT/limacharlie/develop/doc/users/the_malware_lab.png" width="200"></a>
 </p>
 
 ## Core Values
