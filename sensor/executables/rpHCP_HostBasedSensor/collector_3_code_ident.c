@@ -339,6 +339,31 @@ RVOID
             rSequence_free( notif );
         }
     }
+    else
+    {
+        // The code ident has already been reported, so we produce an ONGOING_IDENTITY.
+        if( NULL != ( notif = rSequence_new() ) )
+        {
+            hbs_markAsRelated( originalEvent, notif );
+            hbs_timestampEvent( notif, 0 );
+            
+            if( NULL == originalEvent &&
+                NULL != pThisAtom )
+            {
+                HbsSetParentAtom( notif, pThisAtom );
+            }
+            else if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
+            {
+                HbsSetParentAtom( notif, pAtomId );
+            }
+
+            rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&tmpInfo.info.fileHash, sizeof( tmpInfo.info.fileHash ) );
+
+            hbs_publish( RP_TAGS_NOTIFICATION_ONGOING_IDENTITY, notif );
+
+            rSequence_free( notif );
+        }
+    }
 }
 
 RPRIVATE
@@ -501,6 +526,7 @@ RVOID
 //=============================================================================
 
 rpcm_tag collector_3_events[] = { RP_TAGS_NOTIFICATION_CODE_IDENTITY,
+                                  RP_TAGS_NOTIFICATION_ONGOING_IDENTITY,
                                   0 };
 
 RBOOL
