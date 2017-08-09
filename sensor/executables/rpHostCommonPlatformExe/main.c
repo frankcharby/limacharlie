@@ -132,7 +132,11 @@ RBOOL
 
 #define _SERVICE_NAME _WCH( "rphcpsvc" )
 #define _SERVICE_NAMEW _WCH( "rphcpsvc" )
-#define _SERVICE_IDENT_FILE _NC("%SYSTEMROOT%\\system32\\hcp.dat")
+#ifdef RPAL_PLATFORM_DEBUG
+    #define _SERVICE_IDENT_FILE _NC("%SYSTEMROOT%\\system32\\hcp_debug.dat")
+#else
+    #define _SERVICE_IDENT_FILE _NC("%SYSTEMROOT%\\system32\\hcp.dat")
+#endif
 static SERVICE_STATUS g_svc_status = { 0 };
 static SERVICE_STATUS_HANDLE g_svc_status_handle = NULL;
 static RPNCHAR g_svc_primary = NULL;
