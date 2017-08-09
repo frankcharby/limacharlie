@@ -132,6 +132,7 @@ RBOOL
 
 #define _SERVICE_NAME _WCH( "rphcpsvc" )
 #define _SERVICE_NAMEW _WCH( "rphcpsvc" )
+#define _SERVICE_IDENT_FILE _NC("%SYSTEMROOT%\\system32\\hcp.dat")
 static SERVICE_STATUS g_svc_status = { 0 };
 static SERVICE_STATUS_HANDLE g_svc_status_handle = NULL;
 static RPNCHAR g_svc_primary = NULL;
@@ -227,13 +228,14 @@ static
 RU32
     uninstallService
     (
-
+        RBOOL isAlsoClean
     )
 {
     RWCHAR destPath[] = _WCH( "%SYSTEMROOT%\\system32\\rphcp.exe" );
     SC_HANDLE hScm = NULL;
     SC_HANDLE hSvc = NULL;
     RWCHAR svcName[] = { _SERVICE_NAMEW };
+    RNCHAR identPath[] = { _SERVICE_IDENT_FILE };
     SERVICE_STATUS svcStatus = { 0 };
     RU32 nRetries = 10;
 
@@ -305,6 +307,18 @@ RU32
     else
     {
         rpal_debug_error( "could not delete service executable: %d", GetLastError() );
+    }
+
+    if( isAlsoClean )
+    {
+        if( !rpal_file_delete( identPath, FALSE ) )
+        {
+            rpal_debug_warning( "failed to delete identity file from disk, not present?" );
+        }
+        else
+        {
+            rpal_debug_info( "deleted identity file from disk" );
+        }
     }
 
     return GetLastError();
@@ -454,6 +468,7 @@ VOID WINAPI
 #define _SERVICE_NAME       _NC("com.refractionpoint.rphcp")
 #define _SERVICE_DIR        _NC("/usr/local/bin/")
 #define _SERVICE_FILE       _NC("/usr/local/bin/rphcp")
+#define _SERVICE_IDENT_FILE _NC("/usr/local/hcp")
 #define _SERVICE_LOAD       _NC("launchctl load ") _SERVICE_DESC_FILE
 #define _SERVICE_START      _NC("launchctl start ") _SERVICE_NAME
 #define _SERVICE_UNLOAD     _NC("launchctl unload ") _SERVICE_DESC_FILE
@@ -555,13 +570,14 @@ static
 RU32
     uninstallService
     (
-
+        RBOOL isAlsoClean
     )
 {
     RU32 res = (RU32)-1;
 
     RNCHAR svcUnload[] = { _SERVICE_UNLOAD };
     RNCHAR svcPath[] = { _SERVICE_FILE };
+    RNCHAR identPath[] = { _SERVICE_IDENT_FILE };
 
     if( 0 != system( svcUnload ) )
     {
@@ -576,6 +592,19 @@ RU32
     {
         rpal_debug_info( "uninstalled successfully" );
         res = 0;
+    }
+
+    if( isAlsoClean )
+    {
+        if( !rpal_file_delete( identPath, FALSE ) )
+        {
+            rpal_debug_warning( "failed to delete identity file from disk, not present?" );
+            res = (RU32)-1;
+        }
+        else
+        {
+            rpal_debug_info( "deleted identity file from disk" );
+        }
     }
 
     return res;
@@ -607,11 +636,13 @@ RPAL_NATIVE_MAIN
                             ,
                             { _NC( 'i' ), _NC( "install" ), FALSE },
                             { _NC( 'r' ), _NC( "uninstall" ), FALSE },
+                            { _NC( 'c' ), _NC( "uninstall-clean" ), FALSE },
                             { _NC( 'w' ), _NC( "service" ), FALSE }
 #elif defined( RPAL_PLATFORM_MACOSX )
                             ,
                             { _NC( 'i' ), _NC( "install" ), FALSE },
-                            { _NC( 'r' ), _NC( "uninstall" ), FALSE }
+                            { _NC( 'r' ), _NC( "uninstall" ), FALSE },
+                            { _NC( 'c' ), _NC( "uninstall-clean" ), FALSE }
 #endif
                           };
 
@@ -676,7 +707,10 @@ RPAL_NATIVE_MAIN
                     return installService();
                     break;
                 case _NC( 'r' ):
-                    return uninstallService();
+                    return uninstallService( FALSE );
+                    break;
+                case _NC( 'c' ):
+                    return uninstallService( TRUE );
                     break;
                 case _NC( 'w' ):
                     asService = TRUE;
@@ -687,7 +721,10 @@ RPAL_NATIVE_MAIN
                     return installService();
                     break;
                 case _NC( 'r' ):
-                    return uninstallService();
+                    return uninstallService( FALSE );
+                    break;
+                case _NC( 'c' ):
+                    return uninstallService( TRUE );
                     break;
 #endif
                 case _NC( 'h' ):
