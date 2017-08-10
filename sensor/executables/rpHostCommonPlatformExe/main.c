@@ -141,6 +141,7 @@ static SERVICE_STATUS g_svc_status = { 0 };
 static SERVICE_STATUS_HANDLE g_svc_status_handle = NULL;
 static RPNCHAR g_svc_primary = NULL;
 static RPNCHAR g_svc_secondary = NULL;
+static RPNCHAR g_svc_deployment = NULL;
 
 static
 RU32
@@ -407,7 +408,7 @@ VOID WINAPI
     }
 
     rpal_debug_info( "initialising rpHCP." );
-    if( !rpHostCommonPlatformLib_launch( g_svc_primary, g_svc_secondary ) )
+    if( !rpHostCommonPlatformLib_launch( g_svc_primary, g_svc_secondary, g_svc_deployment ) )
     {
         rpal_debug_warning( "error launching hcp." );
     }
@@ -624,6 +625,7 @@ RPAL_NATIVE_MAIN
     RPNCHAR argVal = NULL;
     RPNCHAR primary = NULL;
     RPNCHAR secondary = NULL;
+    RPNCHAR deployment = NULL;
     RPNCHAR tmpMod = NULL;
     RU32 tmpModId = 0;
     RU32 i = 0;
@@ -635,7 +637,8 @@ RPAL_NATIVE_MAIN
                             { _NC( 'p' ), _NC( "primary" ), TRUE },
                             { _NC( 's' ), _NC( "secondary" ), TRUE },
                             { _NC( 'm' ), _NC( "manual" ), TRUE },
-                            { _NC( 'n' ), _NC( "moduleId" ), TRUE }
+                            { _NC( 'n' ), _NC( "moduleId" ), TRUE },
+                            { _NC( 'd' ), _NC( "deployment" ), TRUE }
 #ifdef RPAL_PLATFORM_WINDOWS
                             ,
                             { _NC( 'i' ), _NC( "install" ), FALSE },
@@ -706,6 +709,11 @@ RPAL_NATIVE_MAIN
                     }
                     isArgumentsSpecified = TRUE;
                     break;
+                case _NC( 'd' ):
+                    deployment = argVal;
+                    rpal_debug_info( "Deployment info: " RF_STR_N ".", deployment );
+                    isArgumentsSpecified = TRUE;
+                    break;
 #ifdef RPAL_PLATFORM_WINDOWS
                 case _NC( 'i' ):
                     return installService();
@@ -768,6 +776,7 @@ RPAL_NATIVE_MAIN
 
             g_svc_primary = primary;
             g_svc_secondary = secondary;
+            g_svc_deployment = deployment;
 
             if( !StartServiceCtrlDispatcherW( DispatchTable ) )
             {
@@ -819,7 +828,7 @@ RPAL_NATIVE_MAIN
 #endif
 
         rpal_debug_info( "initialising rpHCP." );
-        if( !rpHostCommonPlatformLib_launch( primary, secondary ) )
+        if( !rpHostCommonPlatformLib_launch( primary, secondary, deployment ) )
         {
             rpal_debug_warning( "error launching hcp." );
         }

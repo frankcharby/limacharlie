@@ -77,6 +77,10 @@ typedef struct
     RU16 primaryPort;
     RPCHAR secondaryUrl;
     RU16 secondaryPort;
+    RBOOL isDoReconnect;
+
+    // Bootstrap information
+    rSequence deploymentBootstrap;
 
     // Current Connection
     rEvent isCloudOnline;

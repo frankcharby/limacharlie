@@ -26,6 +26,7 @@ limitations under the License.
 #define RP_HCP_COMMAND_SET_GLOBAL_TIME      0x04
 #define RP_HCP_COMMAND_QUIT                 0x05
 #define RP_HCP_COMMAND_UPGRADE              0x06
+#define RP_HCP_COMMAND_SET_HCP_CONF         0x07
 
 
 RBOOL
@@ -36,6 +37,19 @@ RBOOL
 
 RBOOL
     stopAllModules
+    (
+
+    );
+
+RBOOL
+    applyConfigStore
+    (
+        rSequence seq,
+        RBOOL isSkipCurrentId
+    );
+
+RBOOL
+    doQuitHcp
     (
 
     );

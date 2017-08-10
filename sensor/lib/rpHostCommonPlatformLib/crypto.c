@@ -20,40 +20,6 @@ limitations under the License.
 
 #include "deployments.h"
 
-RPRIVATE RU8 dev_c2_public_key[] = {"-----BEGIN CERTIFICATE-----\n\
-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\n\
------END CERTIFICATE-----\n"};
-
-
 RPRIVATE RU8 dev_root_public_key[] = {
     0x30, 0x82, 0x01, 0x22, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86,
     0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00, 0x03, 0x82, 0x01, 0x0f, 0x00,
@@ -92,6 +58,11 @@ RVOID
         RPU8 key
     )
 {
+    if( NULL != prod_c2_public_key )
+    {
+        rpal_memory_free( prod_c2_public_key );
+    }
+
     prod_c2_public_key = key;
 }
 
@@ -101,6 +72,11 @@ RVOID
         RPU8 key
     )
 {
+    if( NULL != prod_root_public_key )
+    {
+        rpal_memory_free( prod_root_public_key );
+    }
+
     prod_root_public_key = key;
 }
 
@@ -128,18 +104,7 @@ RPU8
 
     )
 {
-    RPU8 pubKey = NULL;
-
-    if( NULL != prod_c2_public_key )
-    {
-        pubKey = prod_c2_public_key;
-    }
-    else
-    {
-        pubKey = dev_c2_public_key;
-    }
-
-    return pubKey;
+    return prod_c2_public_key;
 }
 
 

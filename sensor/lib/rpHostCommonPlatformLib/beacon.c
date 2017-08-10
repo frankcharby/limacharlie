@@ -423,6 +423,21 @@ rList
                     setCrashContext( &defaultCrashContext, sizeof( defaultCrashContext ) );
                 }
 
+                // If we have no c2 key but we have a deployment bootstrap, then it means
+                // we will try to enroll. We do this by setting the installer id.
+                if( NULL == getC2PublicKey() &&
+                    NULL != g_hcpContext.deploymentBootstrap )
+                {
+                    RPU8 tmpIid = NULL;
+                    RU32 tmpSize = 0;
+
+                    if( rSequence_getBUFFER( g_hcpContext.deploymentBootstrap, RP_TAGS_HCP_INSTALLER_ID, &tmpIid, &tmpSize ) &&
+                        RP_HCP_UUID_SIZE == tmpSize )
+                    {
+                        rpal_memory_memcpy( g_hcpContext.currentId.ins_id, tmpIid, tmpSize );
+                    }
+                }
+
                 // This is our identity
                 if( NULL != ( hcpId = hcpIdToSeq( g_hcpContext.currentId ) ) )
                 {
@@ -693,7 +708,13 @@ RU32
                                                     NULL,
                                                     0 ) ) )
         {
-            if( 0 == ( mbedRet = mbedtls_x509_crt_parse( &g_tlsConnection.cacert,
+            if( NULL == getC2PublicKey() )
+            {
+                rpal_debug_warning( "no c2 public key found, this is only ok if this is the first time the sensor is starting or in debugging." );
+            }
+
+            if( NULL == getC2PublicKey() ||
+                0 == ( mbedRet = mbedtls_x509_crt_parse( &g_tlsConnection.cacert,
                                                          getC2PublicKey(),
                                                          rpal_string_strlenA( (RPCHAR)getC2PublicKey() ) + 1 ) ) )
             {
@@ -710,7 +731,10 @@ RU32
                                                                       MBEDTLS_SSL_PRESET_DEFAULT ) ) )
                     {
                         mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, _SSL_VALIDATION_FLAG );
-                        mbedtls_ssl_conf_ca_chain( &g_tlsConnection.conf, &g_tlsConnection.cacert, NULL );
+                        if( NULL != getC2PublicKey() )
+                        {
+                            mbedtls_ssl_conf_ca_chain( &g_tlsConnection.conf, &g_tlsConnection.cacert, NULL );
+                        }
                         mbedtls_ssl_conf_rng( &g_tlsConnection.conf, mbedtls_ctr_drbg_random, &g_tlsConnection.ctr_drbg );
 
                         if( 0 == ( mbedRet = mbedtls_ssl_setup( &g_tlsConnection.ssl, &g_tlsConnection.conf ) ) )
@@ -734,19 +758,16 @@ RU32
 
                             if( 0 == mbedRet )
                             {
-#ifndef HCP_NO_TLS_VALIDATION
-                                if( 0 == ( mbedRet = mbedtls_ssl_get_verify_result( &g_tlsConnection.ssl ) ) )
+                                if( NULL == getC2PublicKey() ||
+                                    0 == ( mbedRet = mbedtls_ssl_get_verify_result( &g_tlsConnection.ssl ) ) )
                                 {
-#endif
                                     isHandshakeComplete = TRUE;
                                     rpal_debug_info( "TLS handshake complete." );
-#ifndef HCP_NO_TLS_VALIDATION
                                 }
                                 else
                                 {
                                     rpal_debug_error( "failed to validate remote certificate: %d", mbedRet );
                                 }
-#endif
                             }
                             else
                             {
@@ -810,7 +831,10 @@ RU32
             // Clean up all crypto primitives
             mbedtls_ssl_close_notify( &g_tlsConnection.ssl );
             mbedtls_net_free( &g_tlsConnection.server_fd );
-            mbedtls_x509_crt_free( &g_tlsConnection.cacert );
+            if( NULL != getC2PublicKey() )
+            {
+                mbedtls_x509_crt_free( &g_tlsConnection.cacert );
+            }
             mbedtls_ssl_free( &g_tlsConnection.ssl );
             mbedtls_ssl_config_free( &g_tlsConnection.conf );
             mbedtls_ctr_drbg_free( &g_tlsConnection.ctr_drbg );
@@ -847,6 +871,20 @@ RU32
                     {
                         processMessage( message );
                     }
+
+                    // If we don't have a configStore with keys for a deployment
+                    // but we have a deployment bootstrap configured, we require the first
+                    // HCP frame to come from the c2 to contain the new store, otherwise
+                    // we consider it's not a valid c2 and reconnect. This is to protect a new sensor
+                    // from contacting a rogue c2 and getting taskings from it.
+                    if( NULL == getC2PublicKey() &&
+                        NULL != g_hcpContext.deploymentBootstrap )
+                    {
+                        rpal_debug_warning( "contacted the cloud but did not receive a valid enrollment, exiting" );
+                        rList_free( messages );
+                        messages = NULL;
+                        break;
+                    }
                 }
                 else
                 {
@@ -869,15 +907,24 @@ RU32
                 }
 
                 rList_free( messages );
-            } while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, 0 ) );
+            } while( g_hcpContext.isDoReconnect ||
+                     !rEvent_wait( g_hcpContext.isBeaconTimeToStop, 0 ) );
 
             rEvent_unset( g_hcpContext.isCloudOnline );
+
+            if( g_hcpContext.isDoReconnect )
+            {
+                g_hcpContext.isDoReconnect = FALSE;
+            }
 
             if( rMutex_lock( g_tlsMutex ) )
             {
                 mbedtls_ssl_close_notify( &g_tlsConnection.ssl );
                 mbedtls_net_free( &g_tlsConnection.server_fd );
-                mbedtls_x509_crt_free( &g_tlsConnection.cacert );
+                if( NULL != getC2PublicKey() )
+                {
+                    mbedtls_x509_crt_free( &g_tlsConnection.cacert );
+                }
                 mbedtls_ssl_free( &g_tlsConnection.ssl );
                 mbedtls_ssl_config_free( &g_tlsConnection.conf );
                 mbedtls_ctr_drbg_free( &g_tlsConnection.ctr_drbg );

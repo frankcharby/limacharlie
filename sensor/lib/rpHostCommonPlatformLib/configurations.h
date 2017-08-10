@@ -29,8 +29,5 @@ limitations under the License.
 #endif
 #endif
 
-// Enabling this macro will make the TLS certification optional to be used for automated testing.
-// #define HCP_NO_TLS_VALIDATION
-
 #endif
 

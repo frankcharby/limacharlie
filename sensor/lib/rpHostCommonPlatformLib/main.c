@@ -25,6 +25,7 @@ limitations under the License.
 #include "commands.h"
 #include "crashHandling.h"
 #include "crypto.h"
+#include <mbedtls/base64.h>
 
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <dlfcn.h>
@@ -138,7 +139,7 @@ rpHCPId
 
 RPRIVATE_TESTABLE
 RBOOL
-    getStoreConf
+    getStoreConfID
     (
         RPNCHAR storePath,
         rpHCPContext* hcpContext
@@ -199,16 +200,19 @@ rSequence
 {
     RU8 magic[] = _HCP_DEFAULT_STATIC_STORE_MAGIC;
     rSequence config = NULL;
-    RU32 unused = 0;
     RU8 key[] = _HCP_DEFAULT_STATIC_STORE_KEY;
 
     if( 0 != rpal_memory_memcmp( g_patchedConfig, magic, sizeof( magic ) ) )
     {
         obfuscationLib_toggle( g_patchedConfig, sizeof( g_patchedConfig ), key, sizeof( key ) );
 
-        if( rSequence_deserialise( &config, g_patchedConfig, sizeof( g_patchedConfig ), &unused ) )
+        if( rSequence_deserialise( &config, g_patchedConfig, sizeof( g_patchedConfig ), NULL ) )
         {
             rpal_debug_info( "static store patched, using it as config" );
+        }
+        else
+        {
+            rpal_debug_warning( "statis store invalid" );
         }
 
         obfuscationLib_toggle( g_patchedConfig, sizeof( g_patchedConfig ), key, sizeof( key ) );
@@ -221,6 +225,41 @@ rSequence
     return config;
 }
 
+RPRIVATE
+rSequence
+    getLocalConfig
+    (
+
+    )
+{
+    rSequence config = NULL;
+    RPU8 storeBuffer = NULL;
+    RU32 storeBufferSize = 0;
+    RU8 key[] = _HCP_DEFAULT_STATIC_STORE_KEY;
+
+    OBFUSCATIONLIB_DECLARE( storePath, RP_HCP_CONFIG_LOCAL_STORE );
+
+    OBFUSCATIONLIB_TOGGLE( storePath );
+    if( rpal_file_read( (RPNCHAR)storePath, &storeBuffer, &storeBufferSize, FALSE ) )
+    {
+        obfuscationLib_toggle( storeBuffer, storeBufferSize, key, sizeof( key ) );
+        
+        if( rSequence_deserialise( &config, storeBuffer, storeBufferSize, NULL ) )
+        {
+            rpal_debug_info( "local store loaded, using it as config" );
+        }
+        else
+        {
+            rpal_debug_warning( "local store invalid" );
+        }
+
+        rpal_memory_free( storeBuffer );
+    }
+    OBFUSCATIONLIB_TOGGLE( storePath );
+
+    return config;
+}
+
 //=============================================================================
 //  API
 //=============================================================================
@@ -229,16 +268,15 @@ RBOOL
     rpHostCommonPlatformLib_launch
     (
         RPNCHAR primaryHomeUrl,
-        RPNCHAR secondaryHomeUrl
+        RPNCHAR secondaryHomeUrl,
+        RPNCHAR deploymentBootstrap
     )
 {
     RBOOL isInitSuccessful = FALSE;
-    rSequence staticConfig = NULL;
+    rSequence config = NULL;
+    RPU8 tmpBuffer = NULL;
     RPCHAR tmpStr = NULL;
     rSequence tmpSeq = NULL;
-    RPU8 tmpBuffer = NULL;
-    RU32 tmpSize = 0;
-    RU16 tmpPort = 0;
     
     OBFUSCATIONLIB_DECLARE( storePath, RP_HCP_CONFIG_IDENT_STORE );
 
@@ -271,43 +309,70 @@ RBOOL
             g_hcpContext.currentId = g_idTemplate;
 
             // We attempt to load some initial config from the serialized
-            // rSequence that can be patched in this binary.
-            if( NULL != ( staticConfig = getStaticConfig() ) )
+            // rSequence that can be patched in this binary. Or from the local config
+            // on disk if we have nothing patched in.
+            if( NULL != ( config = getStaticConfig() ) ||
+                NULL != ( config = getLocalConfig() ) )
             {
-                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_PRIMARY_URL, &tmpStr ) &&
-                    rSequence_getRU16( staticConfig, RP_TAGS_HCP_PRIMARY_PORT, &tmpPort ) )
+                if( !applyConfigStore( config, FALSE ) )
                 {
-                    g_hcpContext.primaryUrl = rpal_string_strdupA( tmpStr );
-                    g_hcpContext.primaryPort = tmpPort;
-                    rpal_debug_info( "loading primary url from static config" );
+                    rpal_debug_error( "failed to load config" );
                 }
 
-                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_SECONDARY_URL, &tmpStr ) &&
-                    rSequence_getRU16( staticConfig, RP_TAGS_HCP_SECONDARY_PORT, &tmpPort ) )
+                rSequence_free( config );
+            }
+            else if( NULL != deploymentBootstrap &&
+                     0 != rpal_string_strlen( deploymentBootstrap ) )
+            {
+                RSIZET tmpBufferSize = 0;
+
+                // Ok so we have bootstrap information to begin an enrollment flow.
+                if( NULL != g_hcpContext.deploymentBootstrap )
                 {
-                    g_hcpContext.secondaryUrl = rpal_string_strdupA( tmpStr );
-                    g_hcpContext.secondaryPort = tmpPort;
-                    rpal_debug_info( "loading secondary url from static config" );
-                }
-                if( rSequence_getSEQUENCE( staticConfig, RP_TAGS_HCP_IDENT, &tmpSeq ) )
-                {
-                    g_hcpContext.currentId = seqToHcpId( tmpSeq );
-                    rpal_debug_info( "loading default id from static config" );
+                    rSequence_free( g_hcpContext.deploymentBootstrap );
+                    g_hcpContext.deploymentBootstrap = NULL;
                 }
 
-                if( rSequence_getBUFFER( staticConfig, RP_TAGS_HCP_C2_PUBLIC_KEY, &tmpBuffer, &tmpSize ) )
+                if( NULL != ( tmpStr = rpal_string_ntoa( deploymentBootstrap ) ) )
                 {
-                    setC2PublicKey( rpal_memory_duplicate( tmpBuffer, tmpSize ) );
-                    rpal_debug_info( "loading c2 public key from static config" );
-                }
+                    mbedtls_base64_decode( NULL,
+                                           0,
+                                           &tmpBufferSize,
+                                           (unsigned char*)tmpStr,
+                                           rpal_string_strlenA( tmpStr ) );
 
-                if( rSequence_getBUFFER( staticConfig, RP_TAGS_HCP_ROOT_PUBLIC_KEY, &tmpBuffer, &tmpSize ) )
-                {
-                    setRootPublicKey( rpal_memory_duplicate( tmpBuffer, tmpSize ) );
-                    rpal_debug_info( "loading root public key from static config" );
-                }
+                    if( NULL != ( tmpBuffer = rpal_memory_alloc( tmpBufferSize ) ) )
+                    {
+                        if( 0 == mbedtls_base64_decode( NULL,
+                                                        tmpBufferSize,
+                                                        &tmpBufferSize,
+                                                        (unsigned char*)tmpStr,
+                                                        rpal_string_strlenA( tmpStr ) ) &&
+                            rSequence_deserialise( &tmpSeq,
+                                                   tmpBuffer,
+                                                   (RU32)tmpBufferSize,
+                                                   NULL ) )
+                        {
+                            rpal_debug_info( "deployment bootstrap information parsed" );
+                            g_hcpContext.deploymentBootstrap = tmpSeq;
+                        }
+                        else
+                        {
+                            rpal_debug_error( "deployment bootstrap information failed to parse" );
+                        }
 
-                rSequence_free( staticConfig );
+                        rpal_memory_free( tmpBuffer );
+                        tmpBuffer = NULL;
+                    }
+
+                    rpal_memory_free( tmpStr );
+                }
+            }
+            else
+            {
+                // This is bad, we don't really know where to go or what to do. Let's keep things
+                // going in the event this is for debugging.
+                rpal_debug_error( "No patched in static config, no local config and no bootstrap information, this is likely an error in configuration!" );
             }
 
             // Now we will override the defaults (if present) with command
@@ -337,8 +402,9 @@ RBOOL
             g_hcpContext.enrollmentToken = NULL;
             g_hcpContext.enrollmentTokenSize = 0;
 
+            // Load the Identification store where our HCP ID is.
             OBFUSCATIONLIB_TOGGLE( storePath );
-            getStoreConf( (RPNCHAR)storePath, &g_hcpContext );  /* Sets the agent ID platform. */
+            getStoreConfID( (RPNCHAR)storePath, &g_hcpContext );
             OBFUSCATIONLIB_TOGGLE( storePath );
 
             if( startBeacons() )
@@ -381,6 +447,7 @@ RBOOL
 
         rpal_memory_free( g_hcpContext.primaryUrl );
         rpal_memory_free( g_hcpContext.secondaryUrl );
+        rSequence_free( g_hcpContext.deploymentBootstrap );
 
         if( NULL != g_hcpContext.enrollmentToken &&
             0 != g_hcpContext.enrollmentTokenSize )

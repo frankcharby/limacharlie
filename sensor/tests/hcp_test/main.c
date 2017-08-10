@@ -338,7 +338,7 @@ void test_store_conf( void )
 
     // Do a good read write
     CU_ASSERT_FATAL( saveHcpId( tmpStore, &ident, token, sizeof( token ) ) );
-    CU_ASSERT( getStoreConf( tmpStore, &hcpContext ) ); // Platform and Arch get overwritten, that's normal
+    CU_ASSERT( getStoreConfID( tmpStore, &hcpContext ) ); // Platform and Arch get overwritten, that's normal
     CU_ASSERT_EQUAL( rpal_memory_memcmp( hcpContext.currentId.ins_id, ident.agentId.ins_id, sizeof( ident.agentId.ins_id ) ), 0 );
     CU_ASSERT_EQUAL( rpal_memory_memcmp( hcpContext.currentId.org_id, ident.agentId.org_id, sizeof( ident.agentId.org_id ) ), 0 );
     CU_ASSERT_EQUAL( rpal_memory_memcmp( hcpContext.currentId.sensor_id, ident.agentId.sensor_id, sizeof( ident.agentId.sensor_id ) ), 0 );
@@ -354,7 +354,7 @@ void test_store_conf( void )
     garbage = rpal_memory_alloc( garbageSize );
     CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
     CU_ASSERT_FATAL( rpal_file_write( tmpStore, garbage, garbageSize, TRUE ) );
-    CU_ASSERT_FALSE( getStoreConf( tmpStore, &hcpContext ) );
+    CU_ASSERT_FALSE( getStoreConfID( tmpStore, &hcpContext ) );
     CU_ASSERT_FALSE( rpal_file_getInfo( tmpStore, &info ) );
     rpal_memory_free( garbage );
 
@@ -363,8 +363,8 @@ void test_store_conf( void )
     CU_ASSERT_FALSE( saveHcpId( tmpStore, NULL, token, sizeof( token ) ) );
     CU_ASSERT_FALSE( saveHcpId( tmpStore, &ident, NULL, sizeof( token ) ) );
     CU_ASSERT_FALSE( saveHcpId( tmpStore, &ident, token, 0 ) );
-    CU_ASSERT_FALSE( getStoreConf( NULL, &hcpContext ) );
-    CU_ASSERT_FALSE( getStoreConf( tmpStore, NULL ) );
+    CU_ASSERT_FALSE( getStoreConfID( NULL, &hcpContext ) );
+    CU_ASSERT_FALSE( getStoreConfID( tmpStore, NULL ) );
 }
 
 void test_upgrade( void )
