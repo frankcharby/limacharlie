@@ -528,6 +528,9 @@ RBOOL
     mbedtls_md_context_t hmac = { 0 };
     const mbedtls_md_info_t* hmacInfo = NULL;
     RU8 hash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    RPU8 tmpSig = NULL;
+    RU32 tmpSigSize = 0;
+    RBOOL isSigningOK = FALSE;
 
     OBFUSCATIONLIB_DECLARE( store, RP_HCP_CONFIG_LOCAL_STORE );
 
@@ -547,33 +550,56 @@ RBOOL
                 0 == mbedtls_md_finish( &hmac, hash ) &&
                 0 == rpal_memory_memcmp( hash, token, sizeof( hash ) ) )
             {
-                if( rSequence_deserialise( &tmpSeq, tmpBuffer, tmpBufferSize, NULL ) )
+                // If we have a root public key, use it to verify the new config.
+                if( NULL != getRootPublicKey() )
                 {
-                    OBFUSCATIONLIB_TOGGLE( store );
-
-                    if( rpal_file_write( (RPNCHAR)store, rpal_blob_getBuffer( tmpBuffer ), rpal_blob_getSize( tmpBuffer ), TRUE ) )
+                    // If there is no signature in to check, but we have a public key we will reject.
+                    // We only trust unsigned configs if we don't have a public key (we are waiting for enrollment).
+                    if( rSequence_getBUFFER( seq,
+                                             RP_TAGS_SIGNATURE,
+                                             &tmpSig,
+                                             &tmpSigSize ) &&
+                        CRYPTOLIB_SIGNATURE_SIZE == tmpSigSize &&
+                        CryptoLib_verify( tmpBuffer, tmpBufferSize, getRootPublicKey(), tmpSig ) )
                     {
-                        rpal_debug_info( "hcp local store written to disk" );
-                        isSuccess = TRUE;
+                        isSigningOK = TRUE;
                     }
-                    else
-                    {
-                        rpal_debug_error( "failed to write local store to disk" );
-                    }
-
-                    OBFUSCATIONLIB_TOGGLE( store );
-
-                    // Now that it's on disk, we will live update.
-                    if( !applyConfigStore( tmpSeq, TRUE ) )
-                    {
-                        rpal_debug_error( "failed to apply config" );
-                    }
-
-                    rSequence_free( tmpSeq );
                 }
                 else
                 {
-                    rpal_debug_error( "failed to deserialize local store from command" );
+                    isSigningOK = TRUE;
+                }
+
+                if( isSigningOK )
+                {
+                    if( rSequence_deserialise( &tmpSeq, tmpBuffer, tmpBufferSize, NULL ) )
+                    {
+                        OBFUSCATIONLIB_TOGGLE( store );
+
+                        if( rpal_file_write( (RPNCHAR)store, rpal_blob_getBuffer( tmpBuffer ), rpal_blob_getSize( tmpBuffer ), TRUE ) )
+                        {
+                            rpal_debug_info( "hcp local store written to disk" );
+                            isSuccess = TRUE;
+                        }
+                        else
+                        {
+                            rpal_debug_error( "failed to write local store to disk" );
+                        }
+
+                        OBFUSCATIONLIB_TOGGLE( store );
+
+                        // Now that it's on disk, we will live update.
+                        if( !applyConfigStore( tmpSeq, TRUE ) )
+                        {
+                            rpal_debug_error( "failed to apply config" );
+                        }
+
+                        rSequence_free( tmpSeq );
+                    }
+                    else
+                    {
+                        rpal_debug_error( "failed to deserialize local store from command" );
+                    }
                 }
             }
             else
