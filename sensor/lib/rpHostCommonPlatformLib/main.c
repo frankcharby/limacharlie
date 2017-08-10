@@ -158,7 +158,7 @@ RBOOL
         return FALSE;
     }
 
-    if( rpal_file_read( storePath, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
+    if( rpal_file_read( storePath, &storeFile, &storeFileSize, FALSE ) )
     {
         if( sizeof( rpHCPIdentStore ) <= storeFileSize )
         {

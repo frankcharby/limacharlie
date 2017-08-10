@@ -301,7 +301,7 @@ void test_module_load_unload( void )
     #endif
 #endif
 
-    CU_ASSERT_FATAL( rpal_file_read( testModulePath, (RPVOID*)&buffer, &bufferSize, FALSE ) );
+    CU_ASSERT_FATAL( rpal_file_read( testModulePath, &buffer, &bufferSize, FALSE ) );
     CU_ASSERT_FATAL( CryptoLib_sign( buffer, bufferSize, g_test_priv, signature ) );
 
     cmd = rSequence_new();
@@ -405,7 +405,7 @@ void test_upgrade( void )
     fileSize = rpal_file_getSize( backupFilePath, FALSE );
     CU_ASSERT_NOT_EQUAL( fileSize, 0 );
     CU_ASSERT_NOT_EQUAL( fileSize, (RU32)(-1) );
-    CU_ASSERT_TRUE( rpal_file_read( currentFilePath, (RPVOID*)&tmpBuff, &tmpSize, FALSE ) );
+    CU_ASSERT_TRUE( rpal_file_read( currentFilePath, &tmpBuff, &tmpSize, FALSE ) );
     CU_ASSERT_EQUAL( tmpSize, bufferSize );
     rpal_memory_free( tmpBuff );
     tmpBuff = NULL;

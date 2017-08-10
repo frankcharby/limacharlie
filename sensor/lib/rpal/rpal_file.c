@@ -385,7 +385,7 @@ RBOOL
     rpal_file_read
     (
         RPNCHAR filePath,
-        RPVOID* pBuffer,
+        RPU8* pBuffer,
         RU32* pBufferSize,
         RBOOL isAvoidTimestamps
     )

@@ -55,7 +55,7 @@ RBOOL
         if( NULL != pCrashContext &&
             NULL != pCrashContextSize )
         {
-            if( rpal_file_read( (RPNCHAR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
+            if( rpal_file_read( (RPNCHAR)store, &storeFile, &storeFileSize, FALSE ) )
             {
                 rpal_debug_info( "acquired the crash context" );
 
