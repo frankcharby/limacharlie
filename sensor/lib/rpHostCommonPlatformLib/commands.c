@@ -731,6 +731,9 @@ RBOOL
                     g_hcpContext.isDoReconnect = TRUE;
                 }
                 break;
+            case RP_HCP_COMMAND_DISCONNECT:
+                g_hcpContext.isDoReconnect = TRUE;
+                break;
             default:
                 break;
             }

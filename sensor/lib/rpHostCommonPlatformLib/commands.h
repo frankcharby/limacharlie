@@ -27,6 +27,7 @@ limitations under the License.
 #define RP_HCP_COMMAND_QUIT                 0x05
 #define RP_HCP_COMMAND_UPGRADE              0x06
 #define RP_HCP_COMMAND_SET_HCP_CONF         0x07
+#define RP_HCP_COMMAND_DISCONNECT           0x08
 
 
 RBOOL

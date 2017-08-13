@@ -309,10 +309,10 @@ RBOOL
             g_hcpContext.currentId = g_idTemplate;
 
             // We attempt to load some initial config from the serialized
-            // rSequence that can be patched in this binary. Or from the local config
-            // on disk if we have nothing patched in.
-            if( NULL != ( config = getStaticConfig() ) ||
-                NULL != ( config = getLocalConfig() ) )
+            // rSequence that can be patched in this binary. Priority is on
+            // a local config and then a patched.
+            if( NULL != ( config = getLocalConfig() ) ||
+                NULL != ( config = getStaticConfig() ) )
             {
                 if( !applyConfigStore( config, FALSE ) )
                 {
