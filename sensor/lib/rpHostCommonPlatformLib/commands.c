@@ -25,7 +25,6 @@ limitations under the License.
 #include "beacon.h"
 #include "crashHandling.h"
 #include <processLib/processLib.h>
-#include <mbedtls/md.h>
 
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <dlfcn.h>
@@ -520,63 +519,37 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-    RPU8 token = NULL;
-    RU32 tokenSize = 0;
     RPU8 tmpBuffer = NULL;
     RU32 tmpBufferSize = 0;
     rSequence tmpSeq = NULL;
-    mbedtls_md_context_t hmac = { 0 };
-    const mbedtls_md_info_t* hmacInfo = NULL;
-    RU8 hash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
     RPU8 tmpSig = NULL;
     RU32 tmpSigSize = 0;
-    RBOOL isSigningOK = FALSE;
+    RU8 key[] = _HCP_DEFAULT_STATIC_STORE_KEY;
 
     OBFUSCATIONLIB_DECLARE( store, RP_HCP_CONFIG_LOCAL_STORE );
 
     if( NULL != seq )
     {
-        // Get the config and the HMAC used to verify authenticity.
-        if( rSequence_getBUFFER( seq, RP_TAGS_HCP_ENROLLMENT_TOKEN, &token, &tokenSize ) &&
-            CRYPTOLIB_HASH_SIZE == tokenSize &&
+        // Since this is used to effectively enroll, we can only rely on having a root
+        // public key (provided through the bootstrap).
+        if( rSequence_getBUFFER( seq, RP_TAGS_SIGNATURE, &tmpSig, &tmpSigSize ) &&
+            CRYPTOLIB_SIGNATURE_SIZE == tmpSigSize &&
             rSequence_getBUFFER( seq, RP_TAGS_HCP_CONFIGURATION, &tmpBuffer, &tmpBufferSize ) )
         {
-            // Check the HMAC.
-            mbedtls_md_init( &hmac );
-            if( NULL != ( hmacInfo = mbedtls_md_info_from_type( MBEDTLS_MD_SHA256 ) ) &&
-                0 == mbedtls_md_setup( &hmac, hmacInfo, 1 ) &&
-                0 == mbedtls_md_starts( &hmac ) &&
-                0 == mbedtls_md_update( &hmac, tmpBuffer, tmpBufferSize ) &&
-                0 == mbedtls_md_finish( &hmac, hash ) &&
-                0 == rpal_memory_memcmp( hash, token, sizeof( hash ) ) )
+            // Root key is required to validate.
+            if( NULL != getRootPublicKey() )
             {
-                // If we have a root public key, use it to verify the new config.
-                if( NULL != getRootPublicKey() )
+                if( CryptoLib_verify( tmpBuffer, tmpBufferSize, getRootPublicKey(), tmpSig ) )
                 {
-                    // If there is no signature in to check, but we have a public key we will reject.
-                    // We only trust unsigned configs if we don't have a public key (we are waiting for enrollment).
-                    if( rSequence_getBUFFER( seq,
-                                             RP_TAGS_SIGNATURE,
-                                             &tmpSig,
-                                             &tmpSigSize ) &&
-                        CRYPTOLIB_SIGNATURE_SIZE == tmpSigSize &&
-                        CryptoLib_verify( tmpBuffer, tmpBufferSize, getRootPublicKey(), tmpSig ) )
-                    {
-                        isSigningOK = TRUE;
-                    }
-                }
-                else
-                {
-                    isSigningOK = TRUE;
-                }
+                    obfuscationLib_toggle( tmpBuffer, tmpBufferSize, key, sizeof( key ) );
 
-                if( isSigningOK )
-                {
                     if( rSequence_deserialise( &tmpSeq, tmpBuffer, tmpBufferSize, NULL ) )
                     {
+                        obfuscationLib_toggle( tmpBuffer, tmpBufferSize, key, sizeof( key ) );
+
                         OBFUSCATIONLIB_TOGGLE( store );
 
-                        if( rpal_file_write( (RPNCHAR)store, rpal_blob_getBuffer( tmpBuffer ), rpal_blob_getSize( tmpBuffer ), TRUE ) )
+                        if( rpal_file_write( (RPNCHAR)store, tmpBuffer, tmpBufferSize, TRUE ) )
                         {
                             rpal_debug_info( "hcp local store written to disk" );
                             isSuccess = TRUE;
@@ -601,13 +574,15 @@ RBOOL
                         rpal_debug_error( "failed to deserialize local store from command" );
                     }
                 }
+                else
+                {
+                    rpal_debug_error( "config update signature invalid" );
+                }
             }
             else
             {
-                rpal_debug_error( "failed to verify local store from command" );
+                rpal_debug_error( "cannot verify config update, no root key" );
             }
-
-            mbedtls_md_free( &hmac );
         }
         else
         {

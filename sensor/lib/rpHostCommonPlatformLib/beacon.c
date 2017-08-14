@@ -52,12 +52,6 @@ limitations under the License.
 #define TLS_SEND_TIMEOUT    (60 * 1)
 #define TLS_RECV_TIMEOUT    (60 * 1)
 
-#ifdef HCP_NO_TLS_VALIDATION
-#define _SSL_VALIDATION_FLAG    MBEDTLS_SSL_VERIFY_OPTIONAL
-#else
-#define _SSL_VALIDATION_FLAG    MBEDTLS_SSL_VERIFY_REQUIRED
-#endif
-
 RPRIVATE
 struct
 {
@@ -423,21 +417,6 @@ rList
                     setCrashContext( &defaultCrashContext, sizeof( defaultCrashContext ) );
                 }
 
-                // If we have no c2 key but we have a deployment bootstrap, then it means
-                // we will try to enroll. We do this by setting the installer id.
-                if( NULL == getC2PublicKey() &&
-                    NULL != g_hcpContext.deploymentBootstrap )
-                {
-                    RPU8 tmpIid = NULL;
-                    RU32 tmpSize = 0;
-
-                    if( rSequence_getBUFFER( g_hcpContext.deploymentBootstrap, RP_TAGS_HCP_INSTALLER_ID, &tmpIid, &tmpSize ) &&
-                        RP_HCP_UUID_SIZE == tmpSize )
-                    {
-                        rpal_memory_memcpy( g_hcpContext.currentId.ins_id, tmpIid, tmpSize );
-                    }
-                }
-
                 // This is our identity
                 if( NULL != ( hcpId = hcpIdToSeq( g_hcpContext.currentId ) ) )
                 {
@@ -636,13 +615,12 @@ RU32
         RPVOID context
     )
 {
-    OBFUSCATIONLIB_DECLARE( url1, RP_HCP_CONFIG_HOME_URL_PRIMARY );
-    OBFUSCATIONLIB_DECLARE( url2, RP_HCP_CONFIG_HOME_URL_SECONDARY );
+    OBFUSCATIONLIB_DECLARE( defaultDest, RP_HCP_CONFIG_HOME_URL_DEFAULT );
 
-    RPCHAR effectivePrimary = (RPCHAR)url1;
-    RU16 effectivePrimaryPort = RP_HCP_CONFIG_HOME_PORT_PRIMARY;
-    RPCHAR effectiveSecondary = (RPCHAR)url2;
-    RU16 effectiveSecondaryPort = RP_HCP_CONFIG_HOME_PORT_SECONDARY;
+    //RPCHAR effectivePrimary = (RPCHAR)url1;
+    //RU16 effectivePrimaryPort = RP_HCP_CONFIG_HOME_PORT_PRIMARY;
+    //RPCHAR effectiveSecondary = (RPCHAR)url2;
+    //RU16 effectiveSecondaryPort = RP_HCP_CONFIG_HOME_PORT_SECONDARY;
     RPCHAR currentDest = NULL;
     RU16 currentPort = 0;
     RCHAR currentPortStr[ 6 ] = { 0 };
@@ -650,31 +628,6 @@ RU32
     RBOOL isFirstConnection = TRUE;
 
     UNREFERENCED_PARAMETER( context );
-
-    // Now load the various possible destinations
-    if( NULL != g_hcpContext.primaryUrl )
-    {
-        effectivePrimary = g_hcpContext.primaryUrl;
-        effectivePrimaryPort = g_hcpContext.primaryPort;
-    }
-    else
-    {
-        OBFUSCATIONLIB_TOGGLE( url1 );
-    }
-    if( NULL != g_hcpContext.secondaryUrl )
-    {
-        effectiveSecondary = g_hcpContext.secondaryUrl;
-        effectiveSecondaryPort = g_hcpContext.secondaryPort;
-    }
-    else
-    {
-        OBFUSCATIONLIB_TOGGLE( url2 );
-    }
-
-    currentDest = effectivePrimary;
-    currentPort = effectivePrimaryPort;
-    if( 0 == currentPort ) currentPort = 443;
-    rpal_string_itosA( currentPort, currentPortStr, 10 );
 
     if( NULL == ( syncThread = rpal_thread_new( thread_sync, NULL ) ) )
     {
@@ -718,6 +671,33 @@ RU32
                                                          getC2PublicKey(),
                                                          rpal_string_strlenA( (RPCHAR)getC2PublicKey() ) + 1 ) ) )
             {
+                // Figure out which destination to use.
+                if( currentDest == g_hcpContext.primaryUrl )
+                {
+                    currentDest = g_hcpContext.secondaryUrl;
+                    currentPort = g_hcpContext.secondaryPort;
+                }
+                else if( currentDest == g_hcpContext.secondaryUrl )
+                {
+                    currentDest = g_hcpContext.primaryUrl;
+                    currentPort = g_hcpContext.primaryPort;
+                }
+                else if( (RPCHAR)defaultDest != currentDest )
+                {
+                    currentDest = g_hcpContext.primaryUrl;
+                    currentPort = g_hcpContext.primaryPort;
+                }
+
+                if( NULL == currentDest )
+                {
+                    OBFUSCATIONLIB_TOGGLE( defaultDest );
+                    currentDest = (RPCHAR)defaultDest;
+                    currentPort = RP_HCP_CONFIG_HOME_PORT_DEFAULT;
+                }
+
+                if( 0 == currentPort ) currentPort = 443;
+                rpal_string_itosA( currentPort, currentPortStr, 10 );
+
                 if( 0 == ( mbedRet = mbedtls_net_connect( &g_tlsConnection.server_fd,
                                                           currentDest, 
                                                           currentPortStr, 
@@ -730,11 +710,18 @@ RU32
                                                                       MBEDTLS_SSL_TRANSPORT_STREAM,
                                                                       MBEDTLS_SSL_PRESET_DEFAULT ) ) )
                     {
-                        mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, _SSL_VALIDATION_FLAG );
+#ifndef HCP_NO_TLS_VALIDATION
                         if( NULL != getC2PublicKey() )
                         {
+                            mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, MBEDTLS_SSL_VERIFY_REQUIRED );
                             mbedtls_ssl_conf_ca_chain( &g_tlsConnection.conf, &g_tlsConnection.cacert, NULL );
                         }
+                        else
+#endif
+                        {
+                            mbedtls_ssl_conf_authmode( &g_tlsConnection.conf, MBEDTLS_SSL_VERIFY_NONE );
+                        }
+
                         mbedtls_ssl_conf_rng( &g_tlsConnection.conf, mbedtls_ctr_drbg_random, &g_tlsConnection.ctr_drbg );
 
                         if( 0 == ( mbedRet = mbedtls_ssl_setup( &g_tlsConnection.ssl, &g_tlsConnection.conf ) ) )
@@ -872,18 +859,18 @@ RU32
                         processMessage( message );
                     }
 
-                    // If we don't have a configStore with keys for a deployment
-                    // but we have a deployment bootstrap configured, we require the first
+                    // If we don't have a configStore with keys for a deployment we require the first
                     // HCP frame to come from the c2 to contain the new store, otherwise
                     // we consider it's not a valid c2 and reconnect. This is to protect a new sensor
                     // from contacting a rogue c2 and getting taskings from it.
-                    if( NULL == getC2PublicKey() &&
-                        NULL != g_hcpContext.deploymentBootstrap )
+                    if( NULL == getC2PublicKey() )
                     {
+#ifndef HCP_NO_TLS_VALIDATION
                         rpal_debug_warning( "contacted the cloud but did not receive a valid enrollment, exiting" );
                         rList_free( messages );
                         messages = NULL;
                         break;
+#endif
                     }
                 }
                 else
@@ -907,7 +894,7 @@ RU32
                 }
 
                 rList_free( messages );
-            } while( g_hcpContext.isDoReconnect ||
+            } while( !g_hcpContext.isDoReconnect &&
                      !rEvent_wait( g_hcpContext.isBeaconTimeToStop, 0 ) );
 
             rEvent_unset( g_hcpContext.isCloudOnline );
@@ -937,20 +924,7 @@ RU32
         }
 
         rEvent_wait( g_hcpContext.isBeaconTimeToStop, MSEC_FROM_SEC( 10 ) );
-        rpal_debug_warning( "failed connecting, cycling destination" );
-
-        if( currentDest == effectivePrimary )
-        {
-            currentDest = effectiveSecondary;
-            currentPort = effectiveSecondaryPort;
-        }
-        else
-        {
-            currentDest = effectivePrimary;
-            currentPort = effectivePrimaryPort;
-        }
-        if( 0 == currentPort ) currentPort = 443;
-        rpal_string_itosA( currentPort, currentPortStr, 10 );
+        rpal_debug_warning( "cycling destination" );
     }
 
     rpal_thread_wait( syncThread, MSEC_FROM_SEC( 10 ) );

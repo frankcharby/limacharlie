@@ -134,7 +134,7 @@ RVOID
 
             rpal_debug_info( "launching rpHCP" );
 
-            if( rpHostCommonPlatformLib_launch( primary, secondary ) )
+            if( rpHostCommonPlatformLib_launch( primary, secondary, NULL ) )
             {
                 ServiceStatus.dwCurrentState = SERVICE_RUNNING;
                 touchStatus();

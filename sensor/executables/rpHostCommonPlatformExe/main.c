@@ -589,6 +589,8 @@ RU32
         rpal_debug_warning( "failed to unload service, already unloaded?" );
     }
 
+    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+
     if( !rpal_file_delete( svcPath, FALSE ) )
     {
         rpal_debug_warning( "failed to delete file from disk, not present?" );

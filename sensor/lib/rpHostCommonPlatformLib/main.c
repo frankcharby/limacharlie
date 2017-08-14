@@ -44,7 +44,6 @@ rpHCPId g_idTemplate = { { 0 },                                                 
 #define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
 #define _HCP_DEFAULT_STATIC_STORE_MAGIC                         { 0xFA, 0x57, 0xF0, 0x0D }
 RPRIVATE RU8 g_patchedConfig[ _HCP_DEFAULT_STATIC_STORE_SIZE ] = _HCP_DEFAULT_STATIC_STORE_MAGIC;
-#define _HCP_DEFAULT_STATIC_STORE_KEY                           { 0xFA, 0x75, 0x01 }
 
 //=============================================================================
 //  Helpers
@@ -327,12 +326,6 @@ RBOOL
                 RSIZET tmpBufferSize = 0;
 
                 // Ok so we have bootstrap information to begin an enrollment flow.
-                if( NULL != g_hcpContext.deploymentBootstrap )
-                {
-                    rSequence_free( g_hcpContext.deploymentBootstrap );
-                    g_hcpContext.deploymentBootstrap = NULL;
-                }
-
                 if( NULL != ( tmpStr = rpal_string_ntoa( deploymentBootstrap ) ) )
                 {
                     mbedtls_base64_decode( NULL,
@@ -343,7 +336,7 @@ RBOOL
 
                     if( NULL != ( tmpBuffer = rpal_memory_alloc( tmpBufferSize ) ) )
                     {
-                        if( 0 == mbedtls_base64_decode( NULL,
+                        if( 0 == mbedtls_base64_decode( tmpBuffer,
                                                         tmpBufferSize,
                                                         &tmpBufferSize,
                                                         (unsigned char*)tmpStr,
@@ -354,7 +347,12 @@ RBOOL
                                                    NULL ) )
                         {
                             rpal_debug_info( "deployment bootstrap information parsed" );
-                            g_hcpContext.deploymentBootstrap = tmpSeq;
+                            if( !applyConfigStore( tmpSeq, FALSE ) )
+                            {
+                                rpal_debug_error( "failed to apply configs from bootstrap" );
+                            }
+
+                            rSequence_free( tmpSeq );
                         }
                         else
                         {
@@ -447,7 +445,6 @@ RBOOL
 
         rpal_memory_free( g_hcpContext.primaryUrl );
         rpal_memory_free( g_hcpContext.secondaryUrl );
-        rSequence_free( g_hcpContext.deploymentBootstrap );
 
         if( NULL != g_hcpContext.enrollmentToken &&
             0 != g_hcpContext.enrollmentTokenSize )
