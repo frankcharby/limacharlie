@@ -26,6 +26,7 @@ from hcp.utils.hcp_helpers import AgentId
 import sys
 import tarfile
 import uuid
+import tempfile
 
 # This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
 # and used with the same algorithm as obfuscationLib
@@ -42,14 +43,15 @@ def obfuscate( buffer, key ):
 
 
 def tarGzOf( filePath, archiveName, payloadName ):
-    os.system( 'rm -rf /tmp/%s' % ( payloadName, ) )
-    os.system( 'cp -R %s /tmp/%s' % ( filePath, payloadName ) )
-    tar = tarfile.open( '/tmp/%s' % ( archiveName, ), 'w:gz' )
-    tar.add( '/tmp/%s' % payloadName, arcname = payloadName )
+    tmpDir = tempfile.mkdtemp()
+    os.system( 'rm -rf %s/%s' % ( tmpDir, payloadName, ) )
+    os.system( 'cp -R %s %s/%s' % ( filePath, tmpDir, payloadName ) )
+    tar = tarfile.open( '%s/%s' % ( tmpDir, archiveName, ), 'w:gz' )
+    tar.add( '%s/%s' % ( tmpDir, payloadName ), arcname = payloadName )
     tar.close()
-    with open( '/tmp/%s' % ( archiveName, ), 'rb' ) as f:
+    with open( '%s/%s' % ( tmpDir, archiveName, ), 'rb' ) as f:
         val = f.read()
-    os.unlink( '/tmp/%s' % ( archiveName, ) )
+    os.unlink( '%s/%s' % ( tmpDir, archiveName, ) )
     return val
 
 if 3 > len( sys.argv ):

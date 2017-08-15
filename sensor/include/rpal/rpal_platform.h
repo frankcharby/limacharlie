@@ -30,11 +30,11 @@ limitations under the License.
     #ifdef WIN64
         #define RPAL_PLATFORM_WINDOWS
         #define RPAL_PLATFORM_WINDOWS_64
-                #define RPAL_PLATFORM_64_BIT
+        #define RPAL_PLATFORM_64_BIT
     #else
         #define RPAL_PLATFORM_WINDOWS
         #define RPAL_PLATFORM_WINDOWS_32
-                #define RPAL_PLATFORM_32_BIT
+        #define RPAL_PLATFORM_32_BIT
     #endif
 
     #define RPAL_PLATFORM_LITTLE_ENDIAN

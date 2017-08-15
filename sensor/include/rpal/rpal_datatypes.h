@@ -57,60 +57,60 @@ limitations under the License.
         typedef USHORT		    RU16;
         typedef USHORT*		    RPU16;
     #else
-        typedef BOOL		RBOOL;
-        typedef BOOL*		RPBOOL;
+        typedef BOOL		    RBOOL;
+        typedef BOOL*		    RPBOOL;
         
-        typedef BYTE		RU8;
-        typedef BYTE*		RPU8;
+        typedef BYTE		    RU8;
+        typedef BYTE*		    RPU8;
 
-        typedef WORD		RU16;
-        typedef WORD*		RPU16;
+        typedef WORD		    RU16;
+        typedef WORD*		    RPU16;
     #endif
     
-    typedef UINT32		RU32;
-    typedef UINT32*		RPU32;
+    typedef UINT32		        RU32;
+    typedef UINT32*		        RPU32;
 
-    typedef LONG            RS32;
-    typedef LONG*           RPS32;
+    typedef LONG                RS32;
+    typedef LONG*               RPS32;
 
-    typedef UINT64	        RU64;
-    typedef UINT64*	        RPU64;
+    typedef UINT64	            RU64;
+    typedef UINT64*	            RPU64;
 
-    typedef INT64           RS64;
-    typedef INT64*          RPS64;
+    typedef INT64               RS64;
+    typedef INT64*              RPS64;
 
-    typedef	CHAR		RCHAR;
-    typedef CHAR*		RPCHAR;
+    typedef	CHAR		        RCHAR;
+    typedef CHAR*		        RPCHAR;
 
-    typedef WCHAR		RWCHAR;
-    typedef WCHAR*		RPWCHAR;
+    typedef WCHAR		        RWCHAR;
+    typedef WCHAR*		        RPWCHAR;
 
-    typedef VOID		RVOID;
-    typedef PVOID		RPVOID;
+    typedef VOID		        RVOID;
+    typedef PVOID		        RPVOID;
 
-    typedef size_t		RSIZET;
+    typedef size_t		        RSIZET;
 
-    typedef RU64            RTIME;
+    typedef RU64                RTIME;
 
-    typedef float           RFLOAT;
-    typedef double          RDOUBLE;
+    typedef float               RFLOAT;
+    typedef double              RDOUBLE;
 
-    typedef RWCHAR          RNCHAR;
-    typedef RPWCHAR         RPNCHAR;
-    #define _NC(str)        _WCH(str)
+    typedef RWCHAR              RNCHAR;
+    typedef RPWCHAR             RPNCHAR;
+    #define _NC(str)            _WCH(str)
     #define RNATIVE_IS_WIDE
 
     // Printf format helpers
-    #define RF_STR_W        "%S"
-    #define RF_STR_A        "%s"
-    #define RF_STR_N        RF_STR_W
-    #define RF_U32          "%I32u"
-    #define RF_S32          "%I32d"
-    #define RF_X32          "%I32X"
-    #define RF_U64          "%I64u"
-    #define RF_S64          "%I64d"
-    #define RF_X64          "%I64X"
-    #define RF_SIZET        "%Iu"
+    #define RF_STR_W            "%S"
+    #define RF_STR_A            "%s"
+    #define RF_STR_N            RF_STR_W
+    #define RF_U32              "%I32u"
+    #define RF_S32              "%I32d"
+    #define RF_X32              "%I32X"
+    #define RF_U64              "%I64u"
+    #define RF_S64              "%I64d"
+    #define RF_X64              "%I64X"
+    #define RF_SIZET            "%Iu"
     #ifdef RPAL_PLATFORM_64_BIT
         #define RF_PTR          "0x%016p"
     #else
@@ -126,51 +126,51 @@ limitations under the License.
     #endif
     #include <string.h>
 
-    typedef int             RBOOL;
-    typedef int*		RPBOOL;
+    typedef int                 RBOOL;
+    typedef int*		        RPBOOL;
 
-    typedef uint8_t         RU8;
-    typedef uint8_t*        RPU8;
+    typedef uint8_t             RU8;
+    typedef uint8_t*            RPU8;
 
-    typedef uint16_t	RU16;
-    typedef uint16_t*       RPU16;
+    typedef uint16_t	        RU16;
+    typedef uint16_t*           RPU16;
 
-    typedef uint32_t        RU32;
-    typedef uint32_t*       RPU32;
+    typedef uint32_t            RU32;
+    typedef uint32_t*           RPU32;
 
-    typedef int32_t         RS32;
-    typedef int32_t*        RPS32;
+    typedef int32_t             RS32;
+    typedef int32_t*            RPS32;
 
-    typedef uint64_t        RU64;
-    typedef uint64_t*	RPU64;
+    typedef uint64_t            RU64;
+    typedef uint64_t*	        RPU64;
 
-    typedef	char		RCHAR;
-    typedef char*		RPCHAR;
+    typedef	char		        RCHAR;
+    typedef char*		        RPCHAR;
 
     #ifndef RPAL_PLATFORM_KERNEL
-        typedef wchar_t		RWCHAR;
-        typedef wchar_t*	RPWCHAR;
+        typedef wchar_t		    RWCHAR;
+        typedef wchar_t*	    RPWCHAR;
     #endif
 
-    typedef void		RVOID;
-    typedef void*		RPVOID;
+    typedef void		        RVOID;
+    typedef void*		        RPVOID;
 
-    typedef size_t		RSIZET;
+    typedef size_t		        RSIZET;
 
-    typedef RU64            RTIME;
+    typedef RU64                RTIME;
 
-    typedef float           RFLOAT;
-    typedef double          RDOUBLE;
+    typedef float               RFLOAT;
+    typedef double              RDOUBLE;
 
-    typedef RCHAR           RNCHAR;
-    typedef RPCHAR          RPNCHAR;
-    #define _NC(str)        str
+    typedef RCHAR               RNCHAR;
+    typedef RPCHAR              RPNCHAR;
+    #define _NC(str)            str
     #define RNATIVE_IS_BYTE
 
     // Printf format helpers
-    #define RF_STR_W        "%ls"
-    #define RF_STR_A        "%s"
-    #define RF_STR_N        RF_STR_W
+    #define RF_STR_W            "%ls"
+    #define RF_STR_A            "%s"
+    #define RF_STR_N            RF_STR_A
     #ifdef RPAL_PLATFORM_MACOSX
         #define RF_U32          "%u"
         #define RF_S32          "%d"
@@ -186,7 +186,7 @@ limitations under the License.
         #define RF_S64          "%ld"
         #define RF_X64          "%lX"
     #endif
-    #define RF_SIZET        "%zu"
+    #define RF_SIZET            "%zu"
     #ifdef RPAL_PLATFORM_64_BIT
         #define RF_PTR          "0x%p"
     #else

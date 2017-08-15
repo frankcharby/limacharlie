@@ -17,6 +17,7 @@ import os
 import sys
 import glob
 import shutil
+import platform
 
 ret = 0
 
@@ -79,6 +80,10 @@ for sources, destination in mainBinaries:
             e = sys.exc_info()[0]
             print( "ERROR: %s" % e )
             ret = 1
+        if 'Darwin' in platform.platform() and '_osx_' in dest:
+            if 0 != os.system( 'codesign -s 24169A36E0B4AFFF9ACA33366FFE27546141468A %s' % dest ):
+                print( "ERROR" )
+                ret = 1
 
 
 kernelModules = [

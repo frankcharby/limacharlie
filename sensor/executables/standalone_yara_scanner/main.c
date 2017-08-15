@@ -566,7 +566,7 @@ RPAL_NATIVE_MAIN
         }
 
         rpal_debug_info( "Loading yarac file." );
-        if( !rpal_file_read( compiledYaraFile, (RPVOID*)&ruleFile, &ruleFileSize, FALSE ) )
+        if( !rpal_file_read( compiledYaraFile, &ruleFile, &ruleFileSize, FALSE ) )
         {
             rpal_debug_info( "Error loading rule file." );
             return -1;

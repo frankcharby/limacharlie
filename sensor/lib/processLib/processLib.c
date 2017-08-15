@@ -524,7 +524,7 @@ rSequence
         if( size > 0
             && size < sizeof( tmpFile ) )
         {
-            if( rpal_file_read( tmpFile, (RPVOID*)&infoFile, &size, FALSE ) )
+            if( rpal_file_read( tmpFile, (RPU8*)&infoFile, &size, FALSE ) )
             {
                 info = rpal_string_strtok( infoFile, '\n', &state );
                 while( NULL != info )
@@ -612,7 +612,7 @@ rSequence
         if( size > 0
             && size < sizeof( tmpFile ) )
         {
-            if( rpal_file_read( tmpFile, (RPVOID*)&infoFile, &size, FALSE ) )
+            if( rpal_file_read( tmpFile, (RPU8*)&infoFile, &size, FALSE ) )
             {
                 RU32 i = 0;
                 for( i = 0; i < size - 1; i++ )
@@ -884,7 +884,7 @@ rList
         if( size > 0 &&
             size < sizeof( tmpFile ) )
         {
-            if( rpal_file_read( tmpFile, (RPVOID*)&infoFile, &size, FALSE ) )
+            if( rpal_file_read( tmpFile, (RPU8*)&infoFile, &size, FALSE ) )
             {
                 if( NULL != ( modules = rList_new( RP_TAGS_DLL, RPCM_SEQUENCE ) ) )
                 {
@@ -1335,7 +1335,7 @@ rList
     if( size > 0
             && size < sizeof( tmpFile ) )
     {
-        if( rpal_file_read( tmpFile, (RPVOID*)&infoFile, &size, FALSE ) )
+        if( rpal_file_read( tmpFile, (RPU8*)&infoFile, &size, FALSE ) )
         {
             if( NULL != ( map = rList_new( RP_TAGS_MEMORY_REGION, RPCM_SEQUENCE ) ) )
             {
@@ -2216,7 +2216,7 @@ rList
             fileSize = rpal_file_getSize( filePath, TRUE );
             if( (RU32)(-1) != fileSize )
             {
-                if ( rpal_file_read( (RPCHAR)&filePath, (RPVOID *) &fileContent, &contentSize, TRUE ) )
+                if ( rpal_file_read( (RPCHAR)&filePath, &fileContent, &contentSize, TRUE ) )
                 {
                     isSuccess = TRUE;
 
