@@ -105,7 +105,8 @@
       <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\yara\libyara\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <PostBuildEvent>
-      <Command>signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a $(TargetPath)</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -120,7 +121,8 @@
       <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\yara\libyara\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <PostBuildEvent>
-      <Command>signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a $(TargetPath)</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

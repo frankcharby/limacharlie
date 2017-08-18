@@ -95,7 +95,8 @@
     </Midl>
     <ClCompile />
     <PostBuildEvent>
-      <Command>signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a $(TargetPath)</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -104,7 +105,8 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile />
     <PostBuildEvent>
-      <Command>signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /a $(TargetPath)</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
