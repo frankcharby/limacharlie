@@ -891,7 +891,7 @@ HBS_DECLARE_TEST( um_diff_thread )
     dummyStop = rEvent_create( TRUE );
     hThread = rpal_thread_new( _threadStubToThreadPool, dummyStop );
     HBS_ASSERT_TRUE( NULL != hThread );
-    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 15 ) );
 
     // Spawn a process
     HBS_ASSERT_TRUE( expectedRet == ( ret = system( (RPCHAR)spawnCmd ) ) );
