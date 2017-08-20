@@ -308,6 +308,73 @@ RBOOL
     return isSuccess;
 }
 
+RBOOL
+    applyConfigStore
+    (
+        rSequence seq,
+        RBOOL isSkipCurrentId
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RPCHAR tmpStr = NULL;
+    RU16 tmpPort = 0;
+    rSequence tmpSeq = NULL;
+    RPU8 tmpBuffer = NULL;
+    RU32 tmpSize = 0;
+
+    if( NULL != seq )
+    {
+        isSuccess = TRUE;
+
+        if( rSequence_getSTRINGA( seq, RP_TAGS_HCP_PRIMARY_URL, &tmpStr ) &&
+            rSequence_getRU16( seq, RP_TAGS_HCP_PRIMARY_PORT, &tmpPort ) )
+        {
+            if( NULL != g_hcpContext.primaryUrl )
+            {
+                rpal_memory_free( g_hcpContext.primaryUrl );
+            }
+            g_hcpContext.primaryUrl = rpal_string_strdupA( tmpStr );
+            g_hcpContext.primaryPort = tmpPort;
+            rpal_debug_info( "loading primary url from static config" );
+        }
+
+        if( rSequence_getSTRINGA( seq, RP_TAGS_HCP_SECONDARY_URL, &tmpStr ) &&
+            rSequence_getRU16( seq, RP_TAGS_HCP_SECONDARY_PORT, &tmpPort ) )
+        {
+            if( NULL != g_hcpContext.secondaryUrl )
+            {
+                rpal_memory_free( g_hcpContext.secondaryUrl );
+            }
+            g_hcpContext.secondaryUrl = rpal_string_strdupA( tmpStr );
+            g_hcpContext.secondaryPort = tmpPort;
+            rpal_debug_info( "loading secondary url from static config" );
+        }
+
+        // Skipping the loading of the ID is an option since in general we always need to
+        // load the current ID from the ConfID store AFTER we load this main config store.
+        // This ConfigStore keeps the keys, dest etc, while the confID keeps the current sensor ID.
+        if( !isSkipCurrentId &&
+            rSequence_getSEQUENCE( seq, RP_TAGS_HCP_IDENT, &tmpSeq ) )
+        {
+            g_hcpContext.currentId = seqToHcpId( tmpSeq );
+            rpal_debug_info( "loading default id from static config" );
+        }
+
+        if( rSequence_getBUFFER( seq, RP_TAGS_HCP_C2_PUBLIC_KEY, &tmpBuffer, &tmpSize ) )
+        {
+            setC2PublicKey( rpal_memory_duplicate( tmpBuffer, tmpSize ) );
+            rpal_debug_info( "loading c2 public key from static config" );
+        }
+
+        if( rSequence_getBUFFER( seq, RP_TAGS_HCP_ROOT_PUBLIC_KEY, &tmpBuffer, &tmpSize ) )
+        {
+            setRootPublicKey( rpal_memory_duplicate( tmpBuffer, tmpSize ) );
+            rpal_debug_info( "loading root public key from static config" );
+        }
+    }
+
+    return isSuccess;
+}
 
 RPRIVATE_TESTABLE
 RBOOL
@@ -443,6 +510,106 @@ RBOOL
     return isSuccess;
 }
 
+RPRIVATE_TESTABLE
+RBOOL
+    setHcpConfig
+    (
+        rSequence seq
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    RPU8 tmpBuffer = NULL;
+    RU32 tmpBufferSize = 0;
+    rSequence tmpSeq = NULL;
+    RPU8 tmpSig = NULL;
+    RU32 tmpSigSize = 0;
+    RU8 key[] = _HCP_DEFAULT_STATIC_STORE_KEY;
+
+    OBFUSCATIONLIB_DECLARE( store, RP_HCP_CONFIG_LOCAL_STORE );
+
+    if( NULL != seq )
+    {
+        // Since this is used to effectively enroll, we can only rely on having a root
+        // public key (provided through the bootstrap).
+        if( rSequence_getBUFFER( seq, RP_TAGS_SIGNATURE, &tmpSig, &tmpSigSize ) &&
+            CRYPTOLIB_SIGNATURE_SIZE == tmpSigSize &&
+            rSequence_getBUFFER( seq, RP_TAGS_HCP_CONFIGURATION, &tmpBuffer, &tmpBufferSize ) )
+        {
+            // Root key is required to validate.
+            if( NULL != getRootPublicKey() )
+            {
+                if( CryptoLib_verify( tmpBuffer, tmpBufferSize, getRootPublicKey(), tmpSig ) )
+                {
+                    obfuscationLib_toggle( tmpBuffer, tmpBufferSize, key, sizeof( key ) );
+
+                    if( rSequence_deserialise( &tmpSeq, tmpBuffer, tmpBufferSize, NULL ) )
+                    {
+                        obfuscationLib_toggle( tmpBuffer, tmpBufferSize, key, sizeof( key ) );
+
+                        OBFUSCATIONLIB_TOGGLE( store );
+
+                        if( rpal_file_write( (RPNCHAR)store, tmpBuffer, tmpBufferSize, TRUE ) )
+                        {
+                            rpal_debug_info( "hcp local store written to disk" );
+                            isSuccess = TRUE;
+                        }
+                        else
+                        {
+                            rpal_debug_error( "failed to write local store to disk" );
+                        }
+
+                        OBFUSCATIONLIB_TOGGLE( store );
+
+                        // Now that it's on disk, we will live update.
+                        if( !applyConfigStore( tmpSeq, TRUE ) )
+                        {
+                            rpal_debug_error( "failed to apply config" );
+                        }
+
+                        rSequence_free( tmpSeq );
+                    }
+                    else
+                    {
+                        rpal_debug_error( "failed to deserialize local store from command" );
+                    }
+                }
+                else
+                {
+                    rpal_debug_error( "config update signature invalid" );
+                }
+            }
+            else
+            {
+                rpal_debug_error( "cannot verify config update, no root key" );
+            }
+        }
+        else
+        {
+            rpal_debug_error( "no local store in command" );
+        }
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    doQuitHcp
+    (
+
+    )
+{
+    RBOOL isSuccess = FALSE;
+    rThread hQuitThread = 0;
+
+    if( 0 != ( hQuitThread = rpal_thread_new( thread_quitAndCleanup, NULL ) ) )
+    {
+        rpal_thread_free( hQuitThread );
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
 
 RBOOL
     processMessage
@@ -456,7 +623,6 @@ RBOOL
     rpHCPId tmpId = { 0 };
     rpHCPId emptyId = { 0 };
     RU64 tmpTime = 0;
-    rThread hQuitThread = 0;
 
     rpHCPIdentStore identStore = {0};
     RPU8 token = NULL;
@@ -528,14 +694,20 @@ RBOOL
                 }
                 break;
             case RP_HCP_COMMAND_QUIT:
-                if( 0 != ( hQuitThread = rpal_thread_new( thread_quitAndCleanup, NULL ) ) )
-                {
-                    rpal_thread_free( hQuitThread );
-                    isSuccess = TRUE;
-                }
+                isSuccess = doQuitHcp();
                 break;
             case RP_HCP_COMMAND_UPGRADE:
                 isSuccess = upgradeHcp( seq );
+                break;
+            case RP_HCP_COMMAND_SET_HCP_CONF:
+                if( TRUE == ( isSuccess = setHcpConfig( seq ) ) )
+                {
+                    // We will reconnect in order to start using our new config.
+                    g_hcpContext.isDoReconnect = TRUE;
+                }
+                break;
+            case RP_HCP_COMMAND_DISCONNECT:
+                g_hcpContext.isDoReconnect = TRUE;
                 break;
             default:
                 break;

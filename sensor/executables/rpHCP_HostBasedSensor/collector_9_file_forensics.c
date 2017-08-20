@@ -139,7 +139,7 @@ RVOID
 
             if( isRetrieve )
             {
-                if( rpal_file_read( filePath, (RPVOID*)&fileBuffer, &fileSize, isAvoidTimeStamps ) )
+                if( rpal_file_read( filePath, &fileBuffer, &fileSize, isAvoidTimeStamps ) )
                 {
                     rSequence_addBUFFER( event, RP_TAGS_FILE_CONTENT, fileBuffer, fileSize );
                     rpal_memory_free( fileBuffer );

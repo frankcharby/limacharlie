@@ -32,5 +32,7 @@ limitations under the License.
 // Enabling this macro will make the TLS certification optional to be used for automated testing.
 // #define HCP_NO_TLS_VALIDATION
 
-#endif
+// This is the common obfuscation key used for the config stores.
+#define _HCP_DEFAULT_STATIC_STORE_KEY       { 0xFA, 0x75, 0x01 }
 
+#endif

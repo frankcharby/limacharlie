@@ -156,7 +156,7 @@ RPAL_NATIVE_MAIN
             // Method 1: simple load in memory of a buffer, no mapping, not executable.
             case 1:
             case 2:
-                if( !rpal_file_read( target, (RPVOID*)&loadedBuffer, &loadedSize, FALSE ) )
+                if( !rpal_file_read( target, &loadedBuffer, &loadedSize, FALSE ) )
                 {
                     rpal_debug_error( "Failed to load target file in buffer." );
                 }
@@ -208,7 +208,7 @@ RPAL_NATIVE_MAIN
 #endif
                 break;
             case 4:
-                if( !rpal_file_read( target, (RPVOID*)&loadedBuffer, &loadedSize, FALSE ) )
+                if( !rpal_file_read( target, &loadedBuffer, &loadedSize, FALSE ) )
                 {
                     rpal_debug_error( "Failed to read target file." );
                 }

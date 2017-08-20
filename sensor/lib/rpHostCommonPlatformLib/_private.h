@@ -80,7 +80,7 @@ RBOOL
     );
 
 RBOOL
-    getStoreConf
+    getStoreConfID
     (
         RPNCHAR storePath,
         rpHCPContext* hcpContext

@@ -132,28 +132,49 @@ RBOOL
 
 #define _SERVICE_NAME _WCH( "rphcpsvc" )
 #define _SERVICE_NAMEW _WCH( "rphcpsvc" )
+#ifdef RPAL_PLATFORM_DEBUG
+    #define _SERVICE_IDENT_FILE _NC("%SYSTEMROOT%\\system32\\hcp_debug.dat")
+#else
+    #define _SERVICE_IDENT_FILE _NC("%SYSTEMROOT%\\system32\\hcp.dat")
+#endif
 static SERVICE_STATUS g_svc_status = { 0 };
 static SERVICE_STATUS_HANDLE g_svc_status_handle = NULL;
 static RPNCHAR g_svc_primary = NULL;
 static RPNCHAR g_svc_secondary = NULL;
+static RPNCHAR g_svc_deployment = NULL;
 
 static
 RU32
     installService
     (
-
+        RPNCHAR deploymentKey
     )
 {
+    RU32 ret = 0;
     HMODULE hModule = NULL;
     RWCHAR curPath[ RPAL_MAX_PATH ] = { 0 };
     RWCHAR destPath[] = _WCH( "%SYSTEMROOT%\\system32\\rphcp.exe" );
-    RWCHAR svcPath[] = _WCH( "\"%SYSTEMROOT%\\system32\\rphcp.exe\" -w" );
+    RWCHAR svcPath[] = _WCH( "\"%SYSTEMROOT%\\system32\\rphcp.exe\" -w -d " );
     SC_HANDLE hScm = NULL;
     SC_HANDLE hSvc = NULL;
     RWCHAR svcName[] = { _SERVICE_NAMEW };
     RWCHAR svcDisplay[] = { _WCH( "rp_HCP_Svc" ) };
+    rString execCmd = NULL;
 
     rpal_debug_info( "installing service" );
+
+    if( NULL == ( execCmd = rpal_stringbuffer_new( 0, 0 ) ) )
+    {
+        rpal_debug_error( "failed to allocate exec command buffer" );
+        return GetLastError();
+    }
+
+    if( !rpal_stringbuffer_add( execCmd, svcPath ) ||
+        !rpal_stringbuffer_add( execCmd, deploymentKey ) )
+    {
+        rpal_stringbuffer_free( execCmd );
+        return GetLastError();
+    }
 
     hModule = GetModuleHandleW( NULL );
     if( NULL != hModule )
@@ -171,7 +192,7 @@ RU32
                                                          SERVICE_WIN32_OWN_PROCESS,
                                                          SERVICE_AUTO_START,
                                                          SERVICE_ERROR_NORMAL,
-                                                         svcPath,
+                                                         rpal_stringbuffer_getString( execCmd ),
                                                          NULL,
                                                          NULL,
                                                          NULL,
@@ -182,58 +203,66 @@ RU32
                         {
                             // Emitting as error level to make sure it's displayed in release.
                             rpal_debug_error( "service installer!" );
-                            return 0;
                         }
                         else
                         {
-                            rpal_debug_error( "could not start service: %d", GetLastError() );
+                            ret = GetLastError();
+                            rpal_debug_error( "could not start service: %d", ret );
                         }
 
                         CloseServiceHandle( hSvc );
                     }
                     else
                     {
-                        rpal_debug_error( "could not create service in SCM: %d", GetLastError() );
+                        ret = GetLastError();
+                        rpal_debug_error( "could not create service in SCM: %d", ret );
                     }
 
                     CloseServiceHandle( hScm );
                 }
                 else
                 {
-                    rpal_debug_error( "could not open SCM: %d", GetLastError() );
+                    ret = GetLastError();
+                    rpal_debug_error( "could not open SCM: %d", ret );
                 }
             }
             else
             {
-                rpal_debug_error( "could not move executable to service location: %d", GetLastError() );
+                ret = GetLastError();
+                rpal_debug_error( "could not move executable to service location: %d", ret );
             }
         }
         else
         {
-            rpal_debug_error( "could not get current executable path: %d", GetLastError() );
+            ret = GetLastError();
+            rpal_debug_error( "could not get current executable path: %d", ret );
         }
 
         CloseHandle( hModule );
     }
     else
     {
-        rpal_debug_error( "could not get current executable handle: %d", GetLastError() );
+        ret = GetLastError();
+        rpal_debug_error( "could not get current executable handle: %d", ret );
     }
+
+    rpal_stringbuffer_free( execCmd );
     
-    return GetLastError();
+    return ret;
 }
 
 static
 RU32
     uninstallService
     (
-
+        RBOOL isAlsoClean
     )
 {
     RWCHAR destPath[] = _WCH( "%SYSTEMROOT%\\system32\\rphcp.exe" );
     SC_HANDLE hScm = NULL;
     SC_HANDLE hSvc = NULL;
     RWCHAR svcName[] = { _SERVICE_NAMEW };
+    RNCHAR identPath[] = { _SERVICE_IDENT_FILE };
     SERVICE_STATUS svcStatus = { 0 };
     RU32 nRetries = 10;
 
@@ -305,6 +334,18 @@ RU32
     else
     {
         rpal_debug_error( "could not delete service executable: %d", GetLastError() );
+    }
+
+    if( isAlsoClean )
+    {
+        if( !rpal_file_delete( identPath, FALSE ) )
+        {
+            rpal_debug_warning( "failed to delete identity file from disk, not present?" );
+        }
+        else
+        {
+            rpal_debug_info( "deleted identity file from disk" );
+        }
     }
 
     return GetLastError();
@@ -389,7 +430,7 @@ VOID WINAPI
     }
 
     rpal_debug_info( "initialising rpHCP." );
-    if( !rpHostCommonPlatformLib_launch( g_svc_primary, g_svc_secondary ) )
+    if( !rpHostCommonPlatformLib_launch( g_svc_primary, g_svc_secondary, g_svc_deployment ) )
     {
         rpal_debug_warning( "error launching hcp." );
     }
@@ -454,10 +495,11 @@ VOID WINAPI
 #define _SERVICE_NAME       _NC("com.refractionpoint.rphcp")
 #define _SERVICE_DIR        _NC("/usr/local/bin/")
 #define _SERVICE_FILE       _NC("/usr/local/bin/rphcp")
+#define _SERVICE_IDENT_FILE _NC("/usr/local/hcp")
 #define _SERVICE_LOAD       _NC("launchctl load ") _SERVICE_DESC_FILE
 #define _SERVICE_START      _NC("launchctl start ") _SERVICE_NAME
 #define _SERVICE_UNLOAD     _NC("launchctl unload ") _SERVICE_DESC_FILE
-#define _SERVICE_DESC       _NC("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
+#define _SERVICE_DESC_1     _NC("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
 <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\
 <plist version=\"1.0\">\
     <dict>\
@@ -466,6 +508,9 @@ VOID WINAPI
         <key>ProgramArguments</key>\
         <array>\
             <string>/usr/local/bin/rphcp</string>\
+            <string>-d</string>\
+            <string>")
+#define _SERVICE_DESC_2     _NC("</string>\
         </array>\
         <key>KeepAlive</key>\
         <true/>\
@@ -477,7 +522,7 @@ static
 RU32
     installService
     (
-
+        RPNCHAR deploymentKey
     )
 {
     RU32 res = (RU32)-1;
@@ -486,11 +531,29 @@ RU32
     RU32 currentPathSize = sizeof( currentPath );
     RNCHAR svcDir[] = { _SERVICE_DIR };
     RNCHAR svcPath[] = { _SERVICE_FILE };
+    RNCHAR svcDesc1[] = { _SERVICE_DESC_1 };
+    RNCHAR svcDesc2[] = { _SERVICE_DESC_2 };
     RNCHAR svcDescPath[] = { _SERVICE_DESC_FILE };
-    RNCHAR svcDesc[] = { _SERVICE_DESC };
     RBOOL isOnDisk = FALSE;
     RNCHAR svcLoad[] = { _SERVICE_LOAD };
     RNCHAR svcStart[] = { _SERVICE_START };
+    rString svcDesc = NULL;
+
+    rpal_debug_info( "installing service" );
+
+    if( NULL == ( svcDesc = rpal_stringbuffer_new( 0, 0 ) ) )
+    {
+        rpal_debug_error( "failed to allocate exec command buffer" );
+        return res;
+    }
+
+    if( !rpal_stringbuffer_add( svcDesc, svcDesc1 ) ||
+        !rpal_stringbuffer_add( svcDesc, deploymentKey ) ||
+        !rpal_stringbuffer_add( svcDesc, svcDesc2 ) )
+    {
+        rpal_stringbuffer_free( svcDesc );
+        return res;
+    }
 
     if( 0 == _NSGetExecutablePath( currentPath, &currentPathSize ) )
     {
@@ -506,7 +569,10 @@ RU32
                 rpal_debug_warning( "could not set restricted permissions on executable" );
             }
 
-            if( rpal_file_write( svcDescPath, svcDesc, rpal_string_strlen( svcDesc ), TRUE ) )
+            if( rpal_file_write( svcDescPath, 
+                                 rpal_stringbuffer_getString( svcDesc ), 
+                                 rpal_string_strlen( rpal_stringbuffer_getString( svcDesc ) ), 
+                                 TRUE ) )
             {
                 if( 0 != chmod( svcDescPath, S_IRWXU ) )
                 {
@@ -548,6 +614,8 @@ RU32
         }
     }
 
+    rpal_stringbuffer_free( svcDesc );
+
     return res;
 }
 
@@ -555,18 +623,21 @@ static
 RU32
     uninstallService
     (
-
+        RBOOL isAlsoClean
     )
 {
     RU32 res = (RU32)-1;
 
     RNCHAR svcUnload[] = { _SERVICE_UNLOAD };
     RNCHAR svcPath[] = { _SERVICE_FILE };
+    RNCHAR identPath[] = { _SERVICE_IDENT_FILE };
 
     if( 0 != system( svcUnload ) )
     {
         rpal_debug_warning( "failed to unload service, already unloaded?" );
     }
+
+    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
 
     if( !rpal_file_delete( svcPath, FALSE ) )
     {
@@ -576,6 +647,19 @@ RU32
     {
         rpal_debug_info( "uninstalled successfully" );
         res = 0;
+    }
+
+    if( isAlsoClean )
+    {
+        if( !rpal_file_delete( identPath, FALSE ) )
+        {
+            rpal_debug_warning( "failed to delete identity file from disk, not present?" );
+            res = (RU32)-1;
+        }
+        else
+        {
+            rpal_debug_info( "deleted identity file from disk" );
+        }
     }
 
     return res;
@@ -591,6 +675,7 @@ RPAL_NATIVE_MAIN
     RPNCHAR argVal = NULL;
     RPNCHAR primary = NULL;
     RPNCHAR secondary = NULL;
+    RPNCHAR deployment = NULL;
     RPNCHAR tmpMod = NULL;
     RU32 tmpModId = 0;
     RU32 i = 0;
@@ -602,16 +687,19 @@ RPAL_NATIVE_MAIN
                             { _NC( 'p' ), _NC( "primary" ), TRUE },
                             { _NC( 's' ), _NC( "secondary" ), TRUE },
                             { _NC( 'm' ), _NC( "manual" ), TRUE },
-                            { _NC( 'n' ), _NC( "moduleId" ), TRUE }
+                            { _NC( 'n' ), _NC( "moduleId" ), TRUE },
+                            { _NC( 'd' ), _NC( "deployment" ), TRUE }
 #ifdef RPAL_PLATFORM_WINDOWS
                             ,
-                            { _NC( 'i' ), _NC( "install" ), FALSE },
+                            { _NC( 'i' ), _NC( "install" ), TRUE },
                             { _NC( 'r' ), _NC( "uninstall" ), FALSE },
+                            { _NC( 'c' ), _NC( "uninstall-clean" ), FALSE },
                             { _NC( 'w' ), _NC( "service" ), FALSE }
 #elif defined( RPAL_PLATFORM_MACOSX )
                             ,
-                            { _NC( 'i' ), _NC( "install" ), FALSE },
-                            { _NC( 'r' ), _NC( "uninstall" ), FALSE }
+                            { _NC( 'i' ), _NC( "install" ), TRUE },
+                            { _NC( 'r' ), _NC( "uninstall" ), FALSE },
+                            { _NC( 'c' ), _NC( "uninstall-clean" ), FALSE }
 #endif
                           };
 
@@ -671,12 +759,20 @@ RPAL_NATIVE_MAIN
                     }
                     isArgumentsSpecified = TRUE;
                     break;
+                case _NC( 'd' ):
+                    deployment = argVal;
+                    rpal_debug_info( "Deployment info: " RF_STR_N ".", deployment );
+                    isArgumentsSpecified = TRUE;
+                    break;
 #ifdef RPAL_PLATFORM_WINDOWS
                 case _NC( 'i' ):
-                    return installService();
+                    return installService( argVal );
                     break;
                 case _NC( 'r' ):
-                    return uninstallService();
+                    return uninstallService( FALSE );
+                    break;
+                case _NC( 'c' ):
+                    return uninstallService( TRUE );
                     break;
                 case _NC( 'w' ):
                     asService = TRUE;
@@ -684,27 +780,33 @@ RPAL_NATIVE_MAIN
                     break;
 #elif defined( RPAL_PLATFORM_MACOSX )
                 case _NC( 'i' ):
-                    return installService();
+                    return installService( argVal );
                     break;
                 case _NC( 'r' ):
-                    return uninstallService();
+                    return uninstallService( FALSE );
+                    break;
+                case _NC( 'c' ):
+                    return uninstallService( TRUE );
                     break;
 #endif
                 case _NC( 'h' ):
                 default:
 #ifdef RPAL_PLATFORM_DEBUG
-                    printf( "Usage: " RF_STR_N " [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].\n", argv[ 0 ] );
+                    printf( "Usage: " RF_STR_N " [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -d deploymentKey ] [ -i deploymentKey ] [ -r ] [ -c ] [ -h ].\n", argv[ 0 ] );
                     printf( "-p: primary Url used to communicate home.\n" );
                     printf( "-s: secondary Url used to communicate home if the primary failed.\n" );
                     printf( "-m: module to be loaded manually, only available in debug builds.\n" );
                     printf( "-n: the module id of the module being manually loaded.\n" );
+                    printf( "-d: the deployment key to use to enroll.\n" );
 #ifdef RPAL_PLATFORM_WINDOWS
-                    printf( "-i: install executable as a service.\n" );
+                    printf( "-i: install executable as a service with deployment key.\n" );
                     printf( "-r: uninstall executable as a service.\n" );
+                    printf( "-c: uninstall executable as a service and delete identity files.\n" );
                     printf( "-w: executable is running as a Windows service.\n" );
 #elif defined( RPAL_PLATFORM_MACOSX )
-                    printf( "-i: install executable as a service.\n" );
+                    printf( "-i: install executable as a service with deployment key.\n" );
                     printf( "-r: uninstall executable as a service.\n" );
+                    printf( "-c: uninstall executable as a service and delete identity files.\n" );
 #endif
                     printf( "-h: this help.\n" );
                     return 0;
@@ -727,6 +829,7 @@ RPAL_NATIVE_MAIN
 
             g_svc_primary = primary;
             g_svc_secondary = secondary;
+            g_svc_deployment = deployment;
 
             if( !StartServiceCtrlDispatcherW( DispatchTable ) )
             {
@@ -743,42 +846,21 @@ RPAL_NATIVE_MAIN
         if( !isArgumentsSpecified &&
             isLaunchedInteractively() )
         {
-            // If launched via a double-click, we assume it's an installation.
-            rpal_debug_info( "Launched interactively, installing." );
-            return installService();
+            rpal_debug_info( "Installing or running requires arguments, see -h." );
+            return -1;
         }
 #elif defined( RPAL_PLATFORM_MACOSX )
         if( !isArgumentsSpecified &&
             0 != argc &&
             isLaunchedInteractively( argv[ 0 ] ) )
         {
-            RU32 launchStatus = 0;
-            RNCHAR cmdPart1[] = { "osascript -e 'do shell script \"" };
-            RNCHAR cmdPart2[] = { " -i\" with administrator privileges'" };
-            RNCHAR cmdSuccess[] = { "osascript -e 'display notification \"Successfully installed LimaCharlie.\"'" };
-            RPNCHAR launchCmd = NULL;
-
-            if( NULL != ( launchCmd = rpal_string_strcatEx( launchCmd, cmdPart1 ) ) &&
-                NULL != ( launchCmd = rpal_string_strcatEx( launchCmd, argv[ 0 ] ) ) &&
-                NULL != ( launchCmd = rpal_string_strcatEx( launchCmd, cmdPart2 ) ) &&
-                0 == ( launchStatus = system( launchCmd ) ) )
-            {
-                rpal_debug_info( "Successfully launched installer as root." );
-                system( cmdSuccess );
-            }
-            else
-            {
-                rpal_debug_error( "Failed to launch installer as root: %d.", launchStatus );
-            }
-
-            rpal_memory_free( launchCmd );
-
-            return launchStatus;
+            rpal_debug_info( "Installing or running requires arguments, see -h." );
+            return -1;
         }
 #endif
 
         rpal_debug_info( "initialising rpHCP." );
-        if( !rpHostCommonPlatformLib_launch( primary, secondary ) )
+        if( !rpHostCommonPlatformLib_launch( primary, secondary, deployment ) )
         {
             rpal_debug_warning( "error launching hcp." );
         }

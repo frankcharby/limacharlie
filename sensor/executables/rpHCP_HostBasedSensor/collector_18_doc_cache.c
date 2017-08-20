@@ -78,7 +78,7 @@ RVOID
         {
             // This means it's a file of interest.
             if( ( DOCUMENT_MAX_SIZE >= rpal_file_getSize( fileN, TRUE ) &&
-                  rpal_file_read( fileN, (RPVOID*)&fileContent, &fileSize, TRUE ) &&
+                  rpal_file_read( fileN, &fileContent, &fileSize, TRUE ) &&
                   CryptoLib_hash( fileContent, fileSize, &hash ) ) ||
                 CryptoLib_hashFile( fileN, &hash, TRUE ) )
             {

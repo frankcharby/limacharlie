@@ -104,6 +104,10 @@
     <ClCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\yara\libyara\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile />
@@ -116,6 +120,10 @@
     <ClCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\yara\libyara\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="atoms.c" />

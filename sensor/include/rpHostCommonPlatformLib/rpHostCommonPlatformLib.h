@@ -23,7 +23,8 @@ RBOOL
     rpHostCommonPlatformLib_launch
     (
         RPNCHAR primaryHomeUrl,
-        RPNCHAR secondaryHomeUrl
+        RPNCHAR secondaryHomeUrl,
+        RPNCHAR deploymentBootstrap
     );
 
 RBOOL

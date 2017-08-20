@@ -301,7 +301,7 @@ void test_module_load_unload( void )
     #endif
 #endif
 
-    CU_ASSERT_FATAL( rpal_file_read( testModulePath, (RPVOID*)&buffer, &bufferSize, FALSE ) );
+    CU_ASSERT_FATAL( rpal_file_read( testModulePath, &buffer, &bufferSize, FALSE ) );
     CU_ASSERT_FATAL( CryptoLib_sign( buffer, bufferSize, g_test_priv, signature ) );
 
     cmd = rSequence_new();
@@ -338,7 +338,7 @@ void test_store_conf( void )
 
     // Do a good read write
     CU_ASSERT_FATAL( saveHcpId( tmpStore, &ident, token, sizeof( token ) ) );
-    CU_ASSERT( getStoreConf( tmpStore, &hcpContext ) ); // Platform and Arch get overwritten, that's normal
+    CU_ASSERT( getStoreConfID( tmpStore, &hcpContext ) ); // Platform and Arch get overwritten, that's normal
     CU_ASSERT_EQUAL( rpal_memory_memcmp( hcpContext.currentId.ins_id, ident.agentId.ins_id, sizeof( ident.agentId.ins_id ) ), 0 );
     CU_ASSERT_EQUAL( rpal_memory_memcmp( hcpContext.currentId.org_id, ident.agentId.org_id, sizeof( ident.agentId.org_id ) ), 0 );
     CU_ASSERT_EQUAL( rpal_memory_memcmp( hcpContext.currentId.sensor_id, ident.agentId.sensor_id, sizeof( ident.agentId.sensor_id ) ), 0 );
@@ -354,7 +354,7 @@ void test_store_conf( void )
     garbage = rpal_memory_alloc( garbageSize );
     CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
     CU_ASSERT_FATAL( rpal_file_write( tmpStore, garbage, garbageSize, TRUE ) );
-    CU_ASSERT_FALSE( getStoreConf( tmpStore, &hcpContext ) );
+    CU_ASSERT_FALSE( getStoreConfID( tmpStore, &hcpContext ) );
     CU_ASSERT_FALSE( rpal_file_getInfo( tmpStore, &info ) );
     rpal_memory_free( garbage );
 
@@ -363,8 +363,8 @@ void test_store_conf( void )
     CU_ASSERT_FALSE( saveHcpId( tmpStore, NULL, token, sizeof( token ) ) );
     CU_ASSERT_FALSE( saveHcpId( tmpStore, &ident, NULL, sizeof( token ) ) );
     CU_ASSERT_FALSE( saveHcpId( tmpStore, &ident, token, 0 ) );
-    CU_ASSERT_FALSE( getStoreConf( NULL, &hcpContext ) );
-    CU_ASSERT_FALSE( getStoreConf( tmpStore, NULL ) );
+    CU_ASSERT_FALSE( getStoreConfID( NULL, &hcpContext ) );
+    CU_ASSERT_FALSE( getStoreConfID( tmpStore, NULL ) );
 }
 
 void test_upgrade( void )
@@ -405,7 +405,7 @@ void test_upgrade( void )
     fileSize = rpal_file_getSize( backupFilePath, FALSE );
     CU_ASSERT_NOT_EQUAL( fileSize, 0 );
     CU_ASSERT_NOT_EQUAL( fileSize, (RU32)(-1) );
-    CU_ASSERT_TRUE( rpal_file_read( currentFilePath, (RPVOID*)&tmpBuff, &tmpSize, FALSE ) );
+    CU_ASSERT_TRUE( rpal_file_read( currentFilePath, &tmpBuff, &tmpSize, FALSE ) );
     CU_ASSERT_EQUAL( tmpSize, bufferSize );
     rpal_memory_free( tmpBuff );
     tmpBuff = NULL;

@@ -278,6 +278,12 @@ RVOID
     {
         if( kAcq_isAvailable() )
         {
+            if( NULL != snapPrev )
+            {
+                _freeRecords( snapPrev );
+                rpal_blob_free( snapPrev );
+                snapPrev = NULL;
+            }
             // If kernel acquisition becomes available, try kernel again.
             return;
         }
