@@ -1110,6 +1110,10 @@ RPAL_THREAD_FUNC
         rSequence testConfig = NULL;
         RU32 i = 0;
 
+        // Introduce a delay to make sure the kernel acquisition module has a chance to load.
+        rpal_thread_sleep( MSEC_FROM_SEC( 10 ) );
+        checkKernelAcquisition();
+
         rpal_debug_info( "power on self test begins" );
 
         if( NULL != ( testEvent = rSequence_new() ) )
