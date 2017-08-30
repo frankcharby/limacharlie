@@ -65,12 +65,9 @@ RPVOID
     (
         rEvent isTimeToStop
     )
-{    
+{
 #ifdef RPAL_PLATFORM_WINDOWS
     RNCHAR rootEnv[] = _WCH( "%SYSTEMDRIVE%\\" );
-#else
-    RWCHAR rootEnv[] = _WCH( "/" );
-#endif
     RNCHAR fullName[ 1024 ] = { 0 };
     rDirWatch watch = NULL;
     RPNCHAR root = NULL;
@@ -96,9 +93,9 @@ RPVOID
             event = RP_TAGS_INVALID;
 
             if( rDirWatch_next( watch, 100, &fileName, &apiAction ) &&
-                ( RPAL_DIR_WATCH_ACTION_ADDED  == apiAction ||
+                ( RPAL_DIR_WATCH_ACTION_ADDED == apiAction ||
                   RPAL_DIR_WATCH_ACTION_REMOVED == apiAction ||
-                  RPAL_DIR_WATCH_ACTION_MODIFIED  == apiAction ) )
+                  RPAL_DIR_WATCH_ACTION_MODIFIED == apiAction ) )
             {
                 curTime = rpal_time_getGlobalPreciseTime();
 
@@ -124,7 +121,7 @@ RPVOID
                         {
                             hbs_publish( event, notif );
                         }
-                        
+
                         rSequence_free( notif );
                     }
                 }
@@ -135,6 +132,15 @@ RPVOID
     }
 
     rpal_memory_free( root );
+#else
+    // There is currently no efficient way to track file changes from UM on
+    // Linux and OSX so we just wait for termination or for kernel to become available.
+    while( !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 5 ) ) &&
+           !kAcq_isAvailable() )
+    {
+
+    }
+#endif
 
     return NULL;
 }
