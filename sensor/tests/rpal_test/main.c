@@ -911,21 +911,27 @@ void test_dirwatch( void )
     RU32 action = 0;
     RU8 dummy[ 4 ] = { 0 };
 #ifdef RPAL_PLATFORM_WINDOWS
-    RPNCHAR root = _NC( "%TEMP%" );
-    RPNCHAR tmpFile = _NC( "%TEMP%\\_test_file" );
-    RPNCHAR tmpFileNew = _NC( "%TEMP%\\_test_file_post" );
+    RPNCHAR root1 = _NC( "%TEMP%\\_test_1" );
+    RPNCHAR root2 = _NC( "%TEMP%\\_test_1\\_test_2" );
+    RPNCHAR tmpFile = _NC( "%TEMP%\\_test_1\\_test_2\\_test_file" );
+    RPNCHAR tmpFileNew = _NC( "%TEMP%\\_test_1\\_test_2\\_test_file_post" );
+    RPNCHAR tmpFileName = _NC( "_test_2\\_test_file" );
+    RPNCHAR tmpFileNameNew = _NC( "_test_2\\_test_file_post" );
 #else
-    RPNCHAR root = _NC( "/tmp/" );
-    RPNCHAR tmpFile = _NC( "/tmp/_test_file" );
-    RPNCHAR tmpFileNew = _NC( "/tmp/_test_file_post" );
+    RPNCHAR root1 = _NC( "/tmp/_test_1" );
+    RPNCHAR root2 = _NC( "/tmp/_test_1/_test_2" );
+    RPNCHAR tmpFile = _NC( "/tmp/_test_1/_test_2/_test_file" );
+    RPNCHAR tmpFileNew = _NC( "/tmp/_test_1/_test_2/_test_file_post" );
+    RPNCHAR tmpFileName = _NC( "_test_2/_test_file" );
+    RPNCHAR tmpFileNameNew = _NC( "_test_2/_test_file_post" );
 #endif
-    RPNCHAR tmpFileName = _NC( "_test_file" );
-    RPNCHAR tmpFileNameNew = _NC( "_test_file_post" );
+    RPNCHAR tmpDir = _NC( "_test_2" );
 
-    rpal_file_delete( tmpFile, FALSE );
-    rpal_file_delete( tmpFileNew, FALSE );
+    rpal_file_delete( root1, FALSE );
+    rDir_create( root1 );
+    rDir_create( root2 );
 
-    dw = rDirWatch_new( root, RPAL_DIR_WATCH_CHANGE_ALL, TRUE );
+    dw = rDirWatch_new( root1, RPAL_DIR_WATCH_CHANGE_ALL, TRUE );
     CU_ASSERT_NOT_EQUAL( dw, NULL );
 
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
@@ -944,6 +950,9 @@ void test_dirwatch( void )
     CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
     rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
@@ -968,6 +977,9 @@ void test_dirwatch( void )
     CU_ASSERT_TRUE( rpal_file_delete( tmpFileNew, FALSE ) );
     rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_REMOVED, action );
@@ -998,8 +1010,8 @@ int
         {
             if( NULL != ( suite = CU_add_suite( "rpal", NULL, NULL ) ) )
             {
-                if(// NULL == CU_add_test( suite, "events", test_events ) ||
-                    NULL == CU_add_test( suite, "dirwatch", test_dirwatch ) /*||
+                if( NULL == CU_add_test( suite, "events", test_events ) ||
+                    NULL == CU_add_test( suite, "dirwatch", test_dirwatch ) ||
                     NULL == CU_add_test( suite, "handleManager", test_handleManager ) ||
                     NULL == CU_add_test( suite, "strings", test_strings ) ||
                     NULL == CU_add_test( suite, "blob", test_blob ) ||
@@ -1015,7 +1027,7 @@ int
                     NULL == CU_add_test( suite, "btree", test_btree ) ||
                     NULL == CU_add_test( suite, "threadpool", test_threadpool ) ||
                     NULL == CU_add_test( suite, "sortsearch", test_sortsearch ) ||
-                    NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) */)
+                    NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
                 {
                     rpal_debug_error( "%s", CU_get_error_msg() );
                 }
