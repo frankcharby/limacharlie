@@ -904,6 +904,78 @@ void test_btree( void )
     rpal_btree_destroy( tree, FALSE );
 }
 
+void test_dirwatch( void )
+{
+    rDirWatch dw = NULL;
+    RPNCHAR tmpPath = NULL;
+    RU32 action = 0;
+    RU8 dummy[ 4 ] = { 0 };
+#ifdef RPAL_PLATFORM_WINDOWS
+    RPNCHAR root = _NC( "%TEMP%" );
+    RPNCHAR tmpFile = _NC( "%TEMP%\\_test_file" );
+    RPNCHAR tmpFileNew = _NC( "%TEMP%\\_test_file_post" );
+#else
+    RPNCHAR root = _NC( "/tmp/" );
+    RPNCHAR tmpFile = _NC( "/tmp/_test_file" );
+    RPNCHAR tmpFileNew = _NC( "/tmp/_test_file_post" );
+#endif
+    RPNCHAR tmpFileName = _NC( "_test_file" );
+    RPNCHAR tmpFileNameNew = _NC( "_test_file_post" );
+
+    rpal_file_delete( tmpFile, FALSE );
+    rpal_file_delete( tmpFileNew, FALSE );
+
+    dw = rDirWatch_new( root, RPAL_DIR_WATCH_CHANGE_ALL, TRUE );
+    CU_ASSERT_NOT_EQUAL( dw, NULL );
+
+    CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+
+    CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
+
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_ADDED, action );
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
+    CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+
+    CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
+
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
+#ifdef RPAL_PLATFORM_WINDOWS
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
+#endif
+    CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+
+    CU_ASSERT_TRUE( rpal_file_move( tmpFile, tmpFileNew ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
+
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_RENAMED_OLD, action );
+
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_RENAMED_NEW, action );
+
+    CU_ASSERT_TRUE( rpal_file_delete( tmpFileNew, FALSE ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
+
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_REMOVED, action );
+    CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+
+    rDirWatch_free( dw );
+}
+
 
 int
     main
@@ -926,7 +998,8 @@ int
         {
             if( NULL != ( suite = CU_add_suite( "rpal", NULL, NULL ) ) )
             {
-                if( NULL == CU_add_test( suite, "events", test_events ) ||
+                if(// NULL == CU_add_test( suite, "events", test_events ) ||
+                    NULL == CU_add_test( suite, "dirwatch", test_dirwatch ) /*||
                     NULL == CU_add_test( suite, "handleManager", test_handleManager ) ||
                     NULL == CU_add_test( suite, "strings", test_strings ) ||
                     NULL == CU_add_test( suite, "blob", test_blob ) ||
@@ -942,7 +1015,7 @@ int
                     NULL == CU_add_test( suite, "btree", test_btree ) ||
                     NULL == CU_add_test( suite, "threadpool", test_threadpool ) ||
                     NULL == CU_add_test( suite, "sortsearch", test_sortsearch ) ||
-                    NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
+                    NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) */)
                 {
                     rpal_debug_error( "%s", CU_get_error_msg() );
                 }

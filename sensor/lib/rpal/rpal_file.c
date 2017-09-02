@@ -34,6 +34,12 @@ limitations under the License.
     #include <shellapi.h>
 #endif
 
+#ifdef RPAL_PLATFORM_LINUX
+#include <sys/inotify.h>
+#include <limits.h>
+#include <sys/select.h>
+#endif
+
 typedef struct
 {
     rStack stack;
@@ -77,8 +83,12 @@ typedef struct
     RPWCHAR pTerminator;
     RBOOL isPending;
     OVERLAPPED oChange;
-#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-    RPAL_PLATFORM_TODO(Directory change notification... might use inotify)
+#elif defined( RPAL_PLATFORM_LINUX )
+    RS32 hWatch;
+    RS32 hChange;
+    RU8 changes[ ( 100 * ( sizeof( struct inotify_event ) + NAME_MAX + 1 ) ) ];
+    RU32 offset;
+    RS32 bytesRead;
 #endif
 } _rDirWatch;
 
@@ -2022,7 +2032,10 @@ rDirWatch
 {
     _rDirWatch* watch = NULL;
 
-    if( NULL != dir )
+    RPNCHAR cleanDir = NULL;
+
+    if( NULL != dir &&
+        rpal_string_expand( dir, &cleanDir ) )
     {
         if( NULL != ( watch = rpal_memory_alloc( sizeof( _rDirWatch ) ) ) )
         {
@@ -2033,9 +2046,9 @@ rDirWatch
             watch->tmpTerminator = 0;
             watch->pTerminator = NULL;
             watch->isPending = FALSE;
-            rpal_memory_zero( &(watch->oChange), sizeof( watch->oChange ) );
+            rpal_memory_zero( &( watch->oChange ), sizeof( watch->oChange ) );
 
-            if( NULL != ( watch->hDir = CreateFileW( dir, 
+            if( NULL != ( watch->hDir = CreateFileW( cleanDir,
                                                      FILE_LIST_DIRECTORY | GENERIC_READ,
                                                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                                      NULL,
@@ -2055,8 +2068,31 @@ rDirWatch
                 rpal_memory_free( watch );
                 watch = NULL;
             }
+#elif defined(RPAL_PLATFORM_LINUX)
+            watch->bytesRead = 0;
+            watch->offset = 0;
+
+            if( 0 <= ( watch->hWatch = inotify_init() ) )
+            {
+                if( 0 > ( watch->hChange = inotify_add_watch( watch->hWatch, 
+                                                              cleanDir, 
+                                                              IN_MODIFY | IN_CREATE | IN_DELETE | IN_ATTRIB | 
+                                                              IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE_SELF ) ) )
+                {
+                    close( watch->hWatch );
+                    rpal_memory_free( watch );
+                    watch = NULL;
+                }
+            }
+            else
+            {
+                rpal_memory_free( watch );
+                watch = NULL;
+            }
 #endif
         }
+
+        rpal_memory_free( cleanDir );
     }
 
     return (rDirWatch)watch;
@@ -2090,6 +2126,9 @@ RVOID
         {
             CloseHandle( pWatch->hChange );
         }
+#elif defined( RPAL_PLATFORM_LINUX )
+        inotify_rm_watch( pWatch->hWatch, pWatch->hChange );
+        close( pWatch->hWatch );
 #endif
         rpal_memory_free( watch );
     }
@@ -2179,6 +2218,95 @@ RBOOL
             else
             {
                 pWatch->curChange = (FILE_NOTIFY_INFORMATION*)( (RPU8)pWatch->curChange + pWatch->curChange->NextEntryOffset );
+            }
+        }
+#elif defined( RPAL_PLATFORM_LINUX )
+        fd_set handles;
+        int n = 0;
+        int waitVal = 0;
+        struct inotify_event* pEvent = NULL;
+        struct timeval to = { 1, 0 };
+        RU32 tmpAction = 0;
+
+        pEvent = (struct inotify_event*)( pWatch->changes + pWatch->offset );
+
+        if( pWatch->offset >= pWatch->bytesRead ||
+            !IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ), pWatch->changes, pWatch->bytesRead ) ||
+            !IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ) + pEvent->len, pWatch->changes, pWatch->bytesRead ) )
+        {
+            pWatch->offset = 0;
+            pWatch->bytesRead = 0;
+
+            to.tv_sec = timeout / 1000;
+            to.tv_usec = USEC_FROM_MSEC( timeout % 1000 );
+
+            FD_ZERO( &handles );
+            FD_SET( pWatch->hWatch, &handles );
+            n = (int)pWatch->hWatch + 1;
+
+            waitVal = select( n, &handles, NULL, NULL, &to );
+
+            if( 0 != waitVal )
+            {
+                pWatch->bytesRead = read( pWatch->hWatch, pWatch->changes, sizeof( pWatch->changes ) );
+                if( 0 == pWatch->bytesRead ||
+                    -1 == pWatch->bytesRead )
+                {
+                    pWatch->bytesRead = 0;
+                }
+            }
+        }
+
+        pEvent = (struct inotify_event*)( pWatch->changes + pWatch->offset );
+
+        if( pWatch->offset < pWatch->bytesRead &&
+            IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ), pWatch->changes, pWatch->bytesRead ) &&
+            IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ) + pEvent->len, pWatch->changes, pWatch->bytesRead ) )
+        {
+            if( IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ), pWatch->changes, pWatch->bytesRead ) &&
+                IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ) + pEvent->len, pWatch->changes, pWatch->bytesRead ) )
+            {
+                gotChange = TRUE;
+                *pFilePath = pEvent->name;
+                
+                if( IS_FLAG_ENABLED( pEvent->mask, IN_MODIFY ) ||
+                    IS_FLAG_ENABLED( pEvent->mask, IN_ATTRIB ) )
+                {
+                    tmpAction = RPAL_DIR_WATCH_ACTION_MODIFIED;
+                }
+
+                if( IS_FLAG_ENABLED( pEvent->mask, IN_CREATE ) )
+                {
+                    tmpAction = RPAL_DIR_WATCH_ACTION_ADDED;
+                }
+
+                if( IS_FLAG_ENABLED( pEvent->mask, IN_DELETE ) || 
+                    IS_FLAG_ENABLED( pEvent->mask, IN_DELETE_SELF ) )
+                {
+                    tmpAction = RPAL_DIR_WATCH_ACTION_REMOVED;
+                }
+
+                if( IS_FLAG_ENABLED( pEvent->mask, IN_MOVED_FROM ) )
+                {
+                    tmpAction = RPAL_DIR_WATCH_ACTION_RENAMED_OLD;
+                }
+
+                if( IS_FLAG_ENABLED( pEvent->mask, IN_MOVED_TO ) )
+                {
+                    tmpAction = RPAL_DIR_WATCH_ACTION_RENAMED_NEW;
+                }
+
+                if( 0 == tmpAction )
+                {
+                    *pFilePath = NULL;
+                    gotChange = FALSE;
+                }
+                else if( NULL != pAction )
+                {
+                    *pAction = tmpAction;
+                }
+
+                pWatch->offset += pEvent->len + sizeof( *pEvent );
             }
         }
 #else
