@@ -930,6 +930,8 @@ void test_dirwatch( void )
     RBOOL isFile1Added = FALSE;
     RBOOL isFile1Modified = FALSE;
     RBOOL isDirModified = FALSE;
+    RBOOL isNewFile = FALSE;
+    RBOOL isOldFile = FALSE;
     RU32 i = 0;
 
     rpal_file_delete( root1, FALSE );
@@ -1028,13 +1030,35 @@ void test_dirwatch( void )
     CU_ASSERT_TRUE( rpal_file_move( tmpFile, tmpFileNew ) );
     rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
 
-    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
-    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
-    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_RENAMED_OLD, action );
-
-    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
-    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) );
-    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_RENAMED_NEW, action );
+    for( i = 0; i < 2; i++ )
+    {
+        CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+        if( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) &&
+            RPAL_DIR_WATCH_ACTION_RENAMED_OLD == action )
+        {
+            isOldFile = TRUE;
+        }
+        else if( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) &&
+                RPAL_DIR_WATCH_ACTION_RENAMED_NEW == action )
+        {
+            isNewFile = TRUE;
+        }
+#ifdef RPAL_PLATFORM_WINDOWS
+        else if( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) &&
+            RPAL_DIR_WATCH_ACTION_MODIFIED == action )
+        {
+            // Some versions of Windows report the old file modified.
+            i--;
+        }
+#endif
+        else
+        {
+            rpal_debug_info( ":: " RF_STR_N " == " RF_U32, tmpPath, action );
+            CU_ASSERT_TRUE( FALSE );
+        }
+    }
+    CU_ASSERT_TRUE( isOldFile );
+    CU_ASSERT_TRUE( isNewFile );
 
     //=========================================================================
     // Delete a file.
