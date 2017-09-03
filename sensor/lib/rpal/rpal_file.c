@@ -2372,97 +2372,133 @@ RBOOL
         pEvent = (struct inotify_event*)( pWatch->changes + pWatch->offset );
         pWatch->latestPath[ 0 ] = 0;
         
-        if( pWatch->offset < pWatch->bytesRead &&
-            IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ), pWatch->changes, pWatch->bytesRead ) &&
-            IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ) + pEvent->len, pWatch->changes, pWatch->bytesRead ) )
+        while( !gotChange &&
+               pWatch->offset < pWatch->bytesRead &&
+               IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ), pWatch->changes, pWatch->bytesRead ) &&
+               IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ) + pEvent->len, pWatch->changes, pWatch->bytesRead ) )
         {
-            if( IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ), pWatch->changes, pWatch->bytesRead ) &&
-                IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ) + pEvent->len, pWatch->changes, pWatch->bytesRead ) )
+            pWatch->latestPath[ 0 ] = 0;
+            gotChange = TRUE;
+
+            stub.handle = pEvent->wd;
+            if( !rpal_btree_search( pWatch->hChanges, &stub, &stub, TRUE ) )
             {
-                gotChange = TRUE;
+                // If we can't find the handle that produced this, we assume it's because
+                // we dropped it from the watch and this is an irrelevant trailing event.
+                pWatch->offset += pEvent->len + sizeof( *pEvent );
+                pEvent = (struct inotify_event*)( pWatch->changes + pWatch->offset );
+                gotChange = FALSE;
+                continue;
+            }
 
-                stub.handle = pEvent->wd;
-                if( rpal_btree_search( pWatch->hChanges, &stub, &stub, TRUE ) )
-                {
-                    rpal_string_strcat( pWatch->latestPath, stub.name );
-                    rpal_string_strcat( pWatch->latestPath, _NC( "/" ) );
-                }
-                
+            if( 0 != stub.name[ 0 ] )
+            {
+                rpal_string_strcat( pWatch->latestPath, stub.name );
+                rpal_string_strcat( pWatch->latestPath, _NC( "/" ) );
+            }
+
+            // Sometimes the path len is 0 when indicate the object being watched
+            // is itself the subject of the event (a dir).
+            if( 0 < pEvent->len )
+            {
+                // Make sure we terminate the name.
+                pEvent->name[ pEvent->len - 1 ] = 0;
                 rpal_string_strcat( pWatch->latestPath, pEvent->name );
+            }
 
-                *pFilePath = pWatch->latestPath;
-                latestLength = rpal_string_strlen( pWatch->latestPath );
+            *pFilePath = pWatch->latestPath;
+            latestLength = rpal_string_strlen( pWatch->latestPath );
 
-                if(_NC( '/' ) == pWatch->latestPath[ latestLength - 1 ] )
-                {
-                    // For behavior parity with Windows, remove terminating /
-                    pWatch->latestPath[ latestLength - 1 ] = 0;
-                }
+            if( 0 != latestLength && 
+                _NC( '/' ) == pWatch->latestPath[ latestLength - 1 ] )
+            {
+                // For behavior parity with Windows, remove terminating /
+                pWatch->latestPath[ latestLength - 1 ] = 0;
+            }
                 
-                if( IS_FLAG_ENABLED( pEvent->mask, IN_MODIFY ) ||
-                    IS_FLAG_ENABLED( pEvent->mask, IN_ATTRIB ) )
-                {
-                    tmpAction = RPAL_DIR_WATCH_ACTION_MODIFIED;
-                }
+            if( IS_FLAG_ENABLED( pEvent->mask, IN_MODIFY ) ||
+                IS_FLAG_ENABLED( pEvent->mask, IN_ATTRIB ) )
+            {
+                tmpAction = RPAL_DIR_WATCH_ACTION_MODIFIED;
+            }
 
-                if( IS_FLAG_ENABLED( pEvent->mask, IN_CREATE ) )
-                {
-                    tmpAction = RPAL_DIR_WATCH_ACTION_ADDED;
+            if( IS_FLAG_ENABLED( pEvent->mask, IN_CREATE ) )
+            {
+                tmpAction = RPAL_DIR_WATCH_ACTION_ADDED;
 
-                    if( pWatch->isRecursive && IS_FLAG_ENABLED( pEvent->mask, IN_ISDIR ) )
+                if( pWatch->isRecursive && IS_FLAG_ENABLED( pEvent->mask, IN_ISDIR ) )
+                {
+                    subDir = rpal_string_strcatEx( subDir, pWatch->root );
+                    subDir = rpal_string_strcatEx( subDir, _NC("/") );
+                    subDir = rpal_string_strcatEx( subDir, pWatch->latestPath );
+
+                    // Add the directory itself.
+                    label = subDir + rpal_string_strlen( pWatch->root ) + 1;
+                    _inotifyAddPath( watch, subDir, label );
+
+                    // And add any other subdirectories.
+                    if( NULL != ( crawl = rpal_file_crawlStart( subDir, patterns, 20 ) ) )
                     {
-                        subDir = rpal_string_strcatEx( subDir, pWatch->latestPath );
-                        subDir = rpal_string_strcatEx( subDir, _NC("/") );
-                        subDir = rpal_string_strcatEx( subDir, pEvent->name );
-
-                        if( NULL != ( crawl = rpal_file_crawlStart( subDir, patterns, 20 ) ) )
+                        while( rpal_file_crawlNextFile( crawl, &fileInfo ) )
                         {
-                            while( rpal_file_crawlNextFile( crawl, &fileInfo ) )
+                            if( IS_FLAG_ENABLED( fileInfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) )
                             {
-                                if( IS_FLAG_ENABLED( fileInfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) )
-                                {
-                                    label = fileInfo.filePath + rpal_string_strlen( pWatch->root ) + 1;
-                                    _inotifyAddPath( watch, fileInfo.filePath, label );
-                                }
+                                label = fileInfo.filePath + rpal_string_strlen( pWatch->root ) + 1;
+                                _inotifyAddPath( watch, fileInfo.filePath, label );
                             }
-
-                            rpal_file_crawlStop( crawl );
                         }
 
-                        rpal_btree_optimize( pWatch->hChanges, TRUE );
-
-                        rpal_memory_free( subDir );
+                        rpal_file_crawlStop( crawl );
                     }
-                }
 
-                if( IS_FLAG_ENABLED( pEvent->mask, IN_DELETE ) || 
-                    IS_FLAG_ENABLED( pEvent->mask, IN_DELETE_SELF ) )
+                    rpal_btree_optimize( pWatch->hChanges, TRUE );
+
+                    rpal_memory_free( subDir );
+                }
+            }
+
+            if( IS_FLAG_ENABLED( pEvent->mask, IN_DELETE ) )
+            {
+                tmpAction = RPAL_DIR_WATCH_ACTION_REMOVED;
+            }
+
+            if( IS_FLAG_ENABLED( pEvent->mask, IN_MOVED_FROM ) )
+            {
+                tmpAction = RPAL_DIR_WATCH_ACTION_RENAMED_OLD;
+            }
+
+            if( IS_FLAG_ENABLED( pEvent->mask, IN_MOVED_TO ) )
+            {
+                tmpAction = RPAL_DIR_WATCH_ACTION_RENAMED_NEW;
+            }
+
+            if( IS_FLAG_ENABLED( pEvent->mask, IN_DELETE_SELF ) )
+            {
+                // This means the dir or file we're watching is deleted so
+                // we will remove it from our watch.
+                inotify_rm_watch( pWatch->hWatch, stub.handle );
+                rpal_btree_remove( pWatch->hChanges, &stub, NULL, TRUE );
+
+                // Still report the deletion if this is not recursive, otherwise
+                // the parent will handle the event.
+                if( !pWatch->isRecursive )
                 {
                     tmpAction = RPAL_DIR_WATCH_ACTION_REMOVED;
                 }
-
-                if( IS_FLAG_ENABLED( pEvent->mask, IN_MOVED_FROM ) )
-                {
-                    tmpAction = RPAL_DIR_WATCH_ACTION_RENAMED_OLD;
-                }
-
-                if( IS_FLAG_ENABLED( pEvent->mask, IN_MOVED_TO ) )
-                {
-                    tmpAction = RPAL_DIR_WATCH_ACTION_RENAMED_NEW;
-                }
-
-                if( 0 == tmpAction )
-                {
-                    *pFilePath = NULL;
-                    gotChange = FALSE;
-                }
-                else if( NULL != pAction )
-                {
-                    *pAction = tmpAction;
-                }
-
-                pWatch->offset += pEvent->len + sizeof( *pEvent );
             }
+
+            if( 0 == tmpAction )
+            {
+                *pFilePath = NULL;
+                gotChange = FALSE;
+            }
+            else if( NULL != pAction )
+            {
+                *pAction = tmpAction;
+            }
+
+            pWatch->offset += pEvent->len + sizeof( *pEvent );
+            pEvent = (struct inotify_event*)( pWatch->changes + pWatch->offset );
         }
 #else
         UNREFERENCED_PARAMETER( pWatch );

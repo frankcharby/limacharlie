@@ -940,6 +940,9 @@ void test_dirwatch( void )
 
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
+    //=========================================================================
+    // Write a new file.
+    //=========================================================================
     CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
     rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 
@@ -963,6 +966,9 @@ void test_dirwatch( void )
 
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
+    //=========================================================================
+    // Write on existing file.
+    //=========================================================================
     CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
     rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
     
@@ -981,6 +987,9 @@ void test_dirwatch( void )
 
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
+    //=========================================================================
+    // Move existing file.
+    //=========================================================================
     CU_ASSERT_TRUE( rpal_file_move( tmpFile, tmpFileNew ) );
     rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 
@@ -992,6 +1001,9 @@ void test_dirwatch( void )
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_RENAMED_NEW, action );
 
+    //=========================================================================
+    // Delete a file.
+    //=========================================================================
     CU_ASSERT_TRUE( rpal_file_delete( tmpFileNew, FALSE ) );
     rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 
@@ -1003,6 +1015,62 @@ void test_dirwatch( void )
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_REMOVED, action );
+    CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+
+    //=========================================================================
+    // Delete subdir.
+    //=========================================================================
+    CU_ASSERT_TRUE( rpal_file_delete( root2, FALSE ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
+#endif
+
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_REMOVED, action );
+    
+    CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+
+    //=========================================================================
+    // Create subdir.
+    //=========================================================================
+    CU_ASSERT_TRUE( rDir_create( root2 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
+
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_ADDED, action );
+
+    CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+
+    //=========================================================================
+    // Create new file to make sure it gets picked up.
+    //=========================================================================
+    CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
+
+    for( i = 0; i < 2; i++ )
+    {
+        CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+        if( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) &&
+            RPAL_DIR_WATCH_ACTION_ADDED == action )
+        {
+            isFile1Added = TRUE;
+        }
+        else if( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) &&
+            RPAL_DIR_WATCH_ACTION_MODIFIED == action )
+        {
+            isFile1Modified = TRUE;
+        }
+    }
+    CU_ASSERT_TRUE( isFile1Added );
+    CU_ASSERT_TRUE( isFile1Modified );
+    isFile1Modified = FALSE;
+
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
     rDirWatch_free( dw );
