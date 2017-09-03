@@ -929,6 +929,7 @@ void test_dirwatch( void )
 
     RBOOL isFile1Added = FALSE;
     RBOOL isFile1Modified = FALSE;
+    RBOOL isDirModified = FALSE;
     RU32 i = 0;
 
     rpal_file_delete( root1, FALSE );
@@ -944,7 +945,7 @@ void test_dirwatch( void )
     // Write a new file.
     //=========================================================================
     CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
-    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
 
     for( i = 0; i < 2; i++ )
     {
@@ -959,10 +960,25 @@ void test_dirwatch( void )
         {
             isFile1Modified = TRUE;
         }
+#ifdef RPAL_PLATFORM_WINDOWS
+        else if( 0 == rpal_string_strcmp( tmpDir, tmpPath ) &&
+                 RPAL_DIR_WATCH_ACTION_MODIFIED == action )
+        {
+            // Some versions of Windows seem to report a change to the dir.
+            i--;
+        }
+#endif
+        else
+        {
+            rpal_debug_info( ":: " RF_STR_N " == " RF_U32, tmpPath, action );
+            CU_ASSERT_TRUE( FALSE );
+        }
     }
     CU_ASSERT_TRUE( isFile1Added );
     CU_ASSERT_TRUE( isFile1Modified );
     isFile1Modified = FALSE;
+    isFile1Added = FALSE;
+    isDirModified = FALSE;
 
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
@@ -970,31 +986,47 @@ void test_dirwatch( void )
     // Write on existing file.
     //=========================================================================
     CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
-    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
-    
+    rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
+
 #ifdef RPAL_PLATFORM_WINDOWS
-    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
-    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
-    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
-    printf( "%s = %d\n", tmpPath, action );
+    for( i = 0; i < 2; i++ )
+    {
+        CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+        if( 0 == rpal_string_strcmp( tmpDir, tmpPath ) &&
+            RPAL_DIR_WATCH_ACTION_MODIFIED == action )
+        {
+            isDirModified = TRUE;
+        }
+        else if( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) &&
+                 RPAL_DIR_WATCH_ACTION_MODIFIED == action )
+        {
+            isFile1Modified = TRUE;
+        }
+        else
+        {
+            rpal_debug_info( ":: " RF_STR_N " == " RF_U32, tmpPath, action );
+            CU_ASSERT_TRUE( FALSE );
+        }
+    }
+    // Not all versions of Windows will report the directory modified.
+    // CU_ASSERT_TRUE( isDirModified );
 
+    CU_ASSERT_TRUE( isFile1Modified );
+#else
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
-    printf( "%s = %d\n", tmpPath, action );
 #endif
-    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
-    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
-    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
-    printf( "%s = %d\n", tmpPath, action );
 
-    CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    isFile1Modified = FALSE;
+    isFile1Added = FALSE;
+    isDirModified = FALSE;
 
     //=========================================================================
     // Move existing file.
     //=========================================================================
     CU_ASSERT_TRUE( rpal_file_move( tmpFile, tmpFileNew ) );
-    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
 
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
@@ -1008,18 +1040,31 @@ void test_dirwatch( void )
     // Delete a file.
     //=========================================================================
     CU_ASSERT_TRUE( rpal_file_delete( tmpFileNew, FALSE ) );
-    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
 
 #ifdef RPAL_PLATFORM_WINDOWS
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
-    printf( "%s = %d\n", tmpPath, action );
-#endif
+    
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) );
+    // Some versions of Windows will have an additional modifed here.
+    if( RPAL_DIR_WATCH_ACTION_MODIFIED == action )
+    {
+        CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+        CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) );
+        CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_REMOVED, action );
+    }
+    else
+    {
+        CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_REMOVED, action );
+    }
+#else
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_REMOVED, action );
-    printf( "%s = %d\n", tmpPath, action );
+#endif
 
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
@@ -1027,19 +1072,17 @@ void test_dirwatch( void )
     // Delete subdir.
     //=========================================================================
     CU_ASSERT_TRUE( rpal_file_delete( root2, FALSE ) );
-    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
 
 #ifdef RPAL_PLATFORM_WINDOWS
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
-    printf( "%s = %d\n", tmpPath, action );
 #endif
 
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_REMOVED, action );
-    printf( "%s = %d\n", tmpPath, action );
     
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
@@ -1047,12 +1090,11 @@ void test_dirwatch( void )
     // Create subdir.
     //=========================================================================
     CU_ASSERT_TRUE( rDir_create( root2 ) );
-    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
 
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_ADDED, action );
-    printf( "%s = %d\n", tmpPath, action );
 
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
@@ -1060,7 +1102,7 @@ void test_dirwatch( void )
     // Create new file to make sure it gets picked up.
     //=========================================================================
     CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
-    rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
 
     for( i = 0; i < 2; i++ )
     {
@@ -1075,10 +1117,25 @@ void test_dirwatch( void )
         {
             isFile1Modified = TRUE;
         }
+#ifdef RPAL_PLATFORM_WINDOWS
+        // Some versions of Windows have a directory modify here.
+        else if( 0 == rpal_string_strcmp( tmpDir, tmpPath ) &&
+                 RPAL_DIR_WATCH_ACTION_MODIFIED == action )
+        {
+            i--;
+        }
+#endif
+        else
+        {
+            rpal_debug_info( ":: " RF_STR_N " == " RF_U32, tmpPath, action );
+            CU_ASSERT_TRUE( FALSE );
+        }
     }
     CU_ASSERT_TRUE( isFile1Added );
     CU_ASSERT_TRUE( isFile1Modified );
     isFile1Modified = FALSE;
+    isFile1Added = FALSE;
+    isDirModified = FALSE;
 
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
