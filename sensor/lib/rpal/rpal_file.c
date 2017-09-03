@@ -85,13 +85,23 @@ typedef struct
     OVERLAPPED oChange;
 #elif defined( RPAL_PLATFORM_LINUX )
     RS32 hWatch;
-    RS32 hChange;
     RU8 changes[ ( 100 * ( sizeof( struct inotify_event ) + NAME_MAX + 1 ) ) ];
     RU32 offset;
     RS32 bytesRead;
+    rBTree hChanges;
+    RBOOL isRecursive;
+    RNCHAR latestPath[ NAME_MAX ];
+    RPNCHAR root;
 #endif
 } _rDirWatch;
 
+#ifdef RPAL_PLATFORM_LINUX
+typedef struct
+{
+    RS32 handle;
+    RNCHAR name[ NAME_MAX ];
+} _watchStub;
+#endif
 
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 RPRIVATE
@@ -2021,6 +2031,62 @@ RBOOL
     return isSuccess;
 }
 
+#ifdef RPAL_PLATFORM_LINUX
+RPRIVATE
+RS32
+    _cmpWatchStub
+    (
+        _watchStub* stub1,
+        _watchStub* stub2
+    )
+{
+    RS32 ret = -1;
+
+    if( NULL != stub1 &&
+        NULL != stub2 )
+    {
+        ret = stub1->handle - stub2->handle;
+    }
+
+    return ret;
+}
+
+RPRIVATE
+RBOOL
+    _inotifyAddPath
+    (
+        _rDirWatch* watch,
+        RPNCHAR path,
+        RPNCHAR label
+    )
+{
+    RBOOL isAdded = FALSE;
+
+    _watchStub stub = { 0 };
+
+    if( 0 <= ( stub.handle = inotify_add_watch( watch->hWatch, 
+                                                path, 
+                                                IN_MODIFY | IN_CREATE | IN_DELETE | IN_ATTRIB |
+                                                IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE_SELF ) ) )
+    {
+        if( rpal_string_strlen( label ) < sizeof( stub.name ) )
+        {
+            rpal_string_strcat( stub.name, label );
+
+            if( rpal_btree_add( watch->hChanges, &stub, TRUE ) )
+            {
+                isAdded = TRUE;
+            }
+            else
+            {
+                inotify_rm_watch( watch->hWatch, stub.handle );
+            }
+        }
+    }
+
+    return isAdded;
+}
+#endif
 
 rDirWatch
     rDirWatch_new
@@ -2069,25 +2135,51 @@ rDirWatch
                 watch = NULL;
             }
 #elif defined(RPAL_PLATFORM_LINUX)
+            _watchStub stub = { 0 };
+            rDirCrawl crawl = NULL;
+            RPNCHAR patterns[] = { _NC("*") };
+            rFileInfo fileInfo = { 0 };
+            RPNCHAR label = NULL;
             watch->bytesRead = 0;
             watch->offset = 0;
+            watch->isRecursive = includeSubDirs;
 
-            if( 0 <= ( watch->hWatch = inotify_init() ) )
+            if( NULL != (  watch->hChanges = rpal_btree_create( sizeof( _watchStub ), (rpal_btree_comp_f)_cmpWatchStub, NULL ) ) )
             {
-                if( 0 > ( watch->hChange = inotify_add_watch( watch->hWatch, 
-                                                              cleanDir, 
-                                                              IN_MODIFY | IN_CREATE | IN_DELETE | IN_ATTRIB | 
-                                                              IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE_SELF ) ) )
+                if( 0 > ( watch->hWatch = inotify_init() ) ||
+                    !_inotifyAddPath( watch, cleanDir, _NC( "" ) ) )
                 {
-                    close( watch->hWatch );
+                    rpal_btree_destroy( watch->hChanges, TRUE );
                     rpal_memory_free( watch );
                     watch = NULL;
                 }
             }
-            else
+
+            if( NULL != watch &&
+                watch->isRecursive )
             {
-                rpal_memory_free( watch );
-                watch = NULL;
+                if( NULL != ( crawl = rpal_file_crawlStart( cleanDir, patterns, 20 ) ) )
+                {
+                    while( rpal_file_crawlNextFile( crawl, &fileInfo ) )
+                    {
+                        if( IS_FLAG_ENABLED( fileInfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) )
+                        {
+                            // To maintain behavior with Windows, we need to strip the caller's root path.
+                            label = fileInfo.filePath + rpal_string_strlen( cleanDir ) + 1;
+                            _inotifyAddPath( watch, fileInfo.filePath, label );
+                        }
+                    }
+
+                    rpal_file_crawlStop( crawl );
+                }
+
+                rpal_btree_optimize( watch->hChanges, TRUE );
+            }
+
+            if( NULL != watch )
+            {
+                watch->root = cleanDir;
+                cleanDir = NULL;
             }
 #endif
         }
@@ -2115,7 +2207,7 @@ RVOID
             {
                 CancelIo( pWatch->hDir );
 
-                while( !HasOverlappedIoCompleted( &(pWatch->oChange) ) )
+                while( !HasOverlappedIoCompleted( &( pWatch->oChange ) ) )
                 {
                     rpal_thread_sleep( 5 );
                 }
@@ -2127,8 +2219,21 @@ RVOID
             CloseHandle( pWatch->hChange );
         }
 #elif defined( RPAL_PLATFORM_LINUX )
-        inotify_rm_watch( pWatch->hWatch, pWatch->hChange );
+        _watchStub stub = { 0 };
+
+        if( rpal_btree_minimum( pWatch->hChanges, &stub, TRUE ) )
+        {
+            do
+            {
+                if( rpal_btree_remove( pWatch->hChanges, &stub, NULL, TRUE ) )
+                {
+                    inotify_rm_watch( pWatch->hWatch, stub.handle );
+                }
+            } while( rpal_btree_after( pWatch->hChanges, &stub, &stub, TRUE ) );
+        }
+        rpal_btree_destroy( pWatch->hChanges, TRUE );
         close( pWatch->hWatch );
+        rpal_memory_free( pWatch->root );
 #endif
         rpal_memory_free( watch );
     }
@@ -2227,6 +2332,13 @@ RBOOL
         struct inotify_event* pEvent = NULL;
         struct timeval to = { 1, 0 };
         RU32 tmpAction = 0;
+        RPNCHAR subDir = NULL;
+        _watchStub stub = { 0 };
+        rDirCrawl crawl = NULL;
+        RPNCHAR patterns[] = { _NC("*") };
+        rFileInfo fileInfo = { 0 };
+        RPNCHAR label = NULL;
+        RU32 latestLength = 0;
 
         pEvent = (struct inotify_event*)( pWatch->changes + pWatch->offset );
 
@@ -2258,7 +2370,8 @@ RBOOL
         }
 
         pEvent = (struct inotify_event*)( pWatch->changes + pWatch->offset );
-
+        pWatch->latestPath[ 0 ] = 0;
+        
         if( pWatch->offset < pWatch->bytesRead &&
             IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ), pWatch->changes, pWatch->bytesRead ) &&
             IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ) + pEvent->len, pWatch->changes, pWatch->bytesRead ) )
@@ -2267,7 +2380,24 @@ RBOOL
                 IS_WITHIN_BOUNDS( pEvent, sizeof( *pEvent ) + pEvent->len, pWatch->changes, pWatch->bytesRead ) )
             {
                 gotChange = TRUE;
-                *pFilePath = pEvent->name;
+
+                stub.handle = pEvent->wd;
+                if( rpal_btree_search( pWatch->hChanges, &stub, &stub, TRUE ) )
+                {
+                    rpal_string_strcat( pWatch->latestPath, stub.name );
+                    rpal_string_strcat( pWatch->latestPath, _NC( "/" ) );
+                }
+                
+                rpal_string_strcat( pWatch->latestPath, pEvent->name );
+
+                *pFilePath = pWatch->latestPath;
+                latestLength = rpal_string_strlen( pWatch->latestPath );
+
+                if(_NC( '/' ) == pWatch->latestPath[ latestLength - 1 ] )
+                {
+                    // For behavior parity with Windows, remove terminating /
+                    pWatch->latestPath[ latestLength - 1 ] = 0;
+                }
                 
                 if( IS_FLAG_ENABLED( pEvent->mask, IN_MODIFY ) ||
                     IS_FLAG_ENABLED( pEvent->mask, IN_ATTRIB ) )
@@ -2278,6 +2408,31 @@ RBOOL
                 if( IS_FLAG_ENABLED( pEvent->mask, IN_CREATE ) )
                 {
                     tmpAction = RPAL_DIR_WATCH_ACTION_ADDED;
+
+                    if( pWatch->isRecursive && IS_FLAG_ENABLED( pEvent->mask, IN_ISDIR ) )
+                    {
+                        subDir = rpal_string_strcatEx( subDir, pWatch->latestPath );
+                        subDir = rpal_string_strcatEx( subDir, _NC("/") );
+                        subDir = rpal_string_strcatEx( subDir, pEvent->name );
+
+                        if( NULL != ( crawl = rpal_file_crawlStart( subDir, patterns, 20 ) ) )
+                        {
+                            while( rpal_file_crawlNextFile( crawl, &fileInfo ) )
+                            {
+                                if( IS_FLAG_ENABLED( fileInfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) )
+                                {
+                                    label = fileInfo.filePath + rpal_string_strlen( pWatch->root ) + 1;
+                                    _inotifyAddPath( watch, fileInfo.filePath, label );
+                                }
+                            }
+
+                            rpal_file_crawlStop( crawl );
+                        }
+
+                        rpal_btree_optimize( pWatch->hChanges, TRUE );
+
+                        rpal_memory_free( subDir );
+                    }
                 }
 
                 if( IS_FLAG_ENABLED( pEvent->mask, IN_DELETE ) || 
@@ -2312,7 +2467,7 @@ RBOOL
 #else
         UNREFERENCED_PARAMETER( pWatch );
         UNREFERENCED_PARAMETER( size );
-        rpal_thread_sleep( MSEC_FROM_SEC(1) );
+        rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 #endif
     }
 

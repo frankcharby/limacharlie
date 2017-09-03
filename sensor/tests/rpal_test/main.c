@@ -927,6 +927,10 @@ void test_dirwatch( void )
 #endif
     RPNCHAR tmpDir = _NC( "_test_2" );
 
+    RBOOL isFile1Added = FALSE;
+    RBOOL isFile1Modified = FALSE;
+    RU32 i = 0;
+
     rpal_file_delete( root1, FALSE );
     rDir_create( root1 );
     rDir_create( root2 );
@@ -939,28 +943,42 @@ void test_dirwatch( void )
     CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
     rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 
-    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
-    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
-    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_ADDED, action );
-    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
-    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
-    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
+    for( i = 0; i < 2; i++ )
+    {
+        CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+        if( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) &&
+            RPAL_DIR_WATCH_ACTION_ADDED  == action )
+        {
+            isFile1Added = TRUE;
+        }
+        else if( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) &&
+                 RPAL_DIR_WATCH_ACTION_MODIFIED == action )
+        {
+            isFile1Modified = TRUE;
+        }
+    }
+    CU_ASSERT_TRUE( isFile1Added );
+    CU_ASSERT_TRUE( isFile1Modified );
+    isFile1Modified = FALSE;
+
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
     CU_ASSERT_TRUE( rpal_file_write( tmpFile, dummy, sizeof( dummy ), TRUE ) );
     rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
-
+    
+#ifdef RPAL_PLATFORM_WINDOWS
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
-    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
-    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
-    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
-#ifdef RPAL_PLATFORM_WINDOWS
+
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
 #endif
+    CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
+    CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileName, tmpPath ) );
+    CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
+
     CU_ASSERT_FALSE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
 
     CU_ASSERT_TRUE( rpal_file_move( tmpFile, tmpFileNew ) );
@@ -977,9 +995,11 @@ void test_dirwatch( void )
     CU_ASSERT_TRUE( rpal_file_delete( tmpFileNew, FALSE ) );
     rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 
+#ifdef RPAL_PLATFORM_WINDOWS
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpDir, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_MODIFIED, action );
+#endif
     CU_ASSERT_TRUE( rDirWatch_next( dw, 0, &tmpPath, &action ) );
     CU_ASSERT_TRUE( 0 == rpal_string_strcmp( tmpFileNameNew, tmpPath ) );
     CU_ASSERT_EQUAL( RPAL_DIR_WATCH_ACTION_REMOVED, action );
@@ -1011,7 +1031,7 @@ int
             if( NULL != ( suite = CU_add_suite( "rpal", NULL, NULL ) ) )
             {
                 if( NULL == CU_add_test( suite, "events", test_events ) ||
-                    NULL == CU_add_test( suite, "dirwatch", test_dirwatch ) ||
+                    NULL == CU_add_test(suite, "dirwatch", test_dirwatch) ||
                     NULL == CU_add_test( suite, "handleManager", test_handleManager ) ||
                     NULL == CU_add_test( suite, "strings", test_strings ) ||
                     NULL == CU_add_test( suite, "blob", test_blob ) ||
