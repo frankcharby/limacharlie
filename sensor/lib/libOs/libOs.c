@@ -2379,20 +2379,24 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     if( ( REG_SZ == type ||
-        REG_EXPAND_SZ == type ) &&
+          REG_EXPAND_SZ == type ) &&
         0 != size )
     {
         // Short circuit empty string.
-        if( sizeof( RWCHAR ) == size &&
+        if( sizeof( RWCHAR ) >= size &&
             0 == *(RPWCHAR)value )
         {
             return TRUE;
         }
 
+        // We accept size - 1 in calling function so this is always safe.
         *(RPWCHAR)( value + size ) = 0;
 
         // We remove any NULL characters in the string as it's a technique used by some malware.
-        rpal_string_fill( (RPWCHAR)value, size / sizeof( RWCHAR ) - 1, _WCH( ' ' ) );
+        if( sizeof( RWCHAR ) <= size )
+        {
+            rpal_string_fill( (RPWCHAR)value, size / sizeof( RWCHAR ) - 1, _WCH( ' ' ) );
+        }
 
         tmp = rpal_string_strtok( (RPWCHAR)value, _WCH( ',' ), &state );
 
@@ -2518,13 +2522,13 @@ RBOOL
                                                    valueExpr,
                                                    NULL,
                                                    &type,
-                                                   (LPBYTE)&value,
+                                                   (LPBYTE)value,
                                                    &size ) )
             {
                 if( !_processRegValue( type, 
                                        keyPath, 
                                        valueExpr, 
-                                       (RPU8)&value, 
+                                       (RPU8)value, 
                                        size, 
                                        autoruns ) )
                 {
@@ -2549,12 +2553,12 @@ RBOOL
                                                    &tmpKeyNameSize, 
                                                    NULL, 
                                                    &type, 
-                                                   (RPU8)&value, 
+                                                   (RPU8)value, 
                                                    &size ) )
             {
                 tmpKeyName[ tmpKeyNameSize ] = 0;
 
-                if( !_processRegValue( type, keyPath, tmpKeyName, (RPU8)&value, size, autoruns ) )
+                if( !_processRegValue( type, keyPath, tmpKeyName, (RPU8)value, size, autoruns ) )
                 {
                     rpal_debug_warning( "key contains unexpected data" );
                     isSuccess = FALSE;
