@@ -25,6 +25,7 @@
 #include "collectors.h"
 #include "helpers.h"
 
+#define MAX_CLIENTS_CONNECTED   1
 
 static struct kern_ctl_reg krnlCommsCtl = { 0 };
 static kern_ctl_ref krnlCommsRef = { 0 };
@@ -40,6 +41,8 @@ typedef struct
     int (*initializer)( void* d );
     int (*deinitializer)();
 } CollectorContext;
+
+static rMutex g_connection_mutex = NULL;
 
 #define _COLLECTOR_INIT(cId) { collector_ ## cId ## _initialize, collector_ ## cId ## _deinitialize }
 #define _COLLECTOR_DISABLED(cId) { NULL, NULL }
@@ -276,10 +279,21 @@ errno_t
         void **unitinfo
     )
 {
+    errno_t status = 0;
     if( g_is_shutting_down ) return EBUSY;
-    g_n_connected++;
+
+    rpal_mutex_lock( g_connection_mutex );
+    if( MAX_CLIENTS_CONNECTED > g_n_connected )
+    {
+        g_n_connected++;
+    }
+    else
+    {
+        status = EBUSY;
+    }
+    rpal_mutex_unlock( g_connection_mutex );
     rpal_debug_info( "now %d clients connected", g_n_connected );
-    return (0);
+    return status;
 }
 
 static
@@ -291,7 +305,9 @@ errno_t
         void *unitinfo
     )
 {
+    rpal_mutex_lock( g_connection_mutex );
     if( 0 != g_n_connected ) g_n_connected--;
+    rpal_mutex_unlock( g_connection_mutex );
     rpal_debug_info( "now %d clients connected", g_n_connected );
     return 0;
 }
@@ -302,67 +318,73 @@ errno_t
 
 kern_return_t hbs_kernel_acquisition_start(kmod_info_t * ki, void *d)
 {
+    kern_return_t status = KERN_FAILURE;
     errno_t error = 0;
     int i = 0;
     
     g_is_shutting_down = 0;
     g_n_connected = 0;
-    
-    rpal_debug_info( "Initializing collectors" );
-    
-    for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
-    {
-        if( NULL == g_collectors[ i ].initializer ) continue;
 
-        if( !g_collectors[ i ].initializer( d ) )
-        {
-            rpal_debug_critical( "error initializing collector %d", i );
-            error = EBADEXEC;
-            break;
-        }
-        else
-        {
-            rpal_debug_info( "collector %d loaded", i );
-        }
-    }
-    
-    if( 0 != error )
+    if( NULL != ( g_connection_mutex = rpal_mutex_create() ) )
     {
-        for( i = i - 1; i > 0; i-- )
-        {
-            if( NULL == g_collectors[ i ].deinitializer ) continue;
+        status = KERN_SUCCESS;
 
-            g_collectors[ i ].deinitializer();
+        rpal_debug_info( "Initializing collectors" );
+
+        for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
+        {
+            if( NULL == g_collectors[ i ].initializer ) continue;
+
+            if( !g_collectors[ i ].initializer( d ) )
+            {
+                rpal_debug_critical( "error initializing collector %d", i );
+                error = EBADEXEC;
+                break;
+            }
+            else
+            {
+                rpal_debug_info( "collector %d loaded", i );
+            }
         }
-    }
-    
-    if( 0 == error )
-    {
-        rpal_debug_info( "collectors OK" );
-        rpal_debug_info( "initializing KM/UM comms" );
-        
-        krnlCommsCtl.ctl_id = 0;
-        krnlCommsCtl.ctl_unit = 0;
-        strncpy( krnlCommsCtl.ctl_name, ACQUISITION_COMMS_NAME, sizeof(krnlCommsCtl.ctl_name) );
-        krnlCommsCtl.ctl_flags = CTL_FLAG_PRIVILEGED;
-        krnlCommsCtl.ctl_send = comms_handle_send;
-        krnlCommsCtl.ctl_getopt = comms_handle_get;
-        krnlCommsCtl.ctl_setopt = comms_handle_set;
-        krnlCommsCtl.ctl_connect = comms_handle_connect;
-        krnlCommsCtl.ctl_disconnect = comms_handle_disconnect;
-        
-        error = ctl_register( &krnlCommsCtl, &krnlCommsRef );
+
+        if( 0 != error )
+        {
+            for( i = i - 1; i > 0; i-- )
+            {
+                if( NULL == g_collectors[ i ].deinitializer ) continue;
+
+                g_collectors[ i ].deinitializer();
+            }
+        }
+
         if( 0 == error )
         {
-            rpal_debug_info( "KM/UM comms initialized OK" );
-        }
-        else
-        {
-            rpal_debug_critical( "KM/UM comms initialize error: %d", error );
+            rpal_debug_info( "collectors OK" );
+            rpal_debug_info( "initializing KM/UM comms" );
+
+            krnlCommsCtl.ctl_id = 0;
+            krnlCommsCtl.ctl_unit = 0;
+            strncpy( krnlCommsCtl.ctl_name, ACQUISITION_COMMS_NAME, sizeof( krnlCommsCtl.ctl_name ) );
+            krnlCommsCtl.ctl_flags = CTL_FLAG_PRIVILEGED;
+            krnlCommsCtl.ctl_send = comms_handle_send;
+            krnlCommsCtl.ctl_getopt = comms_handle_get;
+            krnlCommsCtl.ctl_setopt = comms_handle_set;
+            krnlCommsCtl.ctl_connect = comms_handle_connect;
+            krnlCommsCtl.ctl_disconnect = comms_handle_disconnect;
+
+            error = ctl_register( &krnlCommsCtl, &krnlCommsRef );
+            if( 0 == error )
+            {
+                rpal_debug_info( "KM/UM comms initialized OK" );
+            }
+            else
+            {
+                rpal_debug_critical( "KM/UM comms initialize error: %d", error );
+            }
         }
     }
     
-    return KERN_SUCCESS;
+    return status;
 }
 
 kern_return_t hbs_kernel_acquisition_stop(kmod_info_t *ki, void *d)
@@ -393,6 +415,12 @@ kern_return_t hbs_kernel_acquisition_stop(kmod_info_t *ki, void *d)
         {
             rpal_debug_critical( "error deinitializing collector %d", i );
         }
+    }
+
+    if( NULL != g_connection_mutex )
+    {
+        rpal_mutex_free( g_connection_mutex );
+        g_connection_mutex = NULL;
     }
     
     return KERN_SUCCESS;

@@ -85,7 +85,7 @@ static CertVerifyCertificateChainPolicy_f RCertVerifyCertificateChainPolicy = NU
 static CertGetCertificateChain_f RCertGetCertificateChain = NULL;
 static CertCreateCertificateChainEngine_f RCertCreateCertificateChainEngine = NULL;
 
-static
+RPRIVATE
 RBOOL
     libOs_getFileSignature
     (
@@ -98,7 +98,7 @@ RBOOL
     );
 
 // TODO : Code a generic lib loader
-static
+RPRIVATE
 RBOOL
     loadCrypt32
     (
@@ -144,7 +144,7 @@ RBOOL
 }
 
 
-static
+RPRIVATE
 RBOOL
     loadWinTrustApi
     (
@@ -666,7 +666,7 @@ RBOOL
 
 
 #ifdef RPAL_PLATFORM_WINDOWS
-static
+RPRIVATE
 RBOOL
     libOS_validateCertChain
     (
@@ -777,7 +777,7 @@ RBOOL
 
 
 #ifdef RPAL_PLATFORM_WINDOWS
-static
+RPRIVATE
 RU32
     libOS_decodeCertName
     (
@@ -823,7 +823,7 @@ RU32
 
 
 #ifdef RPAL_PLATFORM_WINDOWS
-static
+RPRIVATE
 RBOOL
     libOs_retreiveSignatureInfo
     (
@@ -910,7 +910,7 @@ RBOOL
 
 
 #ifdef RPAL_PLATFORM_WINDOWS
-static
+RPRIVATE
 RBOOL
     libOs_getCATSignature
     (
@@ -979,7 +979,7 @@ RBOOL
 }
 #endif
 
-static
+RPRIVATE
 RBOOL
     libOs_getFileSignature
     (
@@ -1725,7 +1725,8 @@ RU8
 
 #ifdef RPAL_PLATFORM_WINDOWS
 
-static RBOOL
+RPRIVATE
+RBOOL
     _getAssociatedExecutable
     (
         RPWCHAR serviceName,
@@ -1804,7 +1805,8 @@ static RBOOL
     return isSuccess;
 }
 
-static rList
+RPRIVATE
+rList
     _getWindowsService
     (
         RU32 type
@@ -1914,7 +1916,7 @@ static rList
 #endif
 
 
-static
+RPRIVATE
 RBOOL
     _thorough_file_hash
     (
@@ -2100,7 +2102,7 @@ RBOOL
 }
 
 
-static
+RPRIVATE
 RVOID
     _enhanceServicesWithHashes
     (
@@ -2148,8 +2150,8 @@ RVOID
 
 
 #ifdef RPAL_PLATFORM_MACOSX
-static
-void
+RPRIVATE
+RVOID
     iterateJobAttributes
     (
         const launch_data_t data,
@@ -2214,8 +2216,8 @@ void
     }
 }
 
-static
-void
+RPRIVATE
+RVOID
     iterateJobs
     (
         const launch_data_t data,
@@ -2332,7 +2334,7 @@ rList
     return drivers;
 }
 
-static
+RPRIVATE
 RVOID
     _enhanceAutorunsWithHashes
     (
@@ -2359,7 +2361,7 @@ RVOID
 
 #ifdef RPAL_PLATFORM_WINDOWS
 
-static
+RPRIVATE_TESTABLE
 RBOOL
     _processRegValue
     (
@@ -2378,21 +2380,41 @@ RBOOL
     RU32 pathLen = 0;
     RBOOL isSuccess = FALSE;
 
+    if( NULL == value ||
+        NULL == path ||
+        NULL == keyName )
+    {
+        return FALSE;
+    }
+
+    // We accept size - sizeof( RWCHAR ) in calling function so this is always safe.
+    if( 0 == size % sizeof( RWCHAR ) )
+    {
+        *(RPWCHAR)( value + size ) = 0;
+    }
+    else
+    {
+        // We're expecting all this to be wide char, but if the size (in bytes) doesn't align
+        // with this, make sure we null terminate as widechar for safety.
+        *(RPWCHAR)( value + size + 1 ) = 0;
+    }
+
     if( ( REG_SZ == type ||
-        REG_EXPAND_SZ == type ) &&
+          REG_EXPAND_SZ == type ) &&
         0 != size )
     {
         // Short circuit empty string.
-        if( sizeof( RWCHAR ) == size &&
+        if( sizeof( RWCHAR ) >= size &&
             0 == *(RPWCHAR)value )
         {
             return TRUE;
         }
 
-        *(RPWCHAR)( value + size ) = 0;
-
         // We remove any NULL characters in the string as it's a technique used by some malware.
-        rpal_string_fill( (RPWCHAR)value, size / sizeof( RWCHAR ) - 1, _WCH( ' ' ) );
+        if( sizeof( RWCHAR ) <= size )
+        {
+            rpal_string_fill( (RPWCHAR)value, size / sizeof( RWCHAR ) - 1, _WCH( ' ' ) );
+        }
 
         tmp = rpal_string_strtok( (RPWCHAR)value, _WCH( ',' ), &state );
 
@@ -2408,7 +2430,8 @@ RBOOL
 
                     pathLen = rpal_string_strlen( path );
 
-                    if( sizeof( keyValue ) > ( pathLen + rpal_string_strlen( keyName ) + rpal_string_strlen( _WCH( "\\" ) ) ) * sizeof( RWCHAR ) )
+                    if( sizeof( keyValue ) > ( pathLen + rpal_string_strlen( keyName ) + 
+                                               rpal_string_strlen( _WCH( "\\" ) ) ) * sizeof( RWCHAR ) )
                     {
                         rpal_string_strcpy( (RPWCHAR)&keyValue, path );
                         if( _WCH( '\\' ) != path[ pathLen - 1 ] )
@@ -2446,15 +2469,14 @@ RBOOL
     else if( REG_MULTI_SZ == type )
     {
         // Short circuit empty string.
-        if( sizeof( RWCHAR ) == size &&
+        if( sizeof( RWCHAR ) >= size &&
             0 == *(RPWCHAR)value )
         {
             return TRUE;
         }
 
         tmp = (RPWCHAR)value;
-        while( (RPU8)tmp < ( (RPU8)value + size ) &&
-            (RPU8)( tmp + rpal_string_strlen( tmp ) ) <= ( (RPU8)value + size ) )
+        while( IS_WITHIN_BOUNDS( tmp, rpal_string_strsize( tmp ), value, size ) )
         {
             if( 0 != rpal_string_strlen( tmp ) )
             {
@@ -2489,7 +2511,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RBOOL
     _processRegKey
     (
@@ -2513,18 +2535,18 @@ RBOOL
         if( _WCH( '*' ) != valueExpr[ 0 ] )
         {
             // This key is a specific leaf value
-            size = sizeof( value ) - sizeof( RWCHAR );
+            size = sizeof( value ) - ( sizeof( RWCHAR ) * 2 );
             if( ERROR_SUCCESS == RegQueryValueExW( hKey,
                                                    valueExpr,
                                                    NULL,
                                                    &type,
-                                                   (LPBYTE)&value,
+                                                   (LPBYTE)value,
                                                    &size ) )
             {
                 if( !_processRegValue( type, 
                                        keyPath, 
                                        valueExpr, 
-                                       (RPU8)&value, 
+                                       (RPU8)value, 
                                        size, 
                                        autoruns ) )
                 {
@@ -2542,19 +2564,19 @@ RBOOL
 
             // This key is *, meaning all leaf values so we must enumerate
             tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
-            size = sizeof( value ) - sizeof( RWCHAR );
+            size = sizeof( value ) - ( sizeof( RWCHAR ) * 2 );
             while( ERROR_SUCCESS == RegEnumValueW( hKey, 
                                                    iKey, 
                                                    (RPWCHAR)&tmpKeyName, 
                                                    &tmpKeyNameSize, 
                                                    NULL, 
                                                    &type, 
-                                                   (RPU8)&value, 
+                                                   (RPU8)value, 
                                                    &size ) )
             {
                 tmpKeyName[ tmpKeyNameSize ] = 0;
 
-                if( !_processRegValue( type, keyPath, tmpKeyName, (RPU8)&value, size, autoruns ) )
+                if( !_processRegValue( type, keyPath, tmpKeyName, (RPU8)value, size, autoruns ) )
                 {
                     rpal_debug_warning( "key contains unexpected data" );
                     isSuccess = FALSE;
@@ -2562,7 +2584,7 @@ RBOOL
 
                 iKey++;
                 tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
-                size = sizeof( value ) - sizeof( RWCHAR );
+                size = sizeof( value ) - ( sizeof( RWCHAR ) * 2 );
             }
         }
 
@@ -2572,7 +2594,7 @@ RBOOL
     return isSuccess;
 }
 
-static
+RPRIVATE
 RBOOL
     _getWindowsAutoruns
     (

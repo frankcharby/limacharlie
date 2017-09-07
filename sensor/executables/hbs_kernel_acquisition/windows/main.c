@@ -52,6 +52,8 @@ typedef struct
     RBOOL( *deinitializer )( );
 } CollectorContext;
 
+static KSPIN_LOCK g_connection_mutex = { 0 };
+static RBOOL g_is_connected = FALSE;
 
 //=========================================================================
 //  Built-in Tasks
@@ -151,6 +153,7 @@ NTSTATUS
     )
 {
     NTSTATUS status = STATUS_SUCCESS;
+    KLOCK_QUEUE_HANDLE hMutex = { 0 };
 
     PIO_STACK_LOCATION irpStack = IoGetCurrentIrpStackLocation( Irp );
 
@@ -159,9 +162,21 @@ NTSTATUS
     if( NULL == irpStack ||
         IRP_MJ_CLOSE != irpStack->MajorFunction )
     {
-        return STATUS_NOT_IMPLEMENTED;
+        status = STATUS_NOT_IMPLEMENTED;
     }
-
+    else
+    {
+        KeAcquireInStackQueuedSpinLock( &g_connection_mutex, &hMutex );
+        if( g_is_connected )
+        {
+            status = STATUS_DEVICE_BUSY;
+        }
+        else
+        {
+            g_is_connected = TRUE;
+        }
+        KeReleaseInStackQueuedSpinLock( &hMutex );
+    }
     Irp->IoStatus.Status = status;
     Irp->IoStatus.Information = 0;
     IoCompleteRequest( Irp, IO_NO_INCREMENT );
@@ -177,6 +192,7 @@ NTSTATUS
     )
 {
     NTSTATUS status = STATUS_SUCCESS;
+    KLOCK_QUEUE_HANDLE hMutex = { 0 };
 
     PIO_STACK_LOCATION irpStack = IoGetCurrentIrpStackLocation( Irp );
     
@@ -185,9 +201,21 @@ NTSTATUS
     if( NULL == irpStack ||
         IRP_MJ_CREATE != irpStack->MajorFunction )
     {
-        return STATUS_NOT_IMPLEMENTED;
+        status = STATUS_NOT_IMPLEMENTED;
     }
-
+    else
+    {
+        KeAcquireInStackQueuedSpinLock( &g_connection_mutex, &hMutex );
+        if( g_is_connected )
+        {
+            g_is_connected = FALSE;
+        }
+        else
+        {
+            rpal_debug_kernel( "Close called but device not connected!");
+        }
+        KeReleaseInStackQueuedSpinLock( &hMutex );
+    }
     Irp->IoStatus.Status = status;
     Irp->IoStatus.Information = 0;
     IoCompleteRequest( Irp, IO_NO_INCREMENT );
@@ -203,7 +231,7 @@ NTSTATUS
     )
 {
     NTSTATUS status = STATUS_SUCCESS;
-
+    
     PIO_STACK_LOCATION irpStack = NULL;
 
     RU32 controlCode = 0;
@@ -219,35 +247,37 @@ NTSTATUS
     if( NULL == irpStack ||
         IRP_MJ_DEVICE_CONTROL != irpStack->MajorFunction )
     {
-        return STATUS_NOT_IMPLEMENTED;
-    }
-
-    Irp->IoStatus.Information = 0;
-
-    controlCode = irpStack->Parameters.DeviceIoControl.IoControlCode;
-    inputLength = irpStack->Parameters.DeviceIoControl.InputBufferLength;
-    cmd = (KernelAcqCommand*)Irp->AssociatedIrp.SystemBuffer;
-    ioBuffer = Irp->AssociatedIrp.SystemBuffer;
-    outputLength = irpStack->Parameters.DeviceIoControl.OutputBufferLength;
-    
-    if( NULL != cmd &&
-        sizeof( KernelAcqCommand ) <= inputLength &&
-        inputLength >= cmd->dataOffset )
-    {
-        status = UserModeDispatcher( cmd->op, 
-                                     inputLength - cmd->dataOffset, 
-                                     &outputLength, 
-                                     cmd->data, 
-                                     ioBuffer );
-
-        if( NT_SUCCESS( status ) )
-        {
-            Irp->IoStatus.Information = outputLength;
-        }
+        status = STATUS_NOT_IMPLEMENTED;
     }
     else
     {
-        status = STATUS_INVALID_PARAMETER;
+        Irp->IoStatus.Information = 0;
+
+        controlCode = irpStack->Parameters.DeviceIoControl.IoControlCode;
+        inputLength = irpStack->Parameters.DeviceIoControl.InputBufferLength;
+        cmd = (KernelAcqCommand*)Irp->AssociatedIrp.SystemBuffer;
+        ioBuffer = Irp->AssociatedIrp.SystemBuffer;
+        outputLength = irpStack->Parameters.DeviceIoControl.OutputBufferLength;
+
+        if( NULL != cmd &&
+            sizeof( KernelAcqCommand ) <= inputLength &&
+            inputLength >= cmd->dataOffset )
+        {
+            status = UserModeDispatcher( cmd->op,
+                                         inputLength - cmd->dataOffset,
+                                         &outputLength,
+                                         cmd->data,
+                                         ioBuffer );
+
+            if( NT_SUCCESS( status ) )
+            {
+                Irp->IoStatus.Information = outputLength;
+            }
+        }
+        else
+        {
+            status = STATUS_INVALID_PARAMETER;
+        }
     }
 
     Irp->IoStatus.Status = status;
