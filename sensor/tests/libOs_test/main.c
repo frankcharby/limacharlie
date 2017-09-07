@@ -1,9 +1,25 @@
 #include <rpal/rpal.h>
 #include <libOs/libOs.h>
 #include <rpHostCommonPlatformLib/rTags.h>
+#include <cryptoLib/cryptoLib.h>
 #include <Basic.h>
 
 #define RPAL_FILE_ID      86
+
+#ifdef RPAL_PLATFORM_WINDOWS
+// Some private definitions for libOS RPRIVATE_TESTABLE functions we want to test.
+RPRIVATE_TESTABLE
+RBOOL
+    _processRegValue
+    (
+        DWORD type,
+        RPWCHAR path,
+        RPWCHAR keyName,
+        RPU8 value,
+        DWORD size,
+        rList listEntries
+    );
+#endif
 
 
 #ifdef RPAL_PLATFORM_WINDOWS
@@ -71,6 +87,34 @@ static RBOOL
 }
 #endif
 
+void test_init( void )
+{
+    CU_ASSERT_TRUE( CryptoLib_init() );
+}
+
+void test_deinit( void )
+{
+    CryptoLib_deinit();
+}
+
+void test_memoryLeaks( void )
+{
+    RU32 memUsed = 0;
+
+    rpal_Context_cleanup();
+
+    memUsed = rpal_memory_totalUsed();
+
+    CU_ASSERT_EQUAL( memUsed, 0 );
+
+    if( 0 != memUsed )
+    {
+        rpal_debug_critical( "Memory leak: %d bytes.\n", memUsed );
+        printf( "\nMemory leak: %d bytes.\n", memUsed );
+
+        rpal_memory_findMemory();
+    }
+}
 
 void 
 	parseSignature
@@ -176,6 +220,128 @@ void
     rSequence_free( svcs );
 }
 
+void
+    test_autoruns
+    (
+        void
+    )
+{
+    rList autoruns = NULL;
+
+    autoruns = libOs_getAutoruns( TRUE );
+
+    CU_ASSERT_PTR_NOT_EQUAL_FATAL( autoruns, NULL );
+
+    // For now no validation since it will have to be very platform specific.
+    // Just make sure it runs ok on the platform as a base case.
+#if defined( RPAL_PLATFORM_WINDOWS ) || defined( RPAL_PLATFORM_MACOSX )
+    CU_ASSERT_NOT_EQUAL( rList_getNumElements( autoruns ), 0 );
+#endif
+
+    rSequence_free( autoruns );
+}
+
+void
+    test_registry
+    (
+        void
+    )
+{
+#ifdef RPAL_PLATFORM_WINDOWS
+    struct
+    {
+        DWORD type;
+        RPWCHAR path;
+        RPWCHAR keyName;
+        RPWCHAR value;
+        DWORD size;
+        RBOOL isSuccess;
+        RU32 nResults;
+    } regTests[] = {
+        { 0, NULL, NULL, NULL, 0, FALSE, 0 },
+        { REG_SZ, _WCH( "dummy1" ), 
+          _WCH( "dummy2" ), 
+          (RPWCHAR)" \0\0", 
+          1, 
+          TRUE, 
+          1 },
+        { REG_SZ, 
+          _WCH( "dummy1" ), 
+          _WCH( "dummy2" ),
+          _WCH( "dummyVal\0" ), 
+          sizeof( _WCH( "dummyVal" ) ), 
+          TRUE, 
+          1 },
+        { REG_SZ, 
+          _WCH( "dummy1" ), 
+          _WCH( "dummy2" ), 
+          _WCH( "dummyVal,another,finally\0" ), 
+          sizeof( _WCH( "dummyVal,another,finally" ) ), 
+          TRUE, 
+          3 },
+        { REG_SZ, 
+          _WCH( "dummy1" ), 
+          _WCH( "dummy2" ), 
+          _WCH( "dum\0myVal\0" ), 
+          sizeof( _WCH( "dum\0myVal" ) ), 
+          TRUE, 
+          1 },
+        { REG_MULTI_SZ, 
+          _WCH( "dummy1" ), 
+          _WCH( "dummy2" ), 
+          _WCH( "dummyVal\0another\x00yup\0finally\0\0\0" ), 
+          sizeof( _WCH( "dummyVal\0another\0yup\0finally\0\0" ) ), 
+          TRUE, 
+          4 },
+    };
+    rList autoruns = NULL;
+    RU32 i = 0;
+    RBOOL isTmpSuccess = FALSE;
+    RU32 nTmpResults = 0;
+
+    RPU8 garbage = NULL;
+    RU32 garbageMaxSize = 100;
+    RU32 garbageSize = 0;
+    RU32 garbageLoops = 100;
+    
+    for( i = 0; i < ARRAY_N_ELEM( regTests ); i++ )
+    {
+        autoruns = rList_new( 1, RPCM_SEQUENCE );
+        CU_ASSERT_NOT_EQUAL_FATAL( autoruns, NULL );
+
+        isTmpSuccess = _processRegValue( regTests[ i ].type, 
+                                         regTests[ i ].path, 
+                                         regTests[ i ].keyName, 
+                                         (RPU8)regTests[ i ].value, 
+                                         regTests[ i ].size, 
+                                         autoruns );
+        CU_ASSERT_EQUAL( isTmpSuccess, regTests[ i ].isSuccess );
+        nTmpResults = rList_getNumElements( autoruns );
+        CU_ASSERT_EQUAL( nTmpResults, regTests[ i ].nResults );
+
+        rSequence_free( autoruns );
+    }
+
+    // Fuzz
+    for( garbageLoops = garbageLoops; 0 != garbageLoops; garbageLoops-- )
+    {
+        autoruns = rList_new( 1, RPCM_SEQUENCE );
+        CU_ASSERT_NOT_EQUAL_FATAL( autoruns, NULL );
+
+        garbageSize = ( rpal_rand() % garbageMaxSize ) + 128;
+        garbage = rpal_memory_alloc( garbageSize );
+        CU_ASSERT_NOT_EQUAL_FATAL( garbage, NULL );
+        CU_ASSERT_TRUE( CryptoLib_genRandomBytes( garbage, garbageSize ) );
+
+        // At this point we're just doing a bit of fuzzing looking for any crash.
+        _processRegValue( REG_SZ, _WCH( "DUMMY" ), _WCH( "DUMMY2" ), garbage, garbageSize - ( sizeof( RWCHAR ) * 2 ), autoruns );
+
+        rpal_memory_free( garbage );
+        rSequence_free( autoruns );
+    }
+#endif
+}
+
 int
     main
     (
@@ -201,8 +367,13 @@ int
         {
             if( NULL != ( suite = CU_add_suite( "libOs", NULL, NULL ) ) )
             {
-                if( NULL == CU_add_test( suite, "signCheck", test_signCheck ) ||
-                    NULL == CU_add_test( suite, "services", test_services ) )
+                if( NULL == CU_add_test( suite, "initialize", test_init ) ||
+                    NULL == CU_add_test( suite, "signCheck", test_signCheck ) ||
+                    NULL == CU_add_test( suite, "services", test_services ) ||
+                    NULL == CU_add_test( suite, "autoruns", test_autoruns ) ||
+                    NULL == CU_add_test( suite, "registry", test_registry ) ||
+                    NULL == CU_add_test( suite, "deinitialize", test_deinit ) ||
+                    NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
                 {
                     rpal_debug_error( "%s", CU_get_error_msg() );
                 }
