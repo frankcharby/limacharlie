@@ -5,7 +5,8 @@ import profiles
 profiles.make_rpal_master( env )
 profiles.Program(
         'rpHostCommonPlatformExe',
-        profiles.RpalModule()
+        profiles.RpalModule(),
+        profiles.GitInfo()
         ).Target(
             env,
             'main.c',
