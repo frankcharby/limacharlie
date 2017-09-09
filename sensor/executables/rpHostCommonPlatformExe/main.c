@@ -134,8 +134,10 @@ RBOOL
 #define _SERVICE_NAMEW _WCH( "rphcpsvc" )
 #ifdef RPAL_PLATFORM_DEBUG
     #define _SERVICE_IDENT_FILE _NC("%SYSTEMROOT%\\system32\\hcp_debug.dat")
+    #define _SERVICE_CONF_FILE _NC("%SYSTEMROOT%\\system32\\hcp_conf_debug.dat")
 #else
     #define _SERVICE_IDENT_FILE _NC("%SYSTEMROOT%\\system32\\hcp.dat")
+    #define _SERVICE_CONF_FILE _NC("%SYSTEMROOT%\\system32\\hcp_conf.dat")
 #endif
 static SERVICE_STATUS g_svc_status = { 0 };
 static SERVICE_STATUS_HANDLE g_svc_status_handle = NULL;
@@ -297,6 +299,7 @@ RU32
     SC_HANDLE hSvc = NULL;
     RWCHAR svcName[] = { _SERVICE_NAMEW };
     RNCHAR identPath[] = { _SERVICE_IDENT_FILE };
+    RNCHAR confPath[] = { _SERVICE_CONF_FILE };
     SERVICE_STATUS svcStatus = { 0 };
     RU32 nRetries = 10;
 
@@ -379,6 +382,15 @@ RU32
         else
         {
             rpal_debug_info( "deleted identity file from disk" );
+        }
+
+        if( !rpal_file_delete( confPath, FALSE ) )
+        {
+            rpal_debug_warning( "failed to delete config file from disk, not present?" );
+        }
+        else
+        {
+            rpal_debug_info( "deleted config file from disk" );
         }
     }
 

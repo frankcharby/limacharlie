@@ -502,6 +502,7 @@ RU32
     RU32 moduleIndex = 0;
 
     RU32 timeout = MSEC_FROM_SEC( 30 );
+    RBOOL isEnrolled = FALSE;
 
     UNREFERENCED_PARAMETER( context );
 
@@ -510,6 +511,11 @@ RU32
 
     do
     {
+        if( NULL != getC2PublicKey() )
+        {
+            isEnrolled = TRUE;
+        }
+
         if( !rEvent_wait( g_hcpContext.isCloudOnline, 0 ) )
         {
             // Not online, no need to try.
@@ -592,7 +598,16 @@ RU32
             if( doSend( RP_HCP_MODULE_ID_HCP, wrapper ) )
             {
                 // On successful sync, wait full period before another sync.
-                timeout = CLOUD_SYNC_TIMEOUT;
+                if( isEnrolled )
+                {
+                    timeout = CLOUD_SYNC_TIMEOUT;
+                }
+                else
+                {
+                    // We were not enrolled when we started this sync so we'll
+                    // do another sync sooner.
+                    timeout = MSEC_FROM_SEC( 10 );
+                }
             }
             else
             {
