@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <rpal/rpal.h>
 #include <rpHostCommonPlatformLib/rpHostCommonPlatformLib.h>
+#include "git_info.h"
 
 #ifdef RPAL_PLATFORM_LINUX
 #include <signal.h>
@@ -730,6 +731,7 @@ RPAL_NATIVE_MAIN
     RBOOL isArgumentsSpecified = FALSE;
 
     rpal_opt switches[] = { { _NC( 'h' ), _NC( "help" ), FALSE },
+                            { _NC( 'v' ), _NC( "version" ), FALSE },
                             { _NC( 'p' ), _NC( "primary" ), TRUE },
                             { _NC( 's' ), _NC( "secondary" ), TRUE },
                             { _NC( 'm' ), _NC( "manual" ), TRUE },
@@ -755,6 +757,10 @@ RPAL_NATIVE_MAIN
         {
             switch( argFlag )
             {
+                case _NC( 'v' ):
+                    printf( "VERSION: " RF_U32, GIT_REVISION );
+                    return 0;
+                    break;
                 case _NC( 'p' ):
                     primary = argVal;
                     rpal_debug_info( "Setting primary URL: " RF_STR_N ".", primary );
@@ -837,26 +843,25 @@ RPAL_NATIVE_MAIN
 #endif
                 case _NC( 'h' ):
                 default:
-#ifdef RPAL_PLATFORM_DEBUG
-                    printf( "Usage: " RF_STR_N " [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -d deploymentKey ] [ -i deploymentKey ] [ -r ] [ -c ] [ -h ].\n", argv[ 0 ] );
-                    printf( "-p: primary Url used to communicate home.\n" );
-                    printf( "-s: secondary Url used to communicate home if the primary failed.\n" );
-                    printf( "-m: module to be loaded manually, only available in debug builds.\n" );
-                    printf( "-n: the module id of the module being manually loaded.\n" );
-                    printf( "-d: the deployment key to use to enroll.\n" );
+                    printf( "Usage: " RF_STR_N " .\n", argv[ 0 ] );
+                    printf( "-v: display build version.\n" );
+                    printf( "-p <URL>: primary Url used to communicate home.\n" );
+                    printf( "-s <URL>: secondary Url used to communicate home if the primary failed.\n" );
+                    printf( "-m <FILE_PATH>: a module to be loaded manually, only available in debug builds.\n" );
+                    printf( "-n <MODULE_ID>: the module id of a module being manually loaded, only available in debug builds, must match -m modules in order.\n" );
+                    printf( "-d <INSTALLATION_KEY>: the deployment key to use to enroll.\n" );
 #ifdef RPAL_PLATFORM_WINDOWS
-                    printf( "-i: install executable as a service with deployment key.\n" );
+                    printf( "-i <INSTALLATION_KEY>: install executable as a service with deployment key.\n" );
                     printf( "-r: uninstall executable as a service.\n" );
                     printf( "-c: uninstall executable as a service and delete identity files.\n" );
                     printf( "-w: executable is running as a Windows service.\n" );
 #elif defined( RPAL_PLATFORM_MACOSX )
-                    printf( "-i: install executable as a service with deployment key.\n" );
+                    printf( "-i <INSTALLATION_KEY>: install executable as a service with deployment key.\n" );
                     printf( "-r: uninstall executable as a service.\n" );
                     printf( "-c: uninstall executable as a service and delete identity files.\n" );
 #endif
                     printf( "-h: this help.\n" );
                     return 0;
-#endif
                     break;
             }
         }
