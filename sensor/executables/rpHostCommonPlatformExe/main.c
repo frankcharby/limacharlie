@@ -158,8 +158,12 @@ RU32
     SC_HANDLE hScm = NULL;
     SC_HANDLE hSvc = NULL;
     RWCHAR svcName[] = { _SERVICE_NAMEW };
-    RWCHAR svcDisplay[] = { _WCH( "rp_HCP_Svc" ) };
+    RWCHAR svcDisplay[] = { _WCH( "LimaCharlie" ) };
     rString execCmd = NULL;
+    SERVICE_FAILURE_ACTIONSW serviceFailureAction = { 0 };
+    SC_ACTION failureActions = { 0 };
+    SERVICE_DESCRIPTIONW serviceDescription = { 0 };
+    RWCHAR svcDesc[] = _WCH( "LimaCharlie endpoint security sensor." );
 
     rpal_debug_info( "installing service" );
 
@@ -199,15 +203,45 @@ RU32
                                                          NULL,
                                                          _WCH( "" ) ) ) )
                     {
-                        if( StartService( hSvc, 0, NULL ) )
+                        // Reset the failure count after a month of uptime.
+                        // On first error, restart the service after 2 seconds.
+                        // Never restart after more than 1 error.
+                        serviceFailureAction.dwResetPeriod = 60 * 60 * 24 * 30;
+                        serviceFailureAction.lpCommand = NULL;
+                        serviceFailureAction.lpRebootMsg = NULL;
+                        serviceFailureAction.cActions = 1;
+                        serviceFailureAction.lpsaActions = &failureActions;
+                        failureActions.Type = SC_ACTION_RESTART;
+                        failureActions.Delay = 2 * 1000;
+
+                        if( ChangeServiceConfig2W( hSvc, SERVICE_CONFIG_FAILURE_ACTIONS, &serviceFailureAction ) )
                         {
-                            // Emitting as error level to make sure it's displayed in release.
-                            rpal_debug_error( "service installer!" );
+                            // Set the service description.
+                            serviceDescription.lpDescription = svcDesc;
+
+                            if( ChangeServiceConfig2W( hSvc, SERVICE_CONFIG_DESCRIPTION, &serviceDescription ) )
+                            {
+                                if( StartService( hSvc, 0, NULL ) )
+                                {
+                                    // Emitting as error level to make sure it's displayed in release.
+                                    rpal_debug_error( "service installed!" );
+                                }
+                                else
+                                {
+                                    ret = GetLastError();
+                                    rpal_debug_error( "could not start service: %d", ret );
+                                }
+                            }
+                            else
+                            {
+                                ret = GetLastError();
+                                rpal_debug_error( "could not set service description: %d", ret );
+                            }
                         }
                         else
                         {
                             ret = GetLastError();
-                            rpal_debug_error( "could not start service: %d", ret );
+                            rpal_debug_error( "could not set service to restart on first failure: %d", ret );
                         }
 
                         CloseServiceHandle( hSvc );

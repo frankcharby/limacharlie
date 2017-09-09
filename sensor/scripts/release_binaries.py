@@ -42,6 +42,8 @@ args = parser.parse_args()
 mainBinaries = [
     ( 'sensor/bin/macosx/*/x86_64/debug/rpHostCommonPlatformExe', 'hcp_osx_x64_debug_%s' ),
     ( 'sensor/bin/macosx/*/x86_64/release/rpHostCommonPlatformExe', 'hcp_osx_x64_release_%s' ),
+    ( 'sensor/bin/debian/*/x86_64/debug/rpHostCommonPlatformExe', 'hcp_linux_x64_debug_%s' ),
+    ( 'sensor/bin/debian/*/x86_64/release/rpHostCommonPlatformExe', 'hcp_linux_x64_release_%s' ),
     ( 'sensor/bin/ubuntu/*/x86_64/debug/rpHostCommonPlatformExe', 'hcp_linux_x64_debug_%s' ),
     ( 'sensor/bin/ubuntu/*/x86_64/release/rpHostCommonPlatformExe', 'hcp_linux_x64_release_%s' ),
     ( 'sensor/bin/centos/*/x86_64/debug/rpHostCommonPlatformExe', 'hcp_linux_x64_debug_%s' ),
@@ -52,6 +54,8 @@ mainBinaries = [
     ( 'sensor/bin/windows/x64/Release/rphcp.exe', 'hcp_win_x64_release_%s.exe' ),
     ( 'sensor/bin/macosx/*/x86_64/debug/librpHCP_HostBasedSensor.dylib', 'hbs_osx_x64_debug_%s.dylib' ),
     ( 'sensor/bin/macosx/*/x86_64/release/librpHCP_HostBasedSensor.dylib', 'hbs_osx_x64_release_%s.dylib' ),
+    ( 'sensor/bin/debian/*/x86_64/debug/librpHCP_HostBasedSensor.so', 'hbs_linux_x64_debug_%s.so' ),
+    ( 'sensor/bin/debian/*/x86_64/release/librpHCP_HostBasedSensor.so', 'hbs_linux_x64_release_%s.so' ),
     ( 'sensor/bin/ubuntu/*/x86_64/debug/librpHCP_HostBasedSensor.so', 'hbs_linux_x64_debug_%s.so' ),
     ( 'sensor/bin/ubuntu/*/x86_64/release/librpHCP_HostBasedSensor.so', 'hbs_linux_x64_release_%s.so' ),
     ( 'sensor/bin/centos/*/x86_64/debug/librpHCP_HostBasedSensor.so', 'hbs_linux_x64_debug_%s.so' ),
