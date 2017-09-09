@@ -158,7 +158,7 @@ RU32
     SC_HANDLE hScm = NULL;
     SC_HANDLE hSvc = NULL;
     RWCHAR svcName[] = { _SERVICE_NAMEW };
-    RWCHAR svcDisplay[] = { _WCH( "rp_HCP_Svc" ) };
+    RWCHAR svcDisplay[] = { _WCH( "LimaCharlie" ) };
     rString execCmd = NULL;
 
     rpal_debug_info( "installing service" );
