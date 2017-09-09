@@ -160,8 +160,10 @@ RU32
     RWCHAR svcName[] = { _SERVICE_NAMEW };
     RWCHAR svcDisplay[] = { _WCH( "LimaCharlie" ) };
     rString execCmd = NULL;
-    SERVICE_FAILURE_ACTIONS serviceFailureAction = { 0 };
+    SERVICE_FAILURE_ACTIONSW serviceFailureAction = { 0 };
     SC_ACTION failureActions = { 0 };
+    SERVICE_DESCRIPTIONW serviceDescription = { 0 };
+    RWCHAR svcDesc[] = _WCH( "LimaCharlie endpoint security sensor." );
 
     rpal_debug_info( "installing service" );
 
@@ -211,17 +213,29 @@ RU32
                         serviceFailureAction.lpsaActions = &failureActions;
                         failureActions.Type = SC_ACTION_RESTART;
                         failureActions.Delay = 2 * 1000;
+
                         if( ChangeServiceConfig2W( hSvc, SERVICE_CONFIG_FAILURE_ACTIONS, &serviceFailureAction ) )
                         {
-                            if( StartService( hSvc, 0, NULL ) )
+                            // Set the service description.
+                            serviceDescription.lpDescription = svcDesc;
+
+                            if( ChangeServiceConfig2W( hSvc, SERVICE_CONFIG_DESCRIPTION, &serviceDescription ) )
                             {
-                                // Emitting as error level to make sure it's displayed in release.
-                                rpal_debug_error( "service installed!" );
+                                if( StartService( hSvc, 0, NULL ) )
+                                {
+                                    // Emitting as error level to make sure it's displayed in release.
+                                    rpal_debug_error( "service installed!" );
+                                }
+                                else
+                                {
+                                    ret = GetLastError();
+                                    rpal_debug_error( "could not start service: %d", ret );
+                                }
                             }
                             else
                             {
                                 ret = GetLastError();
-                                rpal_debug_error( "could not start service: %d", ret );
+                                rpal_debug_error( "could not set service description: %d", ret );
                             }
                         }
                         else
