@@ -309,7 +309,8 @@ RBOOL
     rpal_string_stoi
     (
         RPNCHAR str,
-        RU32* pNum
+        RU32* pNum,
+        RBOOL isStrict
     );
     
 RBOOL

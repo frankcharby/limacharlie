@@ -789,7 +789,7 @@ RPAL_NATIVE_MAIN
                     isArgumentsSpecified = TRUE;
                     break;
                 case _NC( 'n' ):
-                    if( rpal_string_stoi( argVal, &tmpModId ) )
+                    if( rpal_string_stoi( argVal, &tmpModId, TRUE ) )
                     {
                         rpal_debug_info( "Manually loading module id is: %d", tmpModId );
                         for( i = 0; i < ARRAY_N_ELEM( g_manual_loads ); i++ )

@@ -534,14 +534,14 @@ rSequence
                 {
                     if( 0 == rpal_memory_memcmp( info, ppidHeader, sizeof( ppidHeader ) - sizeof( RCHAR ) ) )
                     {
-                        if( rpal_string_stoi( info + sizeof( ppidHeader ), &ppid ) )
+                        if( rpal_string_stoi( info + sizeof( ppidHeader ), &ppid, TRUE ) )
                         {
                             rSequence_addRU32( procInfo, RP_TAGS_PARENT_PROCESS_ID, ppid );
                         }
                     }
                     else if( 0 == rpal_memory_memcmp( info, threadsHeader, sizeof( threadsHeader ) - sizeof( RCHAR ) ) )
                     {
-                        if( rpal_string_stoi( info + sizeof( threadsHeader ), &threads ) )
+                        if( rpal_string_stoi( info + sizeof( threadsHeader ), &threads, TRUE ) )
                         {
                             rSequence_addRU32( procInfo, RP_TAGS_THREADS, threads );
                         }
@@ -558,7 +558,7 @@ rSequence
                             }
                         }
                         
-                        if( rpal_string_stoi( info + sizeof( uidHeader ), &uid ) )
+                        if( rpal_string_stoi( info + sizeof( uidHeader ), &uid, TRUE ) )
                         {
                             rSequence_addRU32( procInfo, RP_TAGS_USER_ID, uid );
 
@@ -577,7 +577,8 @@ rSequence
                     }
                     else if( 0 == rpal_memory_memcmp( info, vmRssHeader, sizeof( vmRssHeader ) - sizeof( RCHAR ) ) )
                     {
-                        if( rpal_string_stoi( info + sizeof( vmRssHeader ), &rss ) )
+                        // Not strict conversion since the line contains a " kB" after.
+                        if( rpal_string_stoi( info + sizeof( vmRssHeader ), &rss, FALSE ) )
                         {
                             // The number is always in kB.
                             rSequence_addRU64( procInfo, RP_TAGS_MEMORY_USAGE, rss * 1024 );
@@ -758,7 +759,7 @@ rSequence
                                        TASK_BASIC_INFO, (task_info_t)&t_info,
                                        &t_info_count ) )
         {
-            rSequence_addRU64( procInfo, RP_TAGS_MEMORY_USAGE, t_info.resident_size * getpagesize() );
+            rSequence_addRU64( procInfo, RP_TAGS_MEMORY_USAGE, t_info.resident_size );
         }
     }
 #else
@@ -1142,7 +1143,7 @@ processLibProcEntry*
         while( rDir_next( hProcDir, &finfo ) )
         {
             // Look in /proc for directories that are just a number (process IDs)
-            if( rpal_string_stoi( (RPCHAR)finfo.fileName, &tmpEntry.pid ) &&
+            if( rpal_string_stoi( (RPCHAR)finfo.fileName, &tmpEntry.pid, TRUE ) &&
                 0 != tmpEntry.pid )
             {
                 nEntries++;

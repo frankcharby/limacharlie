@@ -101,7 +101,7 @@ RBOOL
             while( rDir_next( hProcDir, &finfo ) &&
                    MAX_SNAPSHOT_SIZE > i )
             {
-                if( rpal_string_stoi( (RPCHAR)finfo.fileName, &( toSnapshot[ i ].pid ) )
+                if( rpal_string_stoi( (RPCHAR)finfo.fileName, &( toSnapshot[ i ].pid ), TRUE )
                     && 0 != toSnapshot[ i ].pid )
                 {
                     toSnapshot[ i ].ppid = NO_PARENT_PID;
