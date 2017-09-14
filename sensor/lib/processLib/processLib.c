@@ -499,6 +499,9 @@ rSequence
     
     RCHAR ppidHeader[] = "PPid:";
     RU32 ppid = 0;
+
+    RCHAR vmRssHeader[] = "VmRSS";
+    RU32 rss = 0;
     
     RCHAR threadsHeader[] = "Threads:";
     RU32 threads = 0;
@@ -571,6 +574,14 @@ rSequence
                     else if( 0 == rpal_memory_memcmp( info, nameHeader, sizeof( nameHeader ) - sizeof( RCHAR ) ) )
                     {
                         name = (RPCHAR)info + sizeof( nameHeader );
+                    }
+                    else if( 0 == rpal_memory_memcmp( info, vmRssHeader, sizeof( vmRssHeader ) - sizeof( RCHAR ) ) )
+                    {
+                        if( rpal_string_stoi( info + sizeof( vmRssHeader ), &rss ) )
+                        {
+                            // The number is always in kB.
+                            rSequence_addRU64( procInfo, RP_TAGS_MEMORY_USAGE, rss * 1024 );
+                        }
                     }
                                 
                     if( 0 != threads && 0 != ppid && (RU32)(-1) != uid && NULL != name )
@@ -735,6 +746,19 @@ rSequence
                     rpal_memory_free( args );
                 }
             }
+        }
+    }
+
+    if( processId == processLib_getCurrentPid() )
+    {
+        struct task_basic_info t_info;
+        mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
+
+        if( KERN_SUCCESS == task_info( mach_task_self(),
+                                       TASK_BASIC_INFO, (task_info_t)&t_info,
+                                       &t_info_count ) )
+        {
+            rSequence_addRU64( procInfo, RP_TAGS_MEMORY_USAGE, t_info.resident_size * getpagesize() );
         }
     }
 #else

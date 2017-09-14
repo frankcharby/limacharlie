@@ -461,6 +461,8 @@ RPVOID
     rList taskList = NULL;
     rSequence task = NULL;
     RTIME threadTime = 0;
+    rSequence procInfo = NULL;
+    RU64 procMem = 0;
 
     UNREFERENCED_PARAMETER( ctx );
 
@@ -492,6 +494,23 @@ RPVOID
 
                     // What is the global time offset?
                     rSequence_addTIMEDELTA( message, RP_TAGS_TIMEDELTA, rpal_time_getGlobalFromLocal( 0 ) );
+
+                    // The managed memory usage.
+                    rSequence_addRU32( message, RP_TAGS_MEMORY_USAGE, rpal_memory_totalUsed() );
+
+                    // The current CPU percent usage for this process.
+                    rSequence_addRU8( message, RP_TAGS_PERCENT_CPU, libOs_getCurrentProcessCpuUsage() );
+
+                    // The current process memory usage.
+                    if( NULL != ( procInfo = processLib_getProcessInfo( processLib_getCurrentPid(), NULL ) ) )
+                    {
+                        if( rSequence_getRU64( procInfo, RP_TAGS_MEMORY_USAGE, &procMem ) )
+                        {
+                            rSequence_addRU64( message, RP_TAGS_MEMORY_SIZE, procMem );
+                        }
+
+                        rSequence_free( procInfo );
+                    }
 
                     // Add some timing context on running tasks.
                     if( rThreadPool_getRunning( g_hbs_state.hThreadPool, &tasks, &nTasks ) )
