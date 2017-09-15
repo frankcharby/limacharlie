@@ -133,7 +133,7 @@ RPAL_NATIVE_MAIN
                     target = argVal;
                     break;
                 case 'm':
-                    if( rpal_string_stoi( argVal, &method ) )
+                    if( rpal_string_stoi( argVal, &method, TRUE ) )
                     {
                         break;
                     }

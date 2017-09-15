@@ -143,6 +143,7 @@ void
     RU32 tmpPid = 0;
     rSequence proc = NULL;
     RPNCHAR path = NULL;
+    RU64 mem = 0;
     
     tmpPid = processLib_getCurrentPid();
     CU_ASSERT_NOT_EQUAL_FATAL( tmpPid, 0 );
@@ -166,6 +167,10 @@ void
 
     CU_ASSERT_PTR_NOT_EQUAL( path, NULL );
     CU_ASSERT_NOT_EQUAL( rpal_string_strlen( path ), 0 );
+
+    CU_ASSERT_TRUE( rSequence_getRU64( proc, RP_TAGS_MEMORY_USAGE, &mem ) );
+    rpal_debug_print( "current process mem: " RF_U64, mem );
+    CU_ASSERT_NOT_EQUAL( mem, 0 );
 
     rSequence_free( proc );
 }

@@ -1389,7 +1389,8 @@ RBOOL
     rpal_string_stoi
     (
         RPNCHAR str,
-        RU32* pNum
+        RU32* pNum,
+        RBOOL isStrict
     )
 {
     RBOOL isSuccess = FALSE;
@@ -1406,7 +1407,7 @@ RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
 #endif
         
         if( NULL != tmp &&
-            0 == *tmp )
+            ( !isStrict || 0 == *tmp ) )
         {
             isSuccess = TRUE;
         }
