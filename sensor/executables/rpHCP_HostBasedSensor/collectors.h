@@ -44,9 +44,11 @@ typedef struct _HbsState
         RBOOL isEnabled;
         RBOOL( *init )( struct _HbsState* hbsState, rSequence config );
         RBOOL( *cleanup )( struct _HbsState* hbsState, rSequence config );
+        RBOOL( *update )( struct _HbsState* hbsState, rSequence update );
         RBOOL( *test )( struct _HbsState* hbsState, SelfTestContext* testContext );
         rSequence conf;
         rpcm_tag* externalEvents;
+        RTIME lastConfUpdate;
     } collectors[ 23 ];
 } HbsState;
 
@@ -61,11 +63,13 @@ typedef struct _HbsState
                                                                rSequence config ); \
                                RBOOL collector_ ##num## _cleanup( HbsState* hbsState, \
                                                                   rSequence config ); \
+                               RBOOL collector_ ##num## _update( HbsState* hbsState, \
+                                                                 rSequence update ); \
                                RBOOL collector_ ##num## _test( HbsState* hbsState, \
                                                                SelfTestContext* testContext );
 
-#define ENABLED_COLLECTOR(num) { TRUE, collector_ ##num## _init, collector_ ##num## _cleanup, collector_ ##num## _test, NULL, collector_ ##num## _events }
-#define DISABLED_COLLECTOR(num) { FALSE, collector_ ##num## _init, collector_ ##num## _cleanup, collector_ ##num## _test, NULL, collector_ ##num## _events }
+#define ENABLED_COLLECTOR(num) { TRUE, collector_ ##num## _init, collector_ ##num## _cleanup, collector_ ##num## _update, collector_ ##num## _test, NULL, collector_ ##num## _events, 0 }
+#define DISABLED_COLLECTOR(num) { FALSE, collector_ ##num## _init, collector_ ##num## _cleanup, collector_ ##num## _update, collector_ ##num## _test, NULL, collector_ ##num## _events, 0 }
 
 #ifdef RPAL_PLATFORM_WINDOWS
     #define ENABLED_WINDOWS_COLLECTOR(num) ENABLED_COLLECTOR(num)

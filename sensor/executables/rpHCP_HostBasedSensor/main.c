@@ -463,6 +463,7 @@ RPVOID
     RTIME threadTime = 0;
     rSequence procInfo = NULL;
     RU64 procMem = 0;
+    rList updateList = NULL;
 
     UNREFERENCED_PARAMETER( ctx );
 
@@ -542,6 +543,22 @@ RPVOID
 
                         rpal_memory_free( tasks );
                     }
+                    
+                    // Finally we will add the last updated timestamps for the collectors.
+                    // This is used by the backend to determine which dynamic configs have been
+                    // applied last on a per-sensor basis.
+                    if( NULL != ( updateList = rList_new( RP_TAGS_TIMESTAMP, RPCM_RU64 ) ) )
+                    {
+                        for( i = 0; i < ARRAY_N_ELEM( g_hbs_state.collectors ); i++ )
+                        {
+                            rList_addRU64( updateList, g_hbs_state.collectors[ i ].lastConfUpdate );
+                        }
+
+                        if( !rSequence_addLIST( message, RP_TAGS_LAST_UPDATE, updateList ) )
+                        {
+                            rList_free( updateList );
+                        }
+                    }
 
                     if( !sendSingleMessageHome( wrapper ) )
                     {
@@ -594,6 +611,11 @@ RBOOL
         {
             if( g_hbs_state.collectors[ i ].isEnabled )
             {
+                // The configuration per-collector is not persistent or transmitted through the
+                // HBS profile so it needs to be reset when collectors start. This will be transmitted
+                // in the next SYNC and we will receive new configurations then.
+                g_hbs_state.collectors[ i ].lastConfUpdate = 0;
+
                 if( !g_hbs_state.collectors[ i ].init( &g_hbs_state, g_hbs_state.collectors[ i ].conf ) )
                 {
                     isSuccess = FALSE;
@@ -940,6 +962,42 @@ RVOID
     }
 }
 
+RPRIVATE
+RVOID
+    updateCollector
+    (
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    RU32 collectorId = 0;
+    RTIME updateTimestamp = 0;
+
+    UNREFERENCED_PARAMETER( eventType );
+
+    if( rpal_memory_isValid( event ) )
+    {
+        if( rSequence_getRU32( event, RP_TAGS_HBS_CONFIGURATION_ID, &collectorId ) &&
+            collectorId < ARRAY_N_ELEM( g_hbs_state.collectors ) )
+        {
+            // The new config will be applied to the collector.
+            rpal_debug_info( "received runtime collector update for " RF_U32, collectorId );
+            if( g_hbs_state.collectors[ collectorId ].update( &g_hbs_state, event ) )
+            {
+                // If the update was successfully applied, we check if the event also contained a timestamp.
+                if( rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &updateTimestamp ) )
+                {
+                    // A timestamp here is used a global generation of the update. This generation gets
+                    // sent with every SYNC and is used by the cloud to determine statelessly if the sensor
+                    // requires some new runtime configurations.
+                    g_hbs_state.collectors[ collectorId ].lastConfUpdate = updateTimestamp;
+                    rpal_debug_info( "collector " RF_U32 " generation now " RF_U64, updateTimestamp );
+                }
+            }
+        }
+    }
+}
+
 //=============================================================================
 //  Entry Points
 //=============================================================================
@@ -1119,6 +1177,11 @@ RPAL_THREAD_FUNC
                                  0,
                                  NULL,
                                  runSelfTests );
+        notifications_subscribe( RP_TAGS_NOTIFICATION_UPDATE,
+                                 NULL,
+                                 0,
+                                 NULL,
+                                 updateCollector );
     }
 
 #ifdef HBS_POWER_ON_SELF_TEST
@@ -1175,6 +1238,9 @@ RPAL_THREAD_FUNC
         if( rEvent_wait( g_hbs_state.isOnlineEvent, MSEC_FROM_SEC( 5 ) ) )
         {
             // From the first sync, we'll schedule recurring ones.
+            // The collectors are running (so a sync is scheduled), but we want to try
+            // to be as timely as possible if/when the cloud becomes online since a lot
+            // of the runtime configuration is keyed off the sync.
             issueSync( g_hbs_state.isTimeToStop, NULL );
             break;
         }
@@ -1249,6 +1315,7 @@ RPAL_THREAD_FUNC
 
     // Shutdown everything
     notifications_unsubscribe( RP_TAGS_NOTIFICATION_SELF_TEST, NULL, runSelfTests );
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_UPDATE, NULL, updateCollector );
     shutdownCollectors();
 
     // Cleanup the last few resources

@@ -555,6 +555,21 @@ RBOOL
     return isSuccess;
 }
 
+RBOOL
+    collector_13_update
+    (
+        HbsState* hbsState,
+        rSequence update
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    UNREFERENCED_PARAMETER( hbsState );
+    UNREFERENCED_PARAMETER( update );
+
+    return isSuccess;
+}
+
 //=============================================================================
 //  Collector Testing
 //=============================================================================
