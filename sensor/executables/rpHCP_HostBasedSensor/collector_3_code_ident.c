@@ -238,6 +238,13 @@ RBOOL
                     {
                         rpal_debug_error( "error updating last code hit" );
                     }
+
+                    // If we're not going to report this, check to see if we had a hash coming in, and if not
+                    // we will copy over the historical hash we had so that an ONGOING_IDENTITY can be generated with it.
+                    if( 0 == rpal_memory_memcmp( &emptyHash, &tmpInfo->info.fileHash, sizeof( emptyHash ) ) )
+                    {
+                        rpal_memory_memcpy( &tmpInfo->info.fileHash, &infoFound.info.fileHash, sizeof( infoFound.info.fileHash ) );
+                    }
                 }
             }
             else
@@ -357,7 +364,10 @@ RVOID
                 HbsSetParentAtom( notif, pAtomId );
             }
 
-            rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&tmpInfo.info.fileHash, sizeof( tmpInfo.info.fileHash ) );
+            if( 0 != rpal_memory_memcmp( emptyHash, (RPU8)&tmpInfo.info.fileHash, sizeof( emptyHash ) ) )
+            {
+                rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&tmpInfo.info.fileHash, sizeof( tmpInfo.info.fileHash ) );
+            }
 
             hbs_publish( RP_TAGS_NOTIFICATION_ONGOING_IDENTITY, notif );
 
