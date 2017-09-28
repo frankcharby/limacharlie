@@ -893,63 +893,68 @@ RVOID
         {
             if( rQueue_create( &asserts, rSequence_freeWithSize, 0 ) )
             {
-                shutdownCollectors();
-
-                // Since all collectors are offline, we need to subscribe ourselves to test asserts
-                // and we can replay them back once collector 0 is back online (for exfil).
-                if( notifications_subscribe( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, NULL, 0, asserts, NULL ) )
+                if( rMutex_lock( g_hbs_state.mutex ) )
                 {
-                    while( rList_getSEQUENCE( tests, RP_TAGS_HBS_CONFIGURATION, &collector ) )
+                    shutdownCollectors();
+
+                    // Since all collectors are offline, we need to subscribe ourselves to test asserts
+                    // and we can replay them back once collector 0 is back online (for exfil).
+                    if( notifications_subscribe( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, NULL, 0, asserts, NULL ) )
                     {
-                        if( rSequence_getRU32( collector, RP_TAGS_HBS_CONFIGURATION_ID, &collectorId ) &&
-                            ARRAY_N_ELEM( g_hbs_state.collectors ) > collectorId )
+                        while( rList_getSEQUENCE( tests, RP_TAGS_HBS_CONFIGURATION, &collector ) )
                         {
-                            if( NULL != g_hbs_state.collectors[ collectorId ].test )
+                            if( rSequence_getRU32( collector, RP_TAGS_HBS_CONFIGURATION_ID, &collectorId ) &&
+                                ARRAY_N_ELEM( g_hbs_state.collectors ) > collectorId )
                             {
-                                SelfTestContext testCtx = { 0 };
-                                testCtx.config = collector;
-                                testCtx.originalTestRequest = event;
-
-                                if( !g_hbs_state.collectors[ collectorId ].test( &g_hbs_state, &testCtx ) )
+                                if( NULL != g_hbs_state.collectors[ collectorId ].test )
                                 {
-                                    rpal_debug_error( "error executing static self test on collector %d", collectorId );
-                                }
+                                    SelfTestContext testCtx = { 0 };
+                                    testCtx.config = collector;
+                                    testCtx.originalTestRequest = event;
 
-                                rpal_debug_info( "Test finished: col %d, %d tests, %d failures.",
-                                                 collectorId,
-                                                 testCtx.nTests,
-                                                 testCtx.nFailures );
-                                hbs_sendCompletionEvent( event, RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, 0, NULL );
+                                    if( !g_hbs_state.collectors[ collectorId ].test( &g_hbs_state, &testCtx ) )
+                                    {
+                                        rpal_debug_error( "error executing static self test on collector %d", collectorId );
+                                    }
+
+                                    rpal_debug_info( "Test finished: col %d, %d tests, %d failures.",
+                                                     collectorId,
+                                                     testCtx.nTests,
+                                                     testCtx.nFailures );
+                                    hbs_sendCompletionEvent( event, RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, 0, NULL );
+                                }
+                            }
+                            else
+                            {
+                                rpal_debug_error( "invalid collector id to test" );
                             }
                         }
-                        else
-                        {
-                            rpal_debug_error( "invalid collector id to test" );
-                        }
+
+                        // We also reset atoms to avoid pollution from tests.
+                        atoms_deinit();
+                        atoms_init();
+
+                        notifications_unsubscribe( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, asserts, NULL );
+                    }
+                    else
+                    {
+                        rpal_debug_error( "failed to subscribe to test results" );
                     }
 
-                    // We also reset atoms to avoid pollution from tests.
-                    atoms_deinit();
-                    atoms_init();
+                    if( !startCollectors() )
+                    {
+                        rpal_debug_warning( "an error occured restarting collectors after tests" );
+                    }
 
-                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, asserts, NULL );
-                }
-                else
-                {
-                    rpal_debug_error( "failed to subscribe to test results" );
-                }
+                    // Now we will replay all the asserts, collector 0 should pick them up if configured for that.
+                    rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
+                    while( rQueue_remove( asserts, &assert, NULL, 0 ) )
+                    {
+                        notifications_publish( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, assert );
+                        rSequence_free( assert );
+                    }
 
-                if( !startCollectors() )
-                {
-                    rpal_debug_warning( "an error occured restarting collectors after tests" );
-                }
-
-                // Now we will replay all the asserts, collector 0 should pick them up if configured for that.
-                rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
-                while( rQueue_remove( asserts, &assert, NULL, 0 ) )
-                {
-                    notifications_publish( RP_TAGS_NOTIFICATION_SELF_TEST_RESULT, assert );
-                    rSequence_free( assert );
+                    rMutex_unlock( g_hbs_state.mutex );
                 }
 
                 rQueue_free( asserts );
@@ -1316,6 +1321,7 @@ RPAL_THREAD_FUNC
     // Shutdown everything
     notifications_unsubscribe( RP_TAGS_NOTIFICATION_SELF_TEST, NULL, runSelfTests );
     notifications_unsubscribe( RP_TAGS_NOTIFICATION_UPDATE, NULL, updateCollector );
+    rMutex_lock( g_hbs_state.mutex );
     shutdownCollectors();
 
     // Cleanup the last few resources
