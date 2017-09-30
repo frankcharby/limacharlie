@@ -328,7 +328,7 @@ NTSTATUS
     UNICODE_STRING winDeviceName = { 0 };
     PDEVICE_OBJECT device = NULL;
 
-    RU32 i = 0;
+    RS32 i = 0;
 
     UNREFERENCED_PARAMETER( RegistryPath );
 
@@ -377,7 +377,7 @@ NTSTATUS
 
     if( !NT_SUCCESS( status ) )
     {
-        for( i = i - 1; i > 0; i-- )
+        for( i = i - 1; i >= 0; i-- )
         {
             if( NULL == g_collectors[ i ].deinitializer ) continue;
 
