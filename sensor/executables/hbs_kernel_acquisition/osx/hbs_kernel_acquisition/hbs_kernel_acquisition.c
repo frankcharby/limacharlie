@@ -349,7 +349,7 @@ kern_return_t hbs_kernel_acquisition_start(kmod_info_t * ki, void *d)
 
         if( 0 != error )
         {
-            for( i = i - 1; i > 0; i-- )
+            for( i = i - 1; i >= 0; i-- )
             {
                 if( NULL == g_collectors[ i ].deinitializer ) continue;
 
