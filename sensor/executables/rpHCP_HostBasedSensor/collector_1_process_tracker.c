@@ -36,11 +36,15 @@ limitations under the License.
 
 #define MAX_SNAPSHOT_SIZE   1536
 #define NO_PARENT_PID       ((RU32)(-1))
+#define GENERATIONS_BEFORE_REPORTING    1
 
 typedef struct
 {
     RU32 pid;
     RU32 ppid;
+    // TTL before a terminated process is reported.
+    RU32 terminatedTtl;
+    RTIME terminationTime;
 } processEntry;
 
 RPRIVATE
@@ -377,6 +381,9 @@ RVOID
 
                 if( !isFound )
                 {
+                    currentSnapshot[ i ].terminatedTtl = GENERATIONS_BEFORE_REPORTING;
+                    currentSnapshot[ i ].terminationTime = 0;
+
                     if( !notifyOfProcess( currentSnapshot[ i ].pid,
                                           currentSnapshot[ i ].ppid,
                                           TRUE,
@@ -407,16 +414,28 @@ RVOID
 
                 if( !isFound )
                 {
-                    if( !notifyOfProcess( previousSnapshot[ i ].pid,
-                                          previousSnapshot[ i ].ppid,
-                                          FALSE,
-                                          NULL,
-                                          NULL,
-                                          KERNEL_ACQ_NO_USER_ID,
-                                          0 ) )
+                    if( 0 == previousSnapshot[ i ].terminatedTtl )
                     {
-                        rpal_debug_warning( "error reporting terminated process: %d",
-                                            previousSnapshot[ i ].pid );
+                        if( !notifyOfProcess( previousSnapshot[ i ].pid,
+                                              previousSnapshot[ i ].ppid,
+                                              FALSE,
+                                              NULL,
+                                              NULL,
+                                              KERNEL_ACQ_NO_USER_ID,
+                                              previousSnapshot[ i ].terminationTime ) )
+                        {
+                            rpal_debug_warning( "error reporting terminated process: %d",
+                                                previousSnapshot[ i ].pid );
+                        }
+                    }
+                    else
+                    {
+                        // We wait for N generations before actually reporting it.
+                        // We do this to delay artificially the event as this helps
+                        // us avoid race conditions in secondary collectors without
+                        // having to bend over backwards.
+                        previousSnapshot[ i ].terminatedTtl--;
+                        previousSnapshot[ i ].terminationTime = rpal_time_getGlobalPreciseTime();
                     }
                 }
             }
@@ -482,6 +501,8 @@ RVOID
 
             tracking_user[ nProcessEntries ].pid = new_from_kernel[ i ].pid;
             tracking_user[ nProcessEntries ].ppid = new_from_kernel[ i ].ppid;
+            tracking_user[ nProcessEntries ].terminatedTtl = GENERATIONS_BEFORE_REPORTING;
+            tracking_user[ nProcessEntries ].terminationTime = 0;
             nProcessEntries++;
         }
 
@@ -489,21 +510,33 @@ RVOID
         {
             if( !processLib_isPidInUse( tracking_user[ i ].pid ) )
             {
-                notifyOfProcess( tracking_user[ i ].pid, 
-                                 tracking_user[ i ].ppid, 
-                                 FALSE, 
-                                 NULL, 
-                                 NULL,
-                                 KERNEL_ACQ_NO_USER_ID,
-                                 0 );
-                if( nProcessEntries != i + 1 )
+                if( 0 == tracking_user[ i ].terminatedTtl )
                 {
-                    rpal_memory_memmove( &(tracking_user[ i ]), 
-                                         &(tracking_user[ i + 1 ]), 
-                                         ( nProcessEntries - ( i + 1 ) ) * sizeof( *tracking_user ) );
+                    notifyOfProcess( tracking_user[ i ].pid,
+                                     tracking_user[ i ].ppid,
+                                     FALSE,
+                                     NULL,
+                                     NULL,
+                                     KERNEL_ACQ_NO_USER_ID,
+                                     tracking_user[ i ].terminationTime );
+                    if( nProcessEntries != i + 1 )
+                    {
+                        rpal_memory_memmove( &( tracking_user[ i ] ),
+                                             &( tracking_user[ i + 1 ] ),
+                                             ( nProcessEntries - ( i + 1 ) ) * sizeof( *tracking_user ) );
+                    }
+                    nProcessEntries--;
+                    i--;
                 }
-                nProcessEntries--;
-                i--;
+                else
+                {
+                    // We wait for N generations before actually reporting it.
+                    // We do this to delay artificially the event as this helps
+                    // us avoid race conditions in secondary collectors without
+                    // having to bend over backwards.
+                    tracking_user[ i ].terminatedTtl--;
+                    tracking_user[ i ].terminationTime = rpal_time_getGlobalPreciseTime();
+                }
             }
         }
     }
