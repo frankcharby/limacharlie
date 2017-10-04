@@ -154,6 +154,7 @@ errno_t
                 sc->sockType = sockType;
                 sc->netEvent.proto = (RU8)protocol;
                 sc->netEvent.ts = rpal_time_getLocal();
+                sc->netEvent.pid = proc_selfpid();
                 sc->isReported = FALSE;
                 
                 *cookie = sc;
@@ -214,6 +215,7 @@ RBOOL
     struct sockaddr_in remote4 = { 0 };
     struct sockaddr_in6 local6 = { 0 };
     struct sockaddr_in6 remote6 = { 0 };
+    RU32 curPid = 0;
     
     if( NULL != sc )
     {
@@ -226,7 +228,13 @@ RBOOL
             isIpV6 = TRUE;
         }
         
-        sc->netEvent.pid = proc_selfpid();
+        curPid = proc_selfpid();
+        if( 0 != curPid && curPid != sc->netEvent.pid )
+        {
+            // The socket may have been created in a process different than
+            // the socket now using it. If it's the case, use the new effective pid.
+            sc->netEvent.pid = curPid;
+        }
         
         if( !isIpV6 )
         {
