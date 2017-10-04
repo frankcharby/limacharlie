@@ -429,6 +429,10 @@ RPVOID
                 {
                     rSequence_addRU8( notif, RP_TAGS_IS_OUTGOING, 1 );
                 }
+                else
+                {
+                    rSequence_addRU8( notif, RP_TAGS_IS_OUTGOING, 0 );
+                }
 
                 if( rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, prev_from_kernel[ i ].pid ) &&
                     hbs_timestampEvent( notif, prev_from_kernel[ i ].ts ) )
