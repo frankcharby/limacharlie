@@ -526,3 +526,72 @@ RBOOL
 
     return isReceived;
 }
+
+RBOOL
+    NetLib_GetHostIps
+    (
+        RPCHAR host,
+        RIpAddress* pAddresses,
+        RU32* pnAddresses
+    )
+{
+    RBOOL isSuccess = FALSE;
+    struct hostent* remoteHost = NULL;
+    RU32 i = 0;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    SOCKET s = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+    if( INVALID_SOCKET == s && WSANOTINITIALISED == WSAGetLastError() )
+    {
+        WSADATA wsadata = { 0 };
+        if( 0 != WSAStartup( MAKEWORD( 2, 2 ), &wsadata ) )
+        {
+            return isSuccess;
+        }
+    }
+    else
+    {
+        closesocket( s );
+    }
+#endif
+
+    if( NULL == pAddresses ||
+        NULL == pnAddresses ||
+        0 == *pnAddresses ||
+        NULL == host )
+    {
+        return isSuccess;
+    }
+
+    if( NULL != ( remoteHost = gethostbyname( host ) ) )
+    {
+        isSuccess = TRUE;
+
+        if( AF_INET == remoteHost->h_addrtype )
+        {
+            while( NULL != remoteHost->h_addr_list[ i ] && i < *pnAddresses )
+            {
+                if( sizeof( pAddresses[ i ].value.v4 ) == remoteHost->h_length )
+                {
+                    rpal_memory_memcpy( &( pAddresses[ i ].value.v4 ), 
+                                        remoteHost->h_addr_list[ i ], 
+                                        sizeof( pAddresses[ i ].value.v4 ) );
+                    pAddresses[ i ].isV6 = FALSE;
+                }
+                else if( sizeof( pAddresses[ i ].value.v6 ) == remoteHost->h_length )
+                {
+                    rpal_memory_memcpy( &( pAddresses[ i ].value.v6 ), 
+                                        remoteHost->h_addr_list[ i ], 
+                                        sizeof( pAddresses[ i ].value.v6 ) );
+                    pAddresses[ i ].isV6 = TRUE;
+                }
+
+                i++;
+            }
+
+            *pnAddresses = i;
+        }
+    }
+
+    return isSuccess;
+}

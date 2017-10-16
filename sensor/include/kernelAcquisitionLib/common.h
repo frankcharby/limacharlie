@@ -42,7 +42,9 @@ limitations under the License.
 #define KERNEL_ACQ_OP_MODULE_LOAD           3
 #define KERNEL_ACQ_OP_NETWORK_CONN          4
 #define KERNEL_ACQ_OP_DNS                   5
-#define KERNEL_ACQ_NUM_OPS                  6 // Number of OPS existing in kernel acquisition
+#define KERNEL_ACQ_OP_SEGRAGATE             6
+#define KERNEL_ACQ_OP_REJOIN                7
+#define KERNEL_ACQ_NUM_OPS                  8 // Number of OPS existing in kernel acquisition
 
 #pragma warning( disable: 4200 ) // Disabling error on zero-sized arrays
 

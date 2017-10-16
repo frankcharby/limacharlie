@@ -84,4 +84,16 @@ RBOOL
         RU32* totalSize
     );
 
+RBOOL
+    kAcq_segregateNetwork
+    (
+
+    );
+
+RBOOL
+    kAcq_rejoinNetwork
+    (
+
+    );
+
 #endif

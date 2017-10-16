@@ -54,6 +54,7 @@ typedef struct
 
 static KSPIN_LOCK g_connection_mutex = { 0 };
 static RBOOL g_is_connected = FALSE;
+RU32 g_owner_pid = 0;
 
 //=========================================================================
 //  Built-in Tasks
@@ -106,7 +107,9 @@ static collector_task g_tasks[ KERNEL_ACQ_NUM_OPS  ] = { task_ping,
                                                          task_get_new_files,
                                                          task_get_new_module_loads,
                                                          task_get_new_network,
-                                                         task_get_new_dns };
+                                                         task_get_new_dns,
+                                                         task_segregate_network,
+                                                         task_rejoin_network };
 
 
 NTSTATUS
@@ -169,11 +172,12 @@ NTSTATUS
         KeAcquireInStackQueuedSpinLock( &g_connection_mutex, &hMutex );
         if( g_is_connected )
         {
-            status = STATUS_DEVICE_BUSY;
+            g_is_connected = FALSE;
+            g_owner_pid = 0;
         }
         else
         {
-            g_is_connected = TRUE;
+            rpal_debug_kernel( "Close called but device not connected!" );
         }
         KeReleaseInStackQueuedSpinLock( &hMutex );
     }
@@ -206,13 +210,15 @@ NTSTATUS
     else
     {
         KeAcquireInStackQueuedSpinLock( &g_connection_mutex, &hMutex );
+        
         if( g_is_connected )
         {
-            g_is_connected = FALSE;
+            status = STATUS_DEVICE_BUSY;
         }
         else
         {
-            rpal_debug_kernel( "Close called but device not connected!");
+            g_owner_pid = IoGetRequestorProcessId( Irp );
+            g_is_connected = TRUE;
         }
         KeReleaseInStackQueuedSpinLock( &hMutex );
     }

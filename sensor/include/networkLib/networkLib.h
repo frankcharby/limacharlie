@@ -140,4 +140,12 @@ RBOOL
         RU32 timeoutSec
     );
 
+RBOOL
+    NetLib_GetHostIps
+    (
+        RPCHAR host,
+        RIpAddress* pAddresses,
+        RU32* pnAddresses
+    );
+
 #endif

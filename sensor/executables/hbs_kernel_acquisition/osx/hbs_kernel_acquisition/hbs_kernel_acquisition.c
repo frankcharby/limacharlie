@@ -31,6 +31,7 @@ static struct kern_ctl_reg krnlCommsCtl = { 0 };
 static kern_ctl_ref krnlCommsRef = { 0 };
 static int g_n_connected = 0;
 static int g_is_shutting_down = 0;
+int g_owner_pid = 0;
 
 
 kern_return_t hbs_kernel_acquisition_start(kmod_info_t * ki, void *d);
@@ -97,7 +98,9 @@ static collector_task g_tasks[ KERNEL_ACQ_NUM_OPS ] = { task_ping,
                                                         task_get_new_fileio,
                                                         NULL,
                                                         task_get_new_connections,
-                                                        task_get_new_dns };
+                                                        task_get_new_dns,
+                                                        task_segregate_network,
+                                                        task_rejoin_network };
 
 static
 int
@@ -286,13 +289,14 @@ errno_t
     if( MAX_CLIENTS_CONNECTED > g_n_connected )
     {
         g_n_connected++;
+        g_owner_pid = proc_selfpid();
     }
     else
     {
         status = EBUSY;
     }
     rpal_mutex_unlock( g_connection_mutex );
-    rpal_debug_info( "now %d clients connected", g_n_connected );
+    rpal_debug_info( "now %d clients connected with %d", g_n_connected, g_owner_pid );
     return status;
 }
 

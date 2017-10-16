@@ -40,10 +40,14 @@ static uint32_t g_nextDns = 0;
 static uint32_t g_socketsPending = 0;
 static RBOOL g_shuttingDown = FALSE;
 
+static RBOOL g_is_network_segregated = FALSE;
+extern int g_owner_pid;
+
 typedef struct
 {
     RBOOL isReported;
     RBOOL isConnected;
+    RBOOL isAllowed;
     int addrFamily;
     int sockType;
     struct sockaddr_in peerAtConnect4;
@@ -51,6 +55,43 @@ typedef struct
     KernelAcqNetwork netEvent;
     
 } SockCookie;
+
+static RBOOL
+    isConnectionAllowed
+    (
+        SockCookie* sc
+    )
+{
+    if( g_is_network_segregated &&
+        NULL != sc )
+    {
+        if( sc->isAllowed )
+        {
+            return TRUE;
+        }
+
+        if( !sc->netEvent.isIncoming &&
+            53 == sc->netEvent.dstPort )
+        {
+            // We allow DNS outbound.
+            sc->isAllowed = TRUE;
+            return TRUE;
+        }
+
+        if( g_owner_pid == sc->netEvent.pid ||
+            g_owner_pid == proc_selfpid() )
+        {
+            sc->isAllowed = TRUE;
+            return TRUE;
+        }
+
+        return FALSE;
+    }
+    else
+    {
+        return TRUE;
+    }
+}
 
 static void
     next_connection
@@ -114,6 +155,29 @@ RBOOL
 }
 
 static
+RVOID
+    tryFindingPID
+    (
+        SockCookie* sc,
+        RBOOL isOverride
+    )
+{
+    RU32 curPid = 0;
+    if( NULL != sc )
+    {
+        if( isOverride || 0 == sc->netEvent.pid )
+        {
+            curPid = proc_selfpid();
+            if( 0 != curPid )
+            {
+                sc->netEvent.pid = curPid;
+                rpal_debug_info("UNK PID TO %d", curPid);
+            }
+        }
+    }
+}
+
+static
 errno_t
     cbAttach
     (
@@ -154,8 +218,10 @@ errno_t
                 sc->sockType = sockType;
                 sc->netEvent.proto = (RU8)protocol;
                 sc->netEvent.ts = rpal_time_getLocal();
-                sc->netEvent.pid = proc_selfpid();
+                sc->netEvent.pid = 0;
+                tryFindingPID( sc, TRUE );
                 sc->isReported = FALSE;
+                sc->isAllowed = FALSE;
                 
                 *cookie = sc;
                 ret = KERN_SUCCESS;
@@ -215,7 +281,6 @@ RBOOL
     struct sockaddr_in remote4 = { 0 };
     struct sockaddr_in6 local6 = { 0 };
     struct sockaddr_in6 remote6 = { 0 };
-    RU32 curPid = 0;
     
     if( NULL != sc )
     {
@@ -228,13 +293,7 @@ RBOOL
             isIpV6 = TRUE;
         }
         
-        curPid = proc_selfpid();
-        if( 0 != curPid && curPid != sc->netEvent.pid )
-        {
-            // The socket may have been created in a process different than
-            // the socket now using it. If it's the case, use the new effective pid.
-            sc->netEvent.pid = curPid;
-        }
+        tryFindingPID( sc, FALSE );
         
         if( !isIpV6 )
         {
@@ -323,7 +382,8 @@ RBOOL
         
         if( !isIpV6 )
         {
-            // rpal_debug_info( "^^^^^^ CONNECTION V4 (%d): incoming=%d 0x%08X:%d ---> 0x%08X:%d",
+            // rpal_debug_info( "^^^^^^ CONNECTION V4 %d (%d): incoming=%d 0x%08X:%d ---> 0x%08X:%d",
+            //                  (RU32)sc->netEvent.pid,
             //                  (RU32)sc->netEvent.proto,
             //                  (RU32)sc->netEvent.isIncoming,
             //                  sc->netEvent.srcIp.value.v4,
@@ -377,6 +437,11 @@ errno_t
             }
             
             populateCookie( sc, so, from );
+
+            if( !isConnectionAllowed( sc ) )
+            {
+                return EHOSTUNREACH;
+            }
             
             rpal_mutex_lock( g_collector_4_mutex );
         
@@ -385,6 +450,11 @@ errno_t
             next_connection();
             
             rpal_mutex_unlock( g_collector_4_mutex );
+        }
+
+        if( !isConnectionAllowed( sc ) )
+        {
+            return EHOSTUNREACH;
         }
         
         // See if we need to report on any content based parsing
@@ -461,6 +531,11 @@ errno_t
         }
         
         populateCookie( sc, so, to );
+
+        if( !isConnectionAllowed( sc ) )
+        {
+            return EHOSTUNREACH;
+        }
         
         rpal_mutex_lock( g_collector_4_mutex );
     
@@ -490,16 +565,13 @@ errno_t
         sc->netEvent.isIncoming = TRUE;
         sc->isConnected = TRUE;
         
-        if( NULL != from )
+        tryFindingPID( sc, TRUE );
+
+        populateCookie( sc, so, from );
+
+        if( !isConnectionAllowed( sc ) )
         {
-            if( PF_INET == sc->addrFamily )
-            {
-                memcpy( &sc->peerAtConnect4, (struct sockaddr_in*)from, sizeof( sc->peerAtConnect4 ) );
-            }
-            else
-            {
-                memcpy( &sc->peerAtConnect6, (struct sockaddr_in6*)from, sizeof( sc->peerAtConnect6 ) );
-            }
+            return EHOSTUNREACH;
         }
     }
     
@@ -522,16 +594,13 @@ errno_t
         sc->netEvent.isIncoming = FALSE;
         sc->isConnected = TRUE;
         
-        if( NULL != to )
+        tryFindingPID( sc, TRUE );
+        
+        populateCookie( sc, so, to );
+
+        if( !isConnectionAllowed( sc ) )
         {
-            if( PF_INET == sc->addrFamily )
-            {
-                memcpy( &sc->peerAtConnect4, (struct sockaddr_in*)to, sizeof( sc->peerAtConnect4 ) );
-            }
-            else
-            {
-                memcpy( &sc->peerAtConnect6, (struct sockaddr_in6*)to, sizeof( sc->peerAtConnect6 ) );
-            }
+            return EHOSTUNREACH;
         }
     }
     
@@ -697,6 +766,46 @@ int
 }
 
 int
+    task_segregate_network
+    (
+        void* pArgs,
+        int argsSize,
+        void* pResult,
+        uint32_t* resultSize
+    )
+{
+    int ret = 0;
+    
+    rpal_mutex_lock( g_collector_4_mutex );
+    
+    g_is_network_segregated = TRUE;
+
+    rpal_mutex_unlock( g_collector_4_mutex );
+
+    return ret;
+}
+
+int
+    task_rejoin_network
+    (
+        void* pArgs,
+        int argsSize,
+        void* pResult,
+        uint32_t* resultSize
+    )
+{
+    int ret = 0;
+
+    rpal_mutex_lock( g_collector_4_mutex );
+
+    g_is_network_segregated = FALSE;
+
+    rpal_mutex_unlock( g_collector_4_mutex );
+
+    return ret;
+}
+
+int
     collector_4_initialize
     (
         void* d
@@ -708,6 +817,8 @@ int
     if( NULL != ( g_collector_4_mutex = rpal_mutex_create() ) &&
         NULL != ( g_collector_4_mutex_dns = rpal_mutex_create() ) )
     {
+        g_is_network_segregated = FALSE;
+
         if( register_filter( 0, AF_INET, SOCK_STREAM, IPPROTO_TCP ) &&
             register_filter( 1, AF_INET6, SOCK_STREAM, IPPROTO_TCP ) &&
             register_filter( 2, AF_INET, SOCK_DGRAM, IPPROTO_UDP ) &&

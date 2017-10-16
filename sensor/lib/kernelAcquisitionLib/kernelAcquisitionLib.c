@@ -49,6 +49,8 @@ static RBOOL g_platform_availability[ KERNEL_ACQ_NUM_OPS ] = {
     FALSE, // KERNEL_ACQ_OP_NEW_MODULE
     TRUE, // KERNEL_ACQ_OP_NEW_NETWORK
     TRUE, // KERNEL_ACQ_OP_DNS
+    TRUE, // KERNEL_ACQ_OP_SEGREGATE_NETWORK
+    TRUE, // KERNEL_ACQ_OP_REJOIN_NETWORK
 #elif defined( RPAL_PLATFORM_WINDOWS )
     TRUE, // KERNEL_ACQ_OP_PING
     TRUE, // KERNEL_ACQ_OP_GET_NEW_PROCESSES
@@ -56,6 +58,8 @@ static RBOOL g_platform_availability[ KERNEL_ACQ_NUM_OPS ] = {
     TRUE, // KERNEL_ACQ_OP_NEW_MODULE
     TRUE, // KERNEL_ACQ_OP_NEW_NETWORK
     TRUE, // KERNEL_ACQ_OP_DNS
+    TRUE, // KERNEL_ACQ_OP_SEGREGATE_NETWORK
+    TRUE, // KERNEL_ACQ_OP_REJOIN_NETWORK
 #endif
 };
 
@@ -524,6 +528,52 @@ RBOOL
             *totalSize = respSize;
             isSuccess = TRUE;
         }
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    kAcq_segregateNetwork
+    (
+        
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    RU32 error = 0;
+
+    if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_SEGRAGATE,
+                                         NULL,
+                                         0,
+                                         NULL,
+                                         0,
+                                         NULL ) ) )
+    {
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    kAcq_rejoinNetwork
+    (
+
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    RU32 error = 0;
+
+    if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_SEGRAGATE,
+                                         NULL,
+                                         0,
+                                         NULL,
+                                         0,
+                                         NULL ) ) )
+    {
+        isSuccess = TRUE;
     }
 
     return isSuccess;

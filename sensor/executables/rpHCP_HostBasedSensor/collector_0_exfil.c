@@ -21,6 +21,8 @@ limitations under the License.
 #include "collectors.h"
 #include <notificationsLib/notificationsLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
+#include <kernelAcquisitionLib/kernelAcquisitionLib.h>
+#include <networkLib/networkLib.h>
 
 #define _HISTORY_MAX_LENGTH     (1000)
 #define _HISTORY_MAX_SIZE       (1024*1024*5)
@@ -541,6 +543,65 @@ RVOID
 }
 
 RPRIVATE
+RVOID
+    segregateNetwork
+    (
+        rpcm_tag notifId,
+        rSequence notif
+    )
+{
+    RU32 errorCode = RPAL_ERROR_SUCCESS;
+
+    UNREFERENCED_PARAMETER( notifId );
+    UNREFERENCED_PARAMETER( notif );
+
+    if( kAcq_isAvailable() )
+    {
+        if( !kAcq_segregateNetwork() )
+        {
+            rpal_debug_error( "failed to segregate network" );
+            errorCode = RPAL_ERROR_NOT_SUPPORTED;
+        }
+        else
+        {
+            rpal_debug_info( "network segregation successful" );
+        }
+    }
+    else
+    {
+        rpal_debug_error( "network segregation not possible, no kernel presence" );
+        errorCode = RPAL_ERROR_OPEN_FAILED;
+    }
+
+    hbs_sendCompletionEvent( notif, RP_TAGS_NOTIFICATION_RECEIPT, errorCode, NULL );
+}
+
+RPRIVATE
+RVOID
+    rejoinNetwork
+    (
+        rpcm_tag notifId,
+        rSequence notif
+    )
+{
+    RU32 errorCode = RPAL_ERROR_SUCCESS;
+
+    UNREFERENCED_PARAMETER( notifId );
+    UNREFERENCED_PARAMETER( notif );
+
+    if( kAcq_isAvailable() )
+    {
+        kAcq_rejoinNetwork();
+    }
+    else
+    {
+        errorCode = RPAL_ERROR_OPEN_FAILED;
+    }
+
+    hbs_sendCompletionEvent( notif, RP_TAGS_NOTIFICATION_RECEIPT, errorCode, NULL );
+}
+
+RPRIVATE
 RPVOID
     stopExfilCb
     (
@@ -683,6 +744,7 @@ RVOID
 
 rpcm_tag collector_0_events[] = { RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REP,
                                   RP_TAGS_NOTIFICATION_HISTORY_DUMP_REP,
+                                  RP_TAGS_NOTIFICATION_RECEIPT,
                                   0 };
 
 RBOOL
@@ -731,7 +793,17 @@ RBOOL
                                          NULL, 
                                          0, 
                                          NULL, 
-                                         dumpHistory ) )
+                                         dumpHistory ) &&
+                notifications_subscribe( RP_TAGS_NOTIFICATION_SEGREGATE_NETWORK,
+                                         NULL,
+                                         0,
+                                         NULL,
+                                         segregateNetwork ) &&
+                notifications_subscribe( RP_TAGS_NOTIFICATION_REJOIN_NETWORK,
+                                         NULL,
+                                         0,
+                                         NULL,
+                                         rejoinNetwork ) )
             {
                 // First we register for all the external events of all the collectors.
                 // We will triage as they come in.
@@ -774,6 +846,8 @@ RBOOL
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, NULL, del_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, NULL, get_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, NULL, dumpHistory );
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_SEGREGATE_NETWORK, NULL, segregateNetwork );
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_REJOIN_NETWORK, NULL, rejoinNetwork );
 
             for( i = 0; i < ARRAY_N_ELEM( g_state->collectors ); i++ )
             {
@@ -820,6 +894,8 @@ RBOOL
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, NULL, del_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, NULL, get_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, NULL, dumpHistory );
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_SEGREGATE_NETWORK, NULL, segregateNetwork );
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_REJOIN_NETWORK, NULL, rejoinNetwork );
 
             for( i = 0; i < ARRAY_N_ELEM( g_state->collectors ); i++ )
             {
